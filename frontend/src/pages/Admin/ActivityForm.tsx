@@ -9,9 +9,9 @@ interface ActivityFormData {
   venue_id: string;
   name: string;
   description: string;
-  duration: number;
-  price: number;
-  max_capacity: number;
+  duration: string | number;
+  price: string | number;
+  max_capacity: string | number;
   is_active: boolean;
 }
 
@@ -94,9 +94,15 @@ const ActivityForm: React.FC = () => {
     
     if (!formData.venue_id) newErrors.venue_id = 'Venue is required';
     if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (formData.duration <= 0) newErrors.duration = 'Duration must be greater than 0';
-    if (formData.price < 0) newErrors.price = 'Price cannot be negative';
-    if (formData.max_capacity <= 0) newErrors.max_capacity = 'Capacity must be greater than 0';
+    
+    const duration = Number(formData.duration);
+    if (duration <= 0) newErrors.duration = 'Duration must be greater than 0';
+    
+    const price = Number(formData.price);
+    if (price < 0) newErrors.price = 'Price cannot be negative';
+    
+    const maxCapacity = Number(formData.max_capacity);
+    if (maxCapacity <= 0) newErrors.max_capacity = 'Capacity must be greater than 0';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

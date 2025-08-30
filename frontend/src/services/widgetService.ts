@@ -3,7 +3,7 @@ import { authService } from './authService';
 export interface WidgetConfig {
   id: string;
   name: string;
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark';
   primaryColor: string;
   position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   showLogo: boolean;
@@ -15,7 +15,7 @@ export interface WidgetConfig {
 
 export interface CreateWidgetRequest {
   name: string;
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark';
   primaryColor: string;
   position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   showLogo: boolean;
@@ -25,7 +25,7 @@ export interface CreateWidgetRequest {
 export interface UpdateWidgetRequest extends Partial<CreateWidgetRequest> {}
 
 class WidgetService {
-  private baseUrl = 'http://localhost:3000/api/v1/widget-config';
+  private baseUrl = 'https://bookon55.vercel.app/api/v1/widget-config';
 
   private async request<T>(
     endpoint: string,

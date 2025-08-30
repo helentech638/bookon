@@ -37,6 +37,7 @@ interface AdminStats {
   activeVenues: number;
   upcomingActivities: number;
   monthlyGrowth: number;
+  totalUsers: number;
 }
 
 interface Venue {
@@ -71,6 +72,16 @@ interface RecentBooking {
   amount: number;
   status: 'pending' | 'confirmed' | 'cancelled';
   created_at: string;
+  user: {
+    name: string;
+  };
+  activity: {
+    name: string;
+  };
+  venue: {
+    name: string;
+  };
+  totalAmount: number;
 }
 
 const AdminDashboard: React.FC = () => {

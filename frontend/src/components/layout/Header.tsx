@@ -33,8 +33,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
   // Base navigation for all users
   const baseNavigation = [
-    { name: 'Activities', href: '/activities', current: false },
-    { name: 'Venues', href: '/venues', current: false },
+    { name: 'Activities', href: '/activities', current: false, icon: undefined },
+    { name: 'Venues', href: '/venues', current: false, icon: undefined },
   ];
 
   // Parent-specific navigation

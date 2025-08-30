@@ -336,7 +336,7 @@ const EmailTemplates: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500">No variables detected. Use {{variable_name}} in your content.</p>
+                        <p className="text-gray-500">No variables detected. Use {'{{'}variable_name{'}}'} in your content.</p>
                       )}
                     </div>
                   </div>

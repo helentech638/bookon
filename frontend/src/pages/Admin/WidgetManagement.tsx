@@ -23,7 +23,7 @@ import { Textarea } from '../../components/ui/Textarea';
 interface WidgetConfig {
   id: string;
   name: string;
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark';
   primaryColor: string;
   position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   showLogo: boolean;
@@ -430,7 +430,6 @@ const WidgetManagement: React.FC = () => {
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
-            <option value="auto">Auto</option>
           </Select>
 
           <Input

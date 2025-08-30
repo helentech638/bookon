@@ -60,7 +60,7 @@ const ChildrenPage: React.FC = () => {
       setLoading(true);
       const response = await childrenService.getChildren();
       if (response.success) {
-        setChildren(response.data);
+        setChildren(response.data || []);
       }
     } catch (error) {
       toast.error('Failed to fetch children');

@@ -10,9 +10,9 @@ const WidgetPage: React.FC = () => {
   const config = {
     venueId: searchParams.get('venueId') || undefined,
     activityId: searchParams.get('activityId') || undefined,
-    theme: (searchParams.get('theme') as 'light' | 'dark' | 'auto') || 'light',
+    theme: (searchParams.get('theme') as 'light' | 'dark') || 'light',
     primaryColor: searchParams.get('primaryColor') || '#00806a',
-    position: searchParams.get('position') || 'bottom-right',
+    position: (searchParams.get('position') as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left') || 'bottom-right',
     showLogo: searchParams.get('showLogo') !== 'false',
     customCSS: searchParams.get('customCSS') || '',
     isEmbedded: searchParams.get('embedded') === 'true'

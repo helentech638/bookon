@@ -8,6 +8,11 @@ import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
 import dotenv from 'dotenv';
 
+// Immediate logging to see if module loads
+console.log('🚀 Backend module loading...');
+console.log('📊 Environment:', process.env['NODE_ENV'] || 'development');
+console.log('🔗 Port:', process.env['PORT'] || 3000);
+
 // Import routes
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -107,6 +112,47 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Debug endpoint to test server startup
+app.get('/debug', (_req, res) => {
+  res.status(200).json({
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    env: process.env['NODE_ENV'] || 'development',
+    databaseUrl: process.env['DATABASE_URL'] ? 'SET' : 'MISSING',
+    jwtSecret: process.env['JWT_SECRET'] ? 'SET' : 'MISSING',
+  });
+});
+
+// Simple test endpoint
+app.get('/test', (_req, res) => {
+  res.status(200).json({
+    message: 'Backend is working!',
+    timestamp: new Date().toISOString(),
+    routes: app._router.stack.map((layer: any) => layer.route?.path).filter(Boolean)
+  });
+});
+
+// Very simple ping endpoint
+app.get('/ping', (_req, res) => {
+  res.status(200).json({ message: 'pong', timestamp: new Date().toISOString() });
+});
+
+// Root endpoint
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    message: 'BookOn Backend API',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      ping: '/ping',
+      health: '/health',
+      debug: '/debug',
+      test: '/test',
+      api: '/api/v1'
+    }
+  });
+});
+
 // API routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
@@ -131,17 +177,6 @@ app.use(notFound);
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
-
 // Unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -154,30 +189,63 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
+// Handle SIGTERM gracefully
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+// Handle SIGINT gracefully
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
 // Start server
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDatabase();
-    logger.info('✅ Database connected successfully');
+    console.log('🚀 Starting BookOn server...');
+    logger.info('🚀 Starting BookOn server...');
+    logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
+    logger.info(`🔗 Port: ${PORT}`);
+    
+    // Check environment variables
+    const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
+    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+    
+    if (missingEnvVars.length > 0) {
+      console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
+      logger.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
+      logger.error('Please check your Vercel environment variables configuration');
+      process.exit(1);
+    }
+    
+    console.log('✅ Environment variables check passed');
+    logger.info('✅ Environment variables check passed');
 
-    // Connect to Redis (optional)
-    // try {
-    //   await connectRedis();
-    //   logger.info('✅ Redis connected successfully');
-    // } catch (error) {
-    //   const errorMessage = error instanceof Error ? error.message : String(error);
-    //   logger.warn('⚠️ Redis connection failed, continuing without Redis:', errorMessage);
-    // }
+    // Try to connect to database (optional for startup)
+    try {
+      await connectDatabase();
+      console.log('✅ Database connected successfully');
+      logger.info('✅ Database connected successfully');
+    } catch (dbError) {
+      console.warn('⚠️ Database connection failed, continuing without database:', dbError);
+      logger.warn('⚠️ Database connection failed, continuing without database:', dbError);
+      logger.info('Server will run in mock mode for development');
+    }
 
     // Start Express server
     app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+      logger.info(`🔍 Debug info: http://localhost:${PORT}/debug`);
+      logger.info(`🧪 Test endpoint: http://localhost:${PORT}/test`);
       logger.info(`📚 API docs: http://localhost:${PORT}/api/v1/docs`);
     });
   } catch (error) {
+    console.error('❌ Failed to start server:', error);
     logger.error('❌ Failed to start server:', error);
     process.exit(1);
   }

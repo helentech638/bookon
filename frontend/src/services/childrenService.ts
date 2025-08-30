@@ -34,7 +34,7 @@ export interface CreateChildRequest {
 export interface UpdateChildRequest extends Partial<CreateChildRequest> {}
 
 class ChildrenService {
-  private baseUrl = 'http://localhost:3000/api/v1/children';
+  private baseUrl = 'https://bookon55.vercel.app/api/v1/children';
 
   private async request<T>(
     endpoint: string,
