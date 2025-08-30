@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: bookon-postgres
+    environment:
+      POSTGRES_DB: bookon
+      POSTGRES_USER: bookon_user
+      POSTGRES_PASSWORD: bookon_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - bookon-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookon_user -d bookon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: bookon-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bookon-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: bookon-backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://bookon_user:bookon_password@postgres:5432/bookon
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bookon-network
+    command: npm run dev
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: bookon-frontend
+    ports:
+      - "3001:3001"
+    environment:
+      REACT_APP_API_URL: http://localhost:3000
+      REACT_APP_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - bookon-network
+    command: npm start
+
+  # MailHog for email testing (development only)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: bookon-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - bookon-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  bookon-network:
+    driver: bridge
