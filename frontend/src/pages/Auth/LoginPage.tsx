@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
-import { authService } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const LoginPage = () => {
@@ -10,6 +10,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,10 +21,12 @@ const LoginPage = () => {
 
     setIsLoading(true);
     try {
-      const success = await authService.login({ email, password });
+      const success = await login(email, password);
       if (success) {
         toast.success('Login successful!');
         navigate('/dashboard');
+      } else {
+        toast.error('Login failed. Please check your credentials.');
       }
     } catch (error) {
       toast.error('Login failed. Please check your credentials.');
