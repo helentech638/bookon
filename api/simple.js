@@ -27,7 +27,9 @@ module.exports = async (req, res) => {
     
     if (req.url === '/') {
       return res.json({ 
-        message: 'Simple test working!',
+        message: 'BookOn API is running successfully!',
+        version: '1.0.0',
+        status: 'active',
         timestamp: new Date().toISOString(),
         endpoints: ['/ping', '/health', '/api/v1/auth/login']
       });
