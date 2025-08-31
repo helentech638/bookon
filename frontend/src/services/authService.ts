@@ -1,6 +1,6 @@
 import { toast } from 'react-hot-toast';
 
-const API_BASE_URL = 'https://bookon-ntpr6e5s5-educationxploreofficial-gmailcoms-projects.vercel.app/api/v1';
+const API_BASE_URL = 'https://bookon-lcxdpibbd-educationxploreofficial-gmailcoms-projects.vercel.app/api/v1';
 
 export interface LoginCredentials {
   email: string;
