@@ -27,6 +27,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface AdminStats {
   totalVenues: number;
@@ -107,7 +108,7 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Fetch admin statistics
-      const statsResponse = await fetch('http://localhost:3000/api/v1/admin/stats', {
+      const statsResponse = await fetch(buildApiUrl('/admin/stats'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -122,7 +123,7 @@ const AdminDashboard: React.FC = () => {
       setStats(statsData.data);
 
       // Fetch venues
-      const venuesResponse = await fetch('http://localhost:3000/api/v1/admin/venues', {
+      const venuesResponse = await fetch(buildApiUrl('/admin/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Fetch activities
-      const activitiesResponse = await fetch('http://localhost:3000/api/v1/admin/activities', {
+      const activitiesResponse = await fetch(buildApiUrl('/admin/activities'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -148,7 +149,7 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Fetch recent bookings
-      const bookingsResponse = await fetch('http://localhost:3000/api/v1/admin/recent-bookings', {
+      const bookingsResponse = await fetch(buildApiUrl('/admin/recent-bookings'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -174,7 +175,7 @@ const AdminDashboard: React.FC = () => {
       if (!token) return;
 
       let method = 'PUT';
-      let endpoint = `http://localhost:3000/api/v1/admin/venues/${venueId}`;
+      let endpoint = buildApiUrl(`/admin/venues/${venueId}`);
       
       if (action === 'delete') {
         method = 'DELETE';
@@ -207,7 +208,7 @@ const AdminDashboard: React.FC = () => {
       if (!token) return;
 
       let method = 'PUT';
-      let endpoint = `http://localhost:3000/api/v1/admin/activities/${activityId}`;
+      let endpoint = buildApiUrl(`/admin/activities/${activityId}`);
       
       if (action === 'delete') {
         method = 'DELETE';
