@@ -12,6 +12,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface User {
   id: string;
@@ -63,7 +64,7 @@ const UserManagement: React.FC = () => {
         ...filters
       });
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/users?${queryParams}`, {
+      const response = await fetch(buildApiUrl(`/admin/users?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -87,7 +88,7 @@ const UserManagement: React.FC = () => {
   const updateUser = async (userId: string, updates: { role?: string; isActive?: boolean }) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/admin/users/${userId}`, {
+      const response = await fetch(buildApiUrl(`/admin/users/${userId}`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -22,6 +22,7 @@ import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Register {
   id: string;
@@ -101,7 +102,7 @@ const RegisterManagement: React.FC = () => {
   const fetchRegisters = async () => {
     try {
       const token = authService.getToken();
-      let url = 'http://localhost:3000/api/v1/registers';
+      let url = buildApiUrl('/registers');
       const params = new URLSearchParams();
       
       if (filterVenue) params.append('venueId', filterVenue);
@@ -134,7 +135,7 @@ const RegisterManagement: React.FC = () => {
   const fetchActivities = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/activities', {
+      const response = await fetch(buildApiUrl('/activities'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -143,10 +144,11 @@ const RegisterManagement: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setActivities(data.data);
+        setActivities(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching activities:', error);
+      toast.error('Failed to fetch activities');
     }
   };
 
@@ -159,7 +161,7 @@ const RegisterManagement: React.FC = () => {
     try {
       const token = authService.getToken();
       const response = await fetch(
-        `http://localhost:3000/api/v1/registers/template/${selectedActivity}?date=${selectedDate}`,
+        buildApiUrl(`/registers/template/${selectedActivity}?date=${selectedDate}`),
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -185,7 +187,7 @@ const RegisterManagement: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/registers', {
+      const response = await fetch(buildApiUrl('/registers'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -220,7 +222,7 @@ const RegisterManagement: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/registers/${selectedRegister.id}`, {
+      const response = await fetch(buildApiUrl(`/registers/${selectedRegister.id}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -254,7 +256,7 @@ const RegisterManagement: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/registers/${selectedRegister.id}`, {
+      const response = await fetch(buildApiUrl(`/registers/${selectedRegister.id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -278,7 +280,7 @@ const RegisterManagement: React.FC = () => {
   const exportToCSV = async (registerId: string) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/registers/${registerId}/export/csv`, {
+      const response = await fetch(buildApiUrl(`/registers/${registerId}/export/csv`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -306,7 +308,7 @@ const RegisterManagement: React.FC = () => {
   const openEditModal = async (register: Register) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/registers/${register.id}`, {
+      const response = await fetch(buildApiUrl(`/registers/${register.id}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

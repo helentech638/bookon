@@ -11,6 +11,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface FinancialSummary {
   totalRevenue: number;
@@ -51,7 +52,7 @@ const FinancialDashboard: React.FC = () => {
       const token = authService.getToken();
       const queryParams = new URLSearchParams(filters);
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/financial-reports?${queryParams}`, {
+      const response = await fetch(buildApiUrl(`/admin/financial-reports?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -76,7 +77,7 @@ const FinancialDashboard: React.FC = () => {
   const fetchVenues = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/venues', {
+      const response = await fetch(buildApiUrl('/admin/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

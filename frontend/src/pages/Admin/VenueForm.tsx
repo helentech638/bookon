@@ -4,6 +4,9 @@ import { toast } from 'react-hot-toast';
 import { ArrowLeftIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Textarea';
+import { buildApiUrl } from '../../config/api';
 
 interface VenueFormData {
   name: string;
@@ -34,31 +37,31 @@ const VenueForm: React.FC = () => {
   const [errors, setErrors] = useState<Partial<VenueFormData>>({});
 
   useEffect(() => {
-    if (isEditing) {
+    if (id) {
+      const fetchVenue = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(buildApiUrl(`/venues/${id}`), {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setFormData(data.data);
+          } else {
+            toast.error('Failed to fetch venue details');
+          }
+        } catch (error) {
+          toast.error('Error fetching venue details');
+        }
+      };
+
       fetchVenue();
     }
   }, [id]);
-
-  const fetchVenue = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/v1/venues/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFormData(data.data);
-      } else {
-        toast.error('Failed to fetch venue details');
-      }
-    } catch (error) {
-      toast.error('Error fetching venue details');
-    }
-  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<VenueFormData> = {};
@@ -85,30 +88,29 @@ const VenueForm: React.FC = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const url = isEditing 
-        ? `http://localhost:3000/api/v1/venues/${id}`
-        : 'http://localhost:3000/api/v1/venues';
+      const url = id 
+        ? buildApiUrl(`/venues/${id}`)
+        : buildApiUrl('/venues');
       
-      const method = isEditing ? 'PUT' : 'POST';
+      const method = id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
         method,
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
-        toast.success(`Venue ${isEditing ? 'updated' : 'created'} successfully`);
-        navigate('/admin');
+        toast.success(`Venue ${id ? 'updated' : 'created'} successfully`);
+        navigate('/admin/venues');
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} venue`);
+        toast.error(`Failed to ${id ? 'update' : 'create'} venue`);
       }
     } catch (error) {
-      toast.error(`Error ${isEditing ? 'updating' : 'creating'} venue`);
+      toast.error(`Error ${id ? 'updating' : 'creating'} venue`);
     } finally {
       setIsLoading(false);
     }

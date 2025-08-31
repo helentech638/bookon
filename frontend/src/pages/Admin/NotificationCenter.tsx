@@ -13,6 +13,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Notification {
   id: string;
@@ -51,7 +52,7 @@ const NotificationCenter: React.FC = () => {
         ...filters
       });
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/notifications?${queryParams}`, {
+      const response = await fetch(buildApiUrl(`/admin/notifications?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -75,7 +76,7 @@ const NotificationCenter: React.FC = () => {
   const markAsRead = async (notificationId: string) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/admin/notifications/${notificationId}/read`, {
+      const response = await fetch(buildApiUrl(`/admin/notifications/${notificationId}/read`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

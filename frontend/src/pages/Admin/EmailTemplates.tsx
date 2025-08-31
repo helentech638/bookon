@@ -12,6 +12,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface EmailTemplate {
   id: string;
@@ -37,7 +38,7 @@ const EmailTemplates: React.FC = () => {
     setLoading(true);
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/email-templates', {
+      const response = await fetch(buildApiUrl('/admin/email-templates'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

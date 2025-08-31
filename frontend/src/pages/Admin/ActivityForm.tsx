@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { ArrowLeftIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { buildApiUrl } from '../../config/api';
 
 interface ActivityFormData {
   venue_id: string;
@@ -40,54 +41,61 @@ const ActivityForm: React.FC = () => {
   const [errors, setErrors] = useState<Partial<ActivityFormData>>({});
 
   useEffect(() => {
-    fetchVenues();
-    if (isEditing) {
+    const token = localStorage.getItem('token');
+    const fetchVenues = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/venues'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setVenues(data.data || []);
+          if (data.data.length > 0 && !formData.venue_id) {
+            setFormData(prev => ({ ...prev, venue_id: data.data[0].id }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching venues:', error);
+        toast.error('Failed to fetch venues');
+      }
+    };
+
+    if (token) {
+      fetchVenues();
+    }
+  }, [formData.venue_id]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (id) {
+      const fetchActivity = async () => {
+        try {
+          const response = await fetch(buildApiUrl(`/activities/${id}`), {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setFormData(data.data);
+          } else {
+            toast.error('Failed to fetch activity details');
+          }
+        } catch (error) {
+          console.error('Error fetching activity:', error);
+          toast.error('Failed to fetch activity details');
+        }
+      };
+
       fetchActivity();
     }
   }, [id]);
-
-  const fetchVenues = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/v1/venues', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setVenues(data.data || []);
-        if (data.data.length > 0 && !formData.venue_id) {
-          setFormData(prev => ({ ...prev, venue_id: data.data[0].id }));
-        }
-      }
-    } catch (error) {
-      toast.error('Error fetching venues');
-    }
-  };
-
-  const fetchActivity = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/v1/activities/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setFormData(data.data);
-      } else {
-        toast.error('Failed to fetch activity details');
-      }
-    } catch (error) {
-      toast.error('Error fetching activity details');
-    }
-  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<ActivityFormData> = {};
@@ -117,11 +125,11 @@ const ActivityForm: React.FC = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const url = isEditing 
-        ? `http://localhost:3000/api/v1/activities/${id}`
-        : 'http://localhost:3000/api/v1/activities';
+      const url = id 
+        ? buildApiUrl(`/activities/${id}`)
+        : buildApiUrl('/activities');
       
-      const method = isEditing ? 'PUT' : 'POST';
+      const method = id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
         method,

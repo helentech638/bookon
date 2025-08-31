@@ -16,6 +16,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface BroadcastMessage {
   id: string;
@@ -99,7 +100,7 @@ const BroadcastMessaging: React.FC = () => {
   const fetchTemplates = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/email-templates', {
+      const response = await fetch(buildApiUrl('/admin/email-templates'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -148,7 +149,7 @@ const BroadcastMessaging: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/broadcast-message', {
+      const response = await fetch(buildApiUrl('/admin/broadcast-message'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

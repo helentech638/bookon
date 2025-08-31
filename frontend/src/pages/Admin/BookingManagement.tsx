@@ -10,6 +10,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Select } from '../../components/ui/Select';
+import { Input } from '../../components/ui/Input';
+import { buildApiUrl } from '../../config/api';
 
 interface Booking {
   id: string;
@@ -77,7 +80,7 @@ const BookingManagement: React.FC = () => {
         ...filters
       });
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/bookings?${queryParams}`, {
+      const response = await fetch(buildApiUrl(`/admin/bookings?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -101,7 +104,7 @@ const BookingManagement: React.FC = () => {
   const fetchVenues = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/v1/admin/venues', {
+      const response = await fetch(buildApiUrl('/admin/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -120,7 +123,7 @@ const BookingManagement: React.FC = () => {
   const fetchActivities = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/v1/admin/activities', {
+      const response = await fetch(buildApiUrl('/admin/activities'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -139,7 +142,7 @@ const BookingManagement: React.FC = () => {
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/v1/admin/bookings/${bookingId}/status`, {
+      const response = await fetch(buildApiUrl(`/admin/bookings/${bookingId}/status`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

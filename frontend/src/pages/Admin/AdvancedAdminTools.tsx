@@ -17,6 +17,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface SystemConfig {
   app: {
@@ -143,7 +144,7 @@ const AdvancedAdminTools: React.FC = () => {
     setLoading(true);
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/system-config', {
+      const response = await fetch(buildApiUrl('/admin/system-config'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -172,7 +173,7 @@ const AdvancedAdminTools: React.FC = () => {
         ...auditFilters
       });
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/audit-logs?${queryParams}`, {
+      const response = await fetch(buildApiUrl(`/admin/audit-logs?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -202,7 +203,7 @@ const AdvancedAdminTools: React.FC = () => {
       const targetIds = bulkFormData.targetIds.split(',').map(id => id.trim()).filter(id => id);
       
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/bulk-user-update', {
+      const response = await fetch(buildApiUrl('/admin/bulk-user-update'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

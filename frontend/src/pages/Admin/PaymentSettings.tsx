@@ -20,6 +20,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface PaymentSettings {
   platformFeePercentage: number;
@@ -81,7 +82,7 @@ const PaymentSettings: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/admin/payment-settings', {
+      const response = await fetch(buildApiUrl('/admin/payment-settings'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -105,7 +106,7 @@ const PaymentSettings: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/admin/venue-payment-accounts', {
+      const response = await fetch(buildApiUrl('/admin/venue-payment-accounts'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -128,7 +129,7 @@ const PaymentSettings: React.FC = () => {
       setSaving(true);
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/admin/payment-settings', {
+      const response = await fetch(buildApiUrl('/admin/payment-settings'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -153,7 +154,7 @@ const PaymentSettings: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/admin/venue-payment-accounts', {
+      const response = await fetch(buildApiUrl('/admin/venue-payment-accounts'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

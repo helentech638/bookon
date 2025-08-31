@@ -16,6 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface ExportFilter {
   venue_id?: string;
@@ -55,7 +56,7 @@ const ExportCenter: React.FC = () => {
   const fetchVenues = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/venues', {
+      const response = await fetch(buildApiUrl('/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -74,7 +75,7 @@ const ExportCenter: React.FC = () => {
   const fetchExportHistory = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/admin/export/history', {
+      const response = await fetch(buildApiUrl('/admin/export/history'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -103,7 +104,7 @@ const ExportCenter: React.FC = () => {
       if (exportFilters.date_to) params.append('date_to', exportFilters.date_to);
       if (exportFilters.status) params.append('status', exportFilters.status);
 
-      const response = await fetch(`http://localhost:3000/api/v1/admin/export/${type}?${params}`, {
+      const response = await fetch(buildApiUrl(`/admin/export/${type}?${params}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -138,7 +139,7 @@ const ExportCenter: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/admin/export/schedule', {
+      const response = await fetch(buildApiUrl('/admin/export/schedule'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
