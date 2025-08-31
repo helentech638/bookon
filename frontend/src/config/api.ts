@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://bookon-ltvrs8dz3-educationxploreofficial-gmailcoms-projects.vercel.app/api/v1',
+  BASE_URL: 'https://bookon-mu.vercel.app/api/v1',
   ENDPOINTS: {
     AUTH: {
       LOGIN: '/auth/login',
