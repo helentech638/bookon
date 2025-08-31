@@ -219,8 +219,22 @@ module.exports = async (req, res) => {
       return res.json({
         success: true,
         data: [
-          { id: 1, activity: 'Swimming Class', user: 'parent@bookon.com', status: 'confirmed' },
-          { id: 2, activity: 'Art Workshop', user: 'parent@bookon.com', status: 'pending' }
+          { 
+            id: 1, 
+            activity: { name: 'Swimming Class' }, 
+            user: { name: 'John Doe', email: 'parent@bookon.com' }, 
+            venue: { name: 'Swimming Pool' },
+            status: 'confirmed',
+            totalAmount: 25.00
+          },
+          { 
+            id: 2, 
+            activity: { name: 'Art Workshop' }, 
+            user: { name: 'Jane Smith', email: 'parent@bookon.com' }, 
+            venue: { name: 'Main Hall' },
+            status: 'pending',
+            totalAmount: 30.00
+          }
         ]
       });
     }
@@ -229,8 +243,24 @@ module.exports = async (req, res) => {
       return res.json({
         success: true,
         data: [
-          { id: 1, activity: 'Swimming Class', user: 'parent@bookon.com', status: 'confirmed', date: '2025-08-31' },
-          { id: 2, activity: 'Art Workshop', user: 'parent@bookon.com', status: 'pending', date: '2025-08-30' }
+          { 
+            id: 1, 
+            activity: { name: 'Swimming Class' }, 
+            user: { name: 'John Doe', email: 'parent@bookon.com' }, 
+            venue: { name: 'Swimming Pool' },
+            status: 'confirmed', 
+            date: '2025-08-31',
+            totalAmount: 25.00
+          },
+          { 
+            id: 2, 
+            activity: { name: 'Art Workshop' }, 
+            user: { name: 'Jane Smith', email: 'parent@bookon.com' }, 
+            venue: { name: 'Main Hall' },
+            status: 'pending', 
+            date: '2025-08-30',
+            totalAmount: 30.00
+          }
         ]
       });
     }
