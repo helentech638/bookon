@@ -25,6 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { authService } from '../../services/authService';
 import { BookingWidget } from '../../components/booking/BookingWidget';
 import toast from 'react-hot-toast';
+import { buildApiUrl, API_CONFIG } from '../../config/api';
 
 interface DashboardStats {
   totalBookings: number;
@@ -83,38 +84,34 @@ const DashboardPage: React.FC = () => {
         throw new Error('No authentication token');
       }
 
-      // Fetch dashboard statistics
-      const statsResponse = await fetch('http://localhost:3000/api/v1/dashboard/stats', {
+      // Fetch dashboard stats
+      const statsResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!statsResponse.ok) {
-        throw new Error('Failed to fetch dashboard statistics');
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData.data);
       }
-
-      const statsData = await statsResponse.json();
-      setStats(statsData.data);
 
       // Fetch user profile
-      const profileResponse = await fetch('http://localhost:3000/api/v1/dashboard/profile', {
+      const profileResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!profileResponse.ok) {
-        throw new Error('Failed to fetch user profile');
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        setUserProfile(profileData.data);
       }
 
-      const profileData = await profileResponse.json();
-      setUserProfile(profileData.data.user);
-
       // Fetch recent activities
-      const activitiesResponse = await fetch('http://localhost:3000/api/v1/dashboard/recent-activities', {
+      const activitiesResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
