@@ -17,18 +17,12 @@
     {
       "src": "/api/(.*)",
       "dest": "/backend/src/index.ts"
-    },
+    }
+  ],
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/dist/assets/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
-      "dest": "/frontend/dist/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ],
   "installCommand": "cd frontend && npm install --include=optional",
