@@ -19,7 +19,7 @@
       "destination": "/backend/src/index.ts"
     },
     {
-      "source": "/((?!api/|assets/|.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)).*)",
+      "source": "/((?!api/|assets/).*)",
       "destination": "/frontend/index.html"
     }
   ]
