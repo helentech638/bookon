@@ -17,7 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/Select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/SelectNew';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/Dialog';
 import { RefreshCw, Bell, Send, Eye, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -255,7 +255,7 @@ const NotificationManagement: React.FC = () => {
         <h1 className="text-3xl font-bold">Notification Management</h1>
         <div className="flex space-x-2">
           <Dialog>
-            <DialogTrigger asChild>
+            <DialogTrigger>
               <Button>
                 <Bell className="h-4 w-4 mr-2" />
                 Send Notification
