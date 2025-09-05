@@ -38,7 +38,7 @@ const Pagination: React.FC<PaginationProps> = ({ className, children, ...props }
 const PaginationContent: React.FC<PaginationContentProps> = ({ className, children, ...props }) => (
   <ul
     className={cn("flex items-center space-x-1", className)}
-    {...props}
+    {...(props as React.HTMLAttributes<HTMLUListElement>)}
   >
     {children}
   </ul>
