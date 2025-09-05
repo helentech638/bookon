@@ -233,7 +233,7 @@ const WebhookManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium">Source</label>
-              <Select value={filters.source} onValueChange={(value) => handleFilterChange('source', value)}>
+              <Select value={filters.source} onValueChange={(value: string) => handleFilterChange('source', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All sources" />
                 </SelectTrigger>
@@ -247,7 +247,7 @@ const WebhookManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Event Type</label>
-              <Select value={filters.event_type} onValueChange={(value) => handleFilterChange('event_type', value)}>
+              <Select value={filters.event_type} onValueChange={(value: string) => handleFilterChange('event_type', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
@@ -263,7 +263,7 @@ const WebhookManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Status</label>
-              <Select value={filters.processed} onValueChange={(value) => handleFilterChange('processed', value)}>
+              <Select value={filters.processed} onValueChange={(value: string) => handleFilterChange('processed', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
@@ -277,7 +277,7 @@ const WebhookManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Limit</label>
-              <Select value={filters.limit} onValueChange={(value) => handleFilterChange('limit', value)}>
+              <Select value={filters.limit} onValueChange={(value: string) => handleFilterChange('limit', value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

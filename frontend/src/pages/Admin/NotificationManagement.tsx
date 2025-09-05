@@ -268,7 +268,7 @@ const NotificationManagement: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium">Type</label>
-                  <Select value={newNotification.type} onValueChange={(value) => setNewNotification(prev => ({ ...prev, type: value }))}>
+                  <Select value={newNotification.type} onValueChange={(value: string) => setNewNotification(prev => ({ ...prev, type: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -286,7 +286,7 @@ const NotificationManagement: React.FC = () => {
                   <label className="text-sm font-medium">Title</label>
                   <Input
                     value={newNotification.title}
-                    onChange={(e) => setNewNotification(prev => ({ ...prev, title: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewNotification(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Notification title"
                   />
                 </div>
@@ -295,7 +295,7 @@ const NotificationManagement: React.FC = () => {
                   <label className="text-sm font-medium">Message</label>
                   <Textarea
                     value={newNotification.message}
-                    onChange={(e) => setNewNotification(prev => ({ ...prev, message: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNotification(prev => ({ ...prev, message: e.target.value }))}
                     placeholder="Notification message"
                     rows={3}
                   />
@@ -303,7 +303,7 @@ const NotificationManagement: React.FC = () => {
                 
                 <div>
                   <label className="text-sm font-medium">Priority</label>
-                  <Select value={newNotification.priority} onValueChange={(value) => setNewNotification(prev => ({ ...prev, priority: value }))}>
+                  <Select value={newNotification.priority} onValueChange={(value: string) => setNewNotification(prev => ({ ...prev, priority: value }))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -393,7 +393,7 @@ const NotificationManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium">Type</label>
-              <Select value={filters.type} onValueChange={(value) => handleFilterChange('type', value)}>
+              <Select value={filters.type} onValueChange={(value: string) => handleFilterChange('type', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
@@ -409,7 +409,7 @@ const NotificationManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Status</label>
-              <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+              <Select value={filters.status} onValueChange={(value: string) => handleFilterChange('status', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
@@ -424,7 +424,7 @@ const NotificationManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Priority</label>
-              <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
+              <Select value={filters.priority} onValueChange={(value: string) => handleFilterChange('priority', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All priorities" />
                 </SelectTrigger>
@@ -440,7 +440,7 @@ const NotificationManagement: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium">Limit</label>
-              <Select value={filters.limit} onValueChange={(value) => handleFilterChange('limit', value)}>
+              <Select value={filters.limit} onValueChange={(value: string) => handleFilterChange('limit', value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
