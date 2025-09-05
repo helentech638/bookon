@@ -142,3 +142,4 @@ storybook-static/
 # Local development
 .local/
 .vercel
+.env*.local

@@ -1,7 +1,10 @@
 module.exports = {
   development: {
-    client: 'postgresql',
-    connection: {
+    client: 'pg',
+    connection: process.env.DATABASE_URL ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    } : {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,
       user: process.env.DB_USER || 'bookon_user',
@@ -22,8 +25,11 @@ module.exports = {
   },
 
   test: {
-    client: 'postgresql',
-    connection: {
+    client: 'pg',
+    connection: process.env.DATABASE_URL ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    } : {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5432,
       user: process.env.DB_USER || 'bookon_user',
@@ -44,8 +50,11 @@ module.exports = {
   },
 
   production: {
-    client: 'postgresql',
-    connection: {
+    client: 'pg',
+    connection: process.env.DATABASE_URL ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    } : {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
       user: process.env.DB_USER,
@@ -54,8 +63,14 @@ module.exports = {
       ssl: { rejectUnauthorized: false },
     },
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN || '2'),
-      max: parseInt(process.env.DB_POOL_MAX || '10'),
+      min: 0,
+      max: 10,
+      acquireTimeoutMillis: 60000,
+      createTimeoutMillis: 30000,
+      destroyTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 200,
     },
     migrations: {
       directory: './src/migrations',

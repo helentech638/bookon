@@ -17,6 +17,8 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import ActivitiesPage from './pages/Activities/ActivitiesPage';
 import BookingsPage from './pages/Bookings/BookingsPage';
+import BookingDetailPage from './pages/Bookings/BookingDetailPage';
+import BookingEditPage from './pages/Bookings/BookingEditPage';
 import ParentBookingFlow from './pages/Bookings/ParentBookingFlow';
 import ChildrenPage from './pages/Parent/ChildrenPage';
 import ProfilePage from './pages/Profile/ProfilePage';
@@ -36,6 +38,7 @@ import PaymentSettings from './pages/Admin/PaymentSettings';
 import ExportCenter from './pages/Admin/ExportCenter';
 import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
+import MyBookingsPage from './pages/Parent/MyBookingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import WidgetPage from './pages/WidgetPage';
 
@@ -104,6 +107,22 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/bookings/:id"
+          element={
+            <ProtectedRoute>
+              <BookingDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings/:id/edit"
+          element={
+            <ProtectedRoute>
+              <BookingEditPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/bookings/flow"
           element={
             <ProtectedRoute>
@@ -116,6 +135,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ChildrenPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-bookings"
+          element={
+            <ProtectedRoute>
+              <MyBookingsPage />
             </ProtectedRoute>
           }
         />

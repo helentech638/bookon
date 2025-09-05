@@ -550,6 +550,44 @@ class StripeService {
       throw error;
     }
   }
+
+  /**
+   * Create a refund for a payment
+   */
+  async createRefund(data: RefundRequest): Promise<Stripe.Refund> {
+    try {
+      const refundData: Stripe.RefundCreateParams = {
+        payment_intent: data.paymentIntentId,
+        ...(data.amount && { amount: Math.round(data.amount * 100) }), // Convert to cents
+        ...(data.reason && { reason: data.reason as Stripe.RefundCreateParams.Reason }),
+        ...(data.connectAccountId && { stripe_account: data.connectAccountId }),
+      };
+
+      const refund = await this.stripe.refunds.create(refundData);
+      
+      logger.info(`Refund created: ${refund.id} for payment: ${data.paymentIntentId}`);
+      return refund;
+    } catch (error) {
+      logger.error('Error creating refund:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List refunds for a payment intent
+   */
+  async listRefunds(paymentIntentId: string, limit: number = 10): Promise<Stripe.ApiList<Stripe.Refund>> {
+    try {
+      const refunds = await this.stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit,
+      });
+      return refunds;
+    } catch (error) {
+      logger.error('Error listing refunds:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export singleton instance

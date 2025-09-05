@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { db } from '../utils/database';
 import { asyncHandler } from '../middleware/errorHandler';
-import { authenticateToken, requireRole } from '../middleware/auth';
+// import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
 

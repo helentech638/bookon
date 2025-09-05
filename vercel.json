@@ -9,21 +9,21 @@
       }
     },
     {
-      "src": "api/simple.js",
+      "src": "backend/src/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/simple.js"
+      "dest": "/backend/src/index.ts"
     },
     {
       "src": "/assets/(.*)",
       "dest": "/frontend/assets/$1"
     },
     {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest))",
       "dest": "/frontend/$1"
     },
     {

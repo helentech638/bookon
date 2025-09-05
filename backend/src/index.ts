@@ -1,5 +1,6 @@
 import 'express-async-errors';
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -27,6 +28,8 @@ import adminRoutes from './routes/admin';
 import widgetRoutes from './routes/widget';
 import widgetConfigRoutes from './routes/widget-config';
 import registersRoutes from './routes/registers';
+import webhooksRoutes from './routes/webhooks';
+import setupRoutes from './routes/setup';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -36,10 +39,14 @@ import { logger } from './utils/logger';
 // Import database connection
 import { connectDatabase } from './utils/database';
 
+// Import WebSocket service
+import { initializeWebSocket } from './services/websocketService';
+
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
 const PORT = process.env['PORT'] || 3000;
 
 // Security middleware
@@ -137,6 +144,68 @@ app.get('/ping', (_req, res) => {
   res.status(200).json({ message: 'pong', timestamp: new Date().toISOString() });
 });
 
+// Simple API test endpoint
+app.get('/api/test', (_req, res) => {
+  res.status(200).json({ 
+    message: 'Backend API is working!', 
+    timestamp: new Date().toISOString(),
+    environment: process.env['NODE_ENV'] || 'development'
+  });
+});
+
+// Simple mock login endpoint for testing
+app.post('/api/mock-login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    console.log('Mock login attempt:', { email, hasPassword: !!password });
+    
+    if (email === 'test@bookon.com' || email === 'admin@bookon.com') {
+      const mockUser = {
+        id: 'mock-user-id',
+        email: email,
+        role: email === 'admin@bookon.com' ? 'admin' : 'parent',
+        isActive: true
+      };
+
+      // Generate simple tokens (without JWT for now)
+      const accessToken = 'mock-access-token-' + Date.now();
+      const refreshToken = 'mock-refresh-token-' + Date.now();
+
+      console.log('Mock login successful:', mockUser.email);
+
+      return res.json({
+        success: true,
+        message: 'Login successful (mock mode)',
+        data: {
+          user: mockUser,
+          tokens: {
+            accessToken,
+            refreshToken,
+          },
+        },
+      });
+    } else {
+      return res.status(401).json({
+        success: false,
+        error: {
+          message: 'Invalid credentials',
+          code: 'INVALID_CREDENTIALS',
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Mock login error:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+      },
+    });
+  }
+});
+
 // Root endpoint
 app.get('/', (_req, res) => {
   res.status(200).json({
@@ -167,6 +236,8 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/widget', widgetRoutes);
 app.use('/api/v1/widget-config', widgetConfigRoutes);
 app.use('/api/v1/registers', registersRoutes);
+app.use('/api/v1/webhooks', webhooksRoutes);
+app.use('/api/v1/setup', setupRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
@@ -179,7 +250,7 @@ app.use(errorHandler);
 
 // Unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
   process.exit(1);
 });
 
@@ -217,25 +288,60 @@ const startServer = async () => {
       console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
       logger.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
       logger.error('Please check your Vercel environment variables configuration');
-      process.exit(1);
+      // Don't exit in production, continue with mock mode
+      if (process.env['NODE_ENV'] === 'production') {
+        console.log('⚠️ Continuing in mock mode due to missing environment variables');
+        logger.warn('⚠️ Continuing in mock mode due to missing environment variables');
+      } else {
+        console.log('⚠️ Development mode - continuing without environment variables');
+        logger.warn('⚠️ Development mode - continuing without environment variables');
+      }
+    } else {
+      console.log('✅ Environment variables check passed');
+      logger.info('✅ Environment variables check passed');
     }
-    
-    console.log('✅ Environment variables check passed');
-    logger.info('✅ Environment variables check passed');
 
-    // Try to connect to database (optional for startup)
+    // Try to connect to database
     try {
+      console.log('🔌 Attempting to connect to database...');
+      logger.info('🔌 Attempting to connect to database...');
+      
+      // Log database URL (without password for security)
+      const dbUrl = process.env['DATABASE_URL'];
+      if (dbUrl) {
+        const urlParts = dbUrl.split('@');
+        if (urlParts.length > 1) {
+          const hostPart = urlParts[1];
+          logger.info(`📊 Database host: ${hostPart}`);
+        }
+      } else {
+        logger.warn('⚠️ DATABASE_URL not found in environment variables');
+      }
+      
       await connectDatabase();
       console.log('✅ Database connected successfully');
       logger.info('✅ Database connected successfully');
     } catch (dbError) {
-      console.warn('⚠️ Database connection failed, continuing without database:', dbError);
-      logger.warn('⚠️ Database connection failed, continuing without database:', dbError);
-      logger.info('Server will run in mock mode for development');
+      console.error('❌ Database connection failed:', dbError);
+      logger.error('❌ Database connection failed:', dbError);
+      logger.error('❌ Database error details:', {
+        message: dbError instanceof Error ? dbError.message : 'Unknown error',
+        stack: dbError instanceof Error ? dbError.stack : undefined,
+        env: process.env['NODE_ENV'],
+        hasDatabaseUrl: !!process.env['DATABASE_URL']
+      });
+      
+      // Don't let database connection failure prevent server startup
+      console.warn('⚠️ Continuing without database connection - will use mock mode');
+      logger.warn('⚠️ Continuing without database connection - will use mock mode');
     }
 
-    // Start Express server
-    app.listen(PORT, () => {
+    // Initialize WebSocket service
+    initializeWebSocket(server);
+    logger.info('🔌 WebSocket service initialized');
+
+    // Start HTTP server
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
@@ -243,11 +349,15 @@ const startServer = async () => {
       logger.info(`🔍 Debug info: http://localhost:${PORT}/debug`);
       logger.info(`🧪 Test endpoint: http://localhost:${PORT}/test`);
       logger.info(`📚 API docs: http://localhost:${PORT}/api/v1/docs`);
+      logger.info(`🔌 WebSocket: ws://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     logger.error('❌ Failed to start server:', error);
-    process.exit(1);
+    // Don't exit in production, let Vercel handle it
+    if (process.env['NODE_ENV'] !== 'production') {
+      process.exit(1);
+    }
   }
 };
 

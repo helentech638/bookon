@@ -287,6 +287,12 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
 // Get all bookings for admin with search and filtering
 router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
+    logger.info('Admin bookings route accessed', { 
+      userId: req.user!.id, 
+      userRole: req.user!.role,
+      query: req.query 
+    });
+
     const { 
       page = '1', 
       limit = '20', 
@@ -299,6 +305,8 @@ router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
       search
     } = req.query;
 
+    logger.info('Building admin bookings query');
+    
     let query = db('bookings')
       .select(
         'bookings.*',
@@ -322,23 +330,38 @@ router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
     if (search) {
       query = query.where(function() {
         this.where('users.first_name', 'ilike', `%${search}%`)
-          .orWhere('users.last_name', 'ilike', `%${search}%`)
+          .orWhere('users.lastName', 'ilike', `%${search}%`)
           .orWhere('activities.name', 'ilike', `%${search}%`)
           .orWhere('venues.name', 'ilike', `%${search}%`);
       });
     }
 
+    logger.info('Getting total count for pagination');
+    
     // Get total count for pagination
     const countQuery = query.clone();
     const countResult = await countQuery.count('* as total');
     const total = countResult[0];
+    
+    logger.info('Total count result:', { total });
 
     // Apply pagination and ordering
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    logger.info('Executing final query with pagination', { 
+      page: parseInt(page as string), 
+      limit: parseInt(limit as string), 
+      offset 
+    });
     const bookings = await query
       .orderBy('bookings.created_at', 'desc')
       .limit(parseInt(limit as string))
       .offset(offset);
+
+    logger.info('Query executed successfully', { 
+      bookingsCount: bookings.length,
+      firstBooking: bookings[0] ? { id: bookings[0].id, status: bookings[0].status } : null
+    });
 
     res.json({
       success: true,

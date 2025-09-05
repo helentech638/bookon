@@ -17,6 +17,7 @@ import { Stepper } from '../../components/ui/Stepper';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { authService } from '../../services/authService';
 
+
 interface Activity {
   id: string;
   title: string;
@@ -94,7 +95,7 @@ const ParentBookingFlow: React.FC = () => {
   const fetchActivity = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`http://localhost:3000/api/v1/activities/${activityId}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/activities/${activityId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -119,7 +120,7 @@ const ParentBookingFlow: React.FC = () => {
   const fetchChildren = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/children', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -171,7 +172,7 @@ const ParentBookingFlow: React.FC = () => {
     try {
       // Create the booking
       const token = authService.getToken();
-      const response = await fetch('http://localhost:3000/api/v1/bookings', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/bookings', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

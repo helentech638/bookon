@@ -610,4 +610,296 @@ router.get('/template/:activityId', authenticateToken, requireRole(['admin', 'st
   }
 }));
 
+// Auto-generate registers from bookings for a specific date range
+router.post('/auto-generate', authenticateToken, requireRole(['admin', 'staff']), [
+  body('startDate').isISO8601().withMessage('Start date must be a valid ISO date'),
+  body('endDate').isISO8601().withMessage('End date must be a valid ISO date'),
+  body('venueId').optional().isUUID().withMessage('Venue ID must be a valid UUID'),
+  body('activityId').optional().isUUID().withMessage('Activity ID must be a valid UUID'),
+], asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
+    }
+
+    const { startDate, endDate, venueId, activityId } = req.body;
+    const userId = req.user!.id;
+
+    // Get confirmed bookings for the date range
+    let bookingsQuery = db('bookings')
+      .select(
+        'bookings.activity_id',
+        'bookings.booking_date',
+        'activities.title as activity_title',
+        'activities.start_time',
+        'venues.name as venue_name',
+        'venues.id as venue_id'
+      )
+      .join('activities', 'bookings.activity_id', 'activities.id')
+      .join('venues', 'activities.venue_id', 'venues.id')
+      .where('bookings.status', 'confirmed')
+      .where('bookings.is_active', true)
+      .whereBetween('bookings.booking_date', [startDate, endDate]);
+
+    if (venueId) {
+      bookingsQuery = bookingsQuery.where('activities.venue_id', venueId);
+    }
+
+    if (activityId) {
+      bookingsQuery = bookingsQuery.where('bookings.activity_id', activityId);
+    }
+
+    // Filter by user permissions
+    if (req.user!.role === 'staff') {
+      bookingsQuery = bookingsQuery.join('venue_staff', 'venues.id', 'venue_staff.venue_id')
+        .where('venue_staff.user_id', userId);
+    }
+
+    const bookings = await bookingsQuery;
+
+    // Group bookings by activity and date
+    const registerGroups = new Map<string, any[]>();
+    bookings.forEach(booking => {
+      const key = `${booking.activity_id}-${booking.booking_date}`;
+      if (!registerGroups.has(key)) {
+        registerGroups.set(key, []);
+      }
+      registerGroups.get(key)!.push(booking);
+    });
+
+    const generatedRegisters = [];
+
+    // Create registers for each group
+    for (const [key, groupBookings] of registerGroups) {
+      const [activityId, date] = key.split('-');
+      const firstBooking = groupBookings[0];
+
+      // Check if register already exists
+      const existingRegister = await db('registers')
+        .where('activity_id', activityId)
+        .where('date', date)
+        .where('is_active', true)
+        .first();
+
+      if (existingRegister) {
+        logger.info('Register already exists', { activityId, date });
+        continue;
+      }
+
+      // Create new register
+      const [register] = await db('registers')
+        .insert({
+          activity_id: activityId,
+          date: date,
+          notes: `Auto-generated from ${groupBookings.length} confirmed bookings`,
+          created_by: userId,
+          is_active: true,
+        })
+        .returning(['id', 'activity_id', 'date']);
+
+      // Create attendance entries for each booking
+      const attendanceEntries = groupBookings.map(booking => ({
+        register_id: register.id,
+        child_id: booking.child_id,
+        status: 'present', // Default to present
+        recorded_by: userId,
+        is_active: true,
+      }));
+
+      await db('register_attendance').insert(attendanceEntries);
+
+      generatedRegisters.push({
+        id: register.id,
+        activityId: register.activity_id,
+        date: register.date,
+        totalBookings: groupBookings.length,
+        venue: firstBooking.venue_name,
+        activity: firstBooking.activity_title,
+      });
+    }
+
+    logger.info('Registers auto-generated', {
+      userId,
+      startDate,
+      endDate,
+      generatedCount: generatedRegisters.length
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully generated ${generatedRegisters.length} registers`,
+      data: generatedRegisters
+    });
+
+  } catch (error) {
+    logger.error('Error auto-generating registers:', error);
+    throw error;
+  }
+}));
+
+// Export register to CSV
+router.get('/:id/export/csv', authenticateToken, requireRole(['admin', 'staff']), [
+  param('id').isUUID().withMessage('Register ID must be a valid UUID'),
+], asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    // Get register with attendance details
+    const register = await db('registers')
+      .select(
+        'registers.*',
+        'activities.title as activity_title',
+        'activities.start_time',
+        'venues.name as venue_name'
+      )
+      .join('activities', 'registers.activity_id', 'activities.id')
+      .join('venues', 'activities.venue_id', 'venues.id')
+      .where('registers.id', id)
+      .where('registers.is_active', true)
+      .first();
+
+    if (!register) {
+      throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
+    }
+
+    // Get attendance entries
+    const attendance = await db('register_attendance')
+      .select(
+        'register_attendance.*',
+        'children.first_name',
+        'children.last_name',
+        'children.date_of_birth'
+      )
+      .join('children', 'register_attendance.child_id', 'children.id')
+      .where('register_attendance.register_id', id)
+      .where('register_attendance.is_active', true)
+      .orderBy('children.last_name')
+      .orderBy('children.first_name');
+
+    // Generate CSV content
+    const csvHeaders = [
+      'Child Name',
+      'Date of Birth',
+      'Status',
+      'Check-in Time',
+      'Notes',
+      'Recorded By',
+      'Recorded At'
+    ];
+
+    const csvRows = attendance.map(entry => [
+      `${entry.first_name} ${entry.last_name}`,
+      entry.date_of_birth,
+      entry.status,
+      entry.recorded_at ? new Date(entry.recorded_at).toLocaleTimeString() : '',
+      entry.notes || '',
+      entry.recorded_by,
+      new Date(entry.recorded_at).toLocaleString()
+    ]);
+
+    const csvContent = [
+      `Register: ${register.activity_title}`,
+      `Venue: ${register.venue_name}`,
+      `Date: ${register.date}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      '',
+      csvHeaders.join(','),
+      ...csvRows.map(row => row.map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Set response headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="register-${register.date}-${register.activity_title.replace(/\s+/g, '-')}.csv"`);
+    
+    res.send(csvContent);
+
+    logger.info('Register exported to CSV', {
+      userId,
+      registerId: id,
+      attendanceCount: attendance.length
+    });
+
+  } catch (error) {
+    logger.error('Error exporting register to CSV:', error);
+    throw error;
+  }
+}));
+
+// Get register statistics
+router.get('/stats', authenticateToken, requireRole(['admin', 'staff']), [
+  query('venueId').optional().isUUID().withMessage('Venue ID must be a valid UUID'),
+  query('startDate').optional().isISO8601().withMessage('Start date must be a valid ISO date'),
+  query('endDate').optional().isISO8601().withMessage('End date must be a valid ISO date'),
+], asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { venueId, startDate, endDate } = req.query;
+    const userId = req.user!.id;
+
+    let query = db('registers')
+      .select(
+        'registers.id',
+        'registers.date',
+        'activities.title as activity_title',
+        'venues.name as venue_name'
+      )
+      .join('activities', 'registers.activity_id', 'activities.id')
+      .join('venues', 'activities.venue_id', 'venues.id')
+      .where('registers.is_active', true);
+
+    if (venueId) {
+      query = query.where('activities.venue_id', venueId);
+    }
+
+    if (startDate && endDate) {
+      query = query.whereBetween('registers.date', [startDate, endDate]);
+    }
+
+    // Filter by user permissions
+    if (req.user!.role === 'staff') {
+      query = query.join('venue_staff', 'venues.id', 'venue_staff.venue_id')
+        .where('venue_staff.user_id', userId);
+    }
+
+    const registers = await query;
+
+    // Calculate statistics
+    const totalRegisters = registers.length;
+    const totalActivities = new Set(registers.map(r => r.activity_id)).size;
+    const totalVenues = new Set(registers.map(r => r.venue_id)).size;
+
+    // Get attendance statistics
+    const attendanceStats = await db('register_attendance')
+      .select(
+        'register_attendance.status',
+        db.raw('COUNT(*) as count')
+      )
+      .join('registers', 'register_attendance.register_id', 'registers.id')
+      .where('register_attendance.is_active', true)
+      .where('registers.is_active', true)
+      .groupBy('register_attendance.status');
+
+    const attendanceBreakdown = attendanceStats.reduce((acc, stat) => {
+      acc[stat.status] = parseInt(stat.count);
+      return acc;
+    }, {} as Record<string, number>);
+
+    res.json({
+      success: true,
+      data: {
+        totalRegisters,
+        totalActivities,
+        totalVenues,
+        attendanceBreakdown,
+        dateRange: { startDate, endDate }
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error getting register statistics:', error);
+    throw error;
+  }
+}));
+
 export default router;

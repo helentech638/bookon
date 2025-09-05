@@ -215,7 +215,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    if (req.url === '/api/v1/admin/bookings' && req.method === 'GET') {
+    if (req.url.startsWith('/api/v1/admin/bookings') && req.method === 'GET') {
       return res.json({
         success: true,
         data: [

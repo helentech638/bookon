@@ -308,4 +308,186 @@ router.get('/performance', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+// Handle widget booking submissions
+router.post('/book', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { 
+      activityId, 
+      date, 
+      childName, 
+      parentEmail, 
+      phone, 
+      notes,
+      source = 'widget',
+      widgetId 
+    } = req.body;
+
+    // Validate required fields
+    if (!activityId || !date || !childName || !parentEmail || !phone) {
+      throw new AppError('Missing required fields', 400, 'MISSING_REQUIRED_FIELDS');
+    }
+
+    // Validate activity exists and is active
+    const activity = await db('activities')
+      .select('*')
+      .where('id', activityId)
+      .where('is_active', true)
+      .first();
+
+    if (!activity) {
+      throw new AppError('Activity not found or inactive', 404, 'ACTIVITY_NOT_FOUND');
+    }
+
+    // Check if activity has available capacity
+    const currentBookings = await db('bookings')
+      .where('activity_id', activityId)
+      .where('activity_date', date)
+      .where('status', 'confirmed')
+      .where('is_active', true)
+      .count('* as count')
+      .first();
+
+    if (!currentBookings || parseInt(currentBookings['count'] as string) >= activity.max_capacity) {
+      throw new AppError('Activity is fully booked for this date', 400, 'ACTIVITY_FULL');
+    }
+
+    // Create or find user
+    let user = await db('users')
+      .select('*')
+      .where('email', parentEmail)
+      .where('is_active', true)
+      .first();
+
+    if (!user) {
+      // Create new user
+      const [newUser] = await db('users')
+        .insert({
+          email: parentEmail,
+          password_hash: 'temp_hash_' + Math.random().toString(36).substr(2, 9), // Temporary hash
+          role: 'parent',
+          is_active: true,
+          email_verified: false,
+        })
+        .returning(['id', 'email', 'role']);
+
+      user = newUser;
+
+      // Create user profile
+      await db('user_profiles')
+        .insert({
+          user_id: user.id,
+          first_name: childName.split(' ')[0] || 'Parent',
+          last_name: childName.split(' ').slice(1).join(' ') || 'User',
+          phone: phone,
+        });
+
+      logger.info('New user created from widget', { userId: user.id, email: parentEmail });
+    }
+
+    // Create child record
+    const [child] = await db('children')
+      .insert({
+        user_id: user.id,
+        first_name: childName.split(' ')[0] || 'Child',
+        last_name: childName.split(' ').slice(1).join(' ') || 'User',
+        date_of_birth: new Date(), // Default date, can be updated later
+        is_active: true,
+      })
+      .returning(['id', 'first_name', 'last_name']);
+
+    // Create booking
+    const [booking] = await db('bookings')
+      .insert({
+        user_id: user.id,
+        activity_id: activityId,
+        venue_id: activity.venue_id,
+        child_id: child.id,
+        status: 'pending',
+        payment_status: 'pending',
+        amount: activity.price,
+        currency: 'GBP',
+        booking_date: new Date(),
+        activity_date: date,
+        activity_time: activity.start_time || '09:00',
+        notes: notes || `Widget booking from ${source}`,
+        is_active: true,
+      })
+      .returning(['id', 'status', 'amount']);
+
+    // Log widget analytics
+    if (widgetId) {
+      try {
+        await db('widget_analytics')
+          .insert({
+            event_type: 'BOOKING_CREATED',
+            widget_id: widgetId,
+            venue_id: activity.venue_id,
+            activity_id: activityId,
+            event_data: {
+              source,
+              childName,
+              parentEmail,
+              date,
+              amount: activity.price
+            },
+            user_agent: req.get('User-Agent'),
+            ip_address: req.ip,
+          });
+      } catch (analyticsError) {
+        logger.warn('Failed to log widget analytics', { error: analyticsError, widgetId });
+      }
+    }
+
+    logger.info('Widget booking created successfully', {
+      bookingId: booking.id,
+      activityId,
+      userId: user.id,
+      childId: child.id,
+      source,
+      widgetId
+    });
+
+    res.json({
+      success: true,
+      message: 'Booking submitted successfully',
+      data: {
+        bookingId: booking.id,
+        status: booking.status,
+        nextSteps: [
+          'We will review your booking and confirm availability',
+          'You will receive a confirmation email shortly',
+          'Payment will be processed upon confirmation'
+        ]
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error processing widget booking:', error);
+    
+    // Log widget analytics for failed booking
+    if (req.body.widgetId) {
+      try {
+        await db('widget_analytics')
+          .insert({
+            event_type: 'BOOKING_FAILED',
+            widget_id: req.body.widgetId,
+            venue_id: req.body.venueId,
+            activity_id: req.body.activityId,
+            event_data: {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              source: req.body.source || 'widget'
+            },
+            user_agent: req.get('User-Agent'),
+            ip_address: req.ip,
+          });
+      } catch (analyticsError) {
+        logger.warn('Failed to log widget analytics', { error: analyticsError });
+      }
+    }
+
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to process booking', 500, 'WIDGET_BOOKING_ERROR');
+  }
+}));
+
 export default router;

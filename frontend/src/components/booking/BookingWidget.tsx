@@ -7,6 +7,7 @@ import { Calendar, Clock, MapPin, Users, CreditCard, AlertCircle, CheckCircle } 
 import { Activity, Venue, Child, BookingFormData } from '../../types/booking';
 import toast from 'react-hot-toast';
 
+
 interface BookingWidgetProps {
   venueId?: string;
   activityId?: string;
@@ -75,7 +76,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     try {
       // Fetch activities
       if (venueId) {
-        const activitiesResponse = await fetch(`http://localhost:3000/api/v1/venues/${venueId}/activities`);
+        const activitiesResponse = await fetch(`https://bookon-mu.vercel.app/api/v1/venues/${venueId}/activities`);
         if (activitiesResponse.ok) {
           const activitiesData = await activitiesResponse.json();
           setActivities(activitiesData.data || []);
@@ -85,7 +86,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
       // Fetch user's children
       const token = localStorage.getItem('token');
       if (token) {
-        const childrenResponse = await fetch('http://localhost:3000/api/v1/children', {
+        const childrenResponse = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (childrenResponse.ok) {
@@ -175,7 +176,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('http://localhost:3000/api/v1/bookings', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

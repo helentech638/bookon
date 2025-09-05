@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { toast } from 'react-hot-toast';
 
+
 // Load Stripe outside of component to avoid recreating on every render
 const stripePromise = loadStripe('pk_test_51H1234567890abcdefghijklmnopqrstuvwxyz');
 
@@ -42,7 +43,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       setIsProcessing(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:3000/api/v1/payments/create-intent', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/payments/create-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

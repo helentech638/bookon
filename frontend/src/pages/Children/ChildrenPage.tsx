@@ -24,6 +24,7 @@ interface Child {
   allergies?: string;
   medicalInfo?: string;
   emergencyContacts?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,11 +32,11 @@ interface Child {
 const ChildrenPage: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchChildren();
@@ -46,7 +47,7 @@ const ChildrenPage: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/children', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -55,12 +56,13 @@ const ChildrenPage: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setChildren(data.data);
+        setChildren(data.data || []);
       } else {
-        toast.error('Failed to fetch children');
+        const errorData = await response.json();
+        setError(errorData.error?.message || 'Failed to fetch children');
       }
     } catch (error) {
-      toast.error('Error fetching children');
+      setError('Error fetching children');
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch('http://localhost:3000/api/v1/children', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -99,7 +101,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch(`http://localhost:3000/api/v1/children/${selectedChild.id}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/children/${selectedChild.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -131,7 +133,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch(`http://localhost:3000/api/v1/children/${selectedChild.id}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/children/${selectedChild.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -226,11 +228,18 @@ const ChildrenPage: React.FC = () => {
             <Card key={child.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-xl">{child.firstName} {child.lastName}</CardTitle>
-                    <div className="flex items-center text-sm text-gray-600 mt-1">
-                      <CalendarIcon className="w-4 h-4 mr-1" />
-                      {calculateAge(child.dateOfBirth)} years old
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                      <UserIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold">
+                        {child.firstName} {child.lastName}
+                      </CardTitle>
+                      <p className="text-sm text-gray-600 flex items-center">
+                        <CalendarIcon className="w-4 h-4 mr-1" />
+                        Age {calculateAge(child.dateOfBirth)}
+                      </p>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -242,7 +251,7 @@ const ChildrenPage: React.FC = () => {
                       <PencilIcon className="w-4 h-4" />
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
                       onClick={() => openDeleteModal(child)}
                     >
@@ -252,33 +261,31 @@ const ChildrenPage: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {child.yearGroup && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Year Group:</span>
-                      <p className="text-sm text-gray-600">{child.yearGroup}</p>
-                    </div>
+                    <p className="text-sm">
+                      <span className="font-medium">Year Group:</span> {child.yearGroup}
+                    </p>
                   )}
-                  
                   {child.allergies && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Allergies:</span>
-                      <p className="text-sm text-gray-600">{child.allergies}</p>
-                    </div>
+                    <p className="text-sm">
+                      <span className="font-medium">Allergies:</span> {child.allergies}
+                    </p>
                   )}
-                  
                   {child.medicalInfo && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Medical Info:</span>
-                      <p className="text-sm text-gray-600">{child.medicalInfo}</p>
-                    </div>
+                    <p className="text-sm">
+                      <span className="font-medium">Medical Info:</span> {child.medicalInfo}
+                    </p>
                   )}
-                  
-                  {child.emergencyContacts && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Emergency Contacts:</span>
-                      <p className="text-sm text-gray-600">{child.emergencyContacts}</p>
-                    </div>
+                                     {child.emergencyContacts && (
+                     <p className="text-sm">
+                       <span className="font-medium">Emergency Contacts:</span> {child.emergencyContacts}
+                     </p>
+                   )}
+                  {child.notes && (
+                    <p className="text-sm">
+                      <span className="font-medium">Notes:</span> {child.notes}
+                    </p>
                   )}
                 </div>
               </CardContent>
@@ -291,7 +298,7 @@ const ChildrenPage: React.FC = () => {
       <Modal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title="Add Child"
+        title="Add New Child"
       >
         <ChildForm
           onSubmit={handleAddChild}
@@ -302,20 +309,14 @@ const ChildrenPage: React.FC = () => {
       {/* Edit Child Modal */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedChild(null);
-        }}
+        onClose={() => setShowEditModal(false)}
         title="Edit Child"
       >
         {selectedChild && (
           <ChildForm
             child={selectedChild}
             onSubmit={handleEditChild}
-            onCancel={() => {
-              setShowEditModal(false);
-              setSelectedChild(null);
-            }}
+            onCancel={() => setShowEditModal(false)}
           />
         )}
       </Modal>
@@ -323,24 +324,21 @@ const ChildrenPage: React.FC = () => {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setSelectedChild(null);
-        }}
+        onClose={() => setShowDeleteModal(false)}
         title="Delete Child"
       >
-        <div className="p-6">
-          <p className="text-gray-700 mb-4">
-            Are you sure you want to delete {selectedChild?.firstName} {selectedChild?.lastName}? 
-            This action cannot be undone.
+        <div className="text-center">
+          <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Are you sure you want to delete {selectedChild?.firstName} {selectedChild?.lastName}?
+          </h3>
+          <p className="text-gray-600 mb-6">
+            This action cannot be undone. All bookings associated with this child will also be affected.
           </p>
-          <div className="flex space-x-3">
+          <div className="flex justify-center space-x-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setShowDeleteModal(false);
-                setSelectedChild(null);
-              }}
+              onClick={() => setShowDeleteModal(false)}
             >
               Cancel
             </Button>
@@ -348,7 +346,7 @@ const ChildrenPage: React.FC = () => {
               variant="destructive"
               onClick={handleDeleteChild}
             >
-              Delete
+              Delete Child
             </Button>
           </div>
         </div>

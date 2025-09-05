@@ -1,0 +1,345 @@
+import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
+
+export interface NotificationData {
+  userId?: string;
+  venueId?: string;
+  type: 'booking_confirmation' | 'payment_success' | 'payment_failed' | 'booking_cancelled' | 'activity_reminder' | 'system_alert';
+  title: string;
+  message: string;
+  data?: any;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  channels?: ('email' | 'sms' | 'push' | 'in_app')[];
+}
+
+export class NotificationService {
+  // Create a new notification
+  static async createNotification(notificationData: NotificationData) {
+    try {
+      const result = await prisma.$queryRaw`
+        INSERT INTO notifications (type, title, message, data, priority, channels, "userId", "venueId", status, "createdAt")
+        VALUES (
+          ${notificationData.type},
+          ${notificationData.title},
+          ${notificationData.message},
+          ${JSON.stringify(notificationData.data || {})},
+          ${notificationData.priority || 'medium'},
+          ${JSON.stringify(notificationData.channels || ['in_app'])},
+          ${notificationData.userId || null},
+          ${notificationData.venueId || null},
+          'pending',
+          NOW()
+        )
+        RETURNING id
+      ` as any[];
+
+      const notificationId = result[0]?.id;
+      
+      // Process notification through different channels
+      await this.processNotification({ id: notificationId, ...notificationData });
+
+      logger.info('Notification created successfully', { notificationId });
+      return { id: notificationId, ...notificationData };
+    } catch (error) {
+      logger.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  // Process notification through configured channels
+  static async processNotification(notification: any) {
+    try {
+      const channels = notification.channels || ['in_app'];
+      
+      for (const channel of channels) {
+        switch (channel) {
+          case 'email':
+            await this.sendEmailNotification(notification);
+            break;
+          case 'sms':
+            await this.sendSMSNotification(notification);
+            break;
+          case 'push':
+            await this.sendPushNotification(notification);
+            break;
+          case 'in_app':
+            await this.sendInAppNotification(notification);
+            break;
+        }
+      }
+
+      // Update notification status
+      await prisma.$executeRaw`
+        UPDATE notifications 
+        SET status = 'sent', "sentAt" = NOW()
+        WHERE id = ${notification.id}
+      `;
+
+    } catch (error) {
+      logger.error('Error processing notification:', error);
+      
+      // Update notification status to failed
+      await prisma.$executeRaw`
+        UPDATE notifications 
+        SET status = 'failed', error = ${error instanceof Error ? error.message : 'Unknown error'}
+        WHERE id = ${notification.id}
+      `;
+      
+      throw error;
+    }
+  }
+
+  // Send email notification
+  static async sendEmailNotification(notification: any) {
+    try {
+      // TODO: Implement email service integration (SendGrid, AWS SES, etc.)
+      logger.info('Sending email notification', { 
+        notificationId: notification.id,
+        userId: notification.userId,
+        type: notification.type 
+      });
+      
+      // Simulate email sending
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      logger.error('Error sending email notification:', error);
+      throw error;
+    }
+  }
+
+  // Send SMS notification
+  static async sendSMSNotification(notification: any) {
+    try {
+      // TODO: Implement SMS service integration (Twilio, AWS SNS, etc.)
+      logger.info('Sending SMS notification', { 
+        notificationId: notification.id,
+        userId: notification.userId,
+        type: notification.type 
+      });
+      
+      // Simulate SMS sending
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      logger.error('Error sending SMS notification:', error);
+      throw error;
+    }
+  }
+
+  // Send push notification
+  static async sendPushNotification(notification: any) {
+    try {
+      // TODO: Implement push notification service (Firebase, OneSignal, etc.)
+      logger.info('Sending push notification', { 
+        notificationId: notification.id,
+        userId: notification.userId,
+        type: notification.type 
+      });
+      
+      // Simulate push notification sending
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      logger.error('Error sending push notification:', error);
+      throw error;
+    }
+  }
+
+  // Send in-app notification
+  static async sendInAppNotification(notification: any) {
+    try {
+      // In-app notifications are stored in the database and retrieved by the frontend
+      logger.info('Storing in-app notification', { 
+        notificationId: notification.id,
+        userId: notification.userId,
+        type: notification.type 
+      });
+      
+    } catch (error) {
+      logger.error('Error storing in-app notification:', error);
+      throw error;
+    }
+  }
+
+  // Get notifications for a user
+  static async getUserNotifications(userId: string, limit: number = 20, offset: number = 0) {
+    try {
+      const notifications = await prisma.$queryRaw`
+        SELECT * FROM notifications 
+        WHERE "userId" = ${userId}
+        ORDER BY "createdAt" DESC
+        LIMIT ${limit} OFFSET ${offset}
+      ` as any[];
+
+      return notifications;
+    } catch (error) {
+      logger.error('Error fetching user notifications:', error);
+      throw error;
+    }
+  }
+
+  // Mark notification as read
+  static async markAsRead(notificationId: string) {
+    try {
+      await prisma.$executeRaw`
+        UPDATE notifications 
+        SET read = true, "readAt" = NOW()
+        WHERE id = ${notificationId}
+      `;
+
+      logger.info('Notification marked as read', { notificationId });
+    } catch (error) {
+      logger.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  // Get notification statistics
+  static async getNotificationStats(venueId?: string) {
+    try {
+      const whereClause = venueId ? `WHERE "venueId" = '${venueId}'` : '';
+      
+      const [total, unread, byType, byStatus] = await Promise.all([
+        prisma.$queryRaw`SELECT COUNT(*) as count FROM notifications ${whereClause}` as any[],
+        prisma.$queryRaw`SELECT COUNT(*) as count FROM notifications ${whereClause} AND read = false` as any[],
+        prisma.$queryRaw`SELECT type, COUNT(*) as count FROM notifications ${whereClause} GROUP BY type` as any[],
+        prisma.$queryRaw`SELECT status, COUNT(*) as count FROM notifications ${whereClause} GROUP BY status` as any[],
+      ]);
+
+      return {
+        total: total[0]?.count || 0,
+        unread: unread[0]?.count || 0,
+        byType: byType,
+        byStatus: byStatus,
+      };
+    } catch (error) {
+      logger.error('Error fetching notification statistics:', error);
+      throw error;
+    }
+  }
+
+  // Send booking confirmation notification
+  static async sendBookingConfirmation(bookingId: string) {
+    try {
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          user: true,
+          activity: {
+            include: {
+              venue: true,
+            },
+          },
+        },
+      });
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      await this.createNotification({
+        userId: booking.userId,
+        venueId: booking.activity.venueId,
+        type: 'booking_confirmation',
+        title: 'Booking Confirmed!',
+        message: `Your booking for ${booking.activity.name} on ${booking.activity.date} has been confirmed.`,
+        data: {
+          bookingId: booking.id,
+          activityName: booking.activity.name,
+          venueName: booking.activity.venue.name,
+          date: booking.activity.date,
+          time: booking.activity.time,
+        },
+        priority: 'medium',
+        channels: ['email', 'in_app'],
+      });
+
+    } catch (error) {
+      logger.error('Error sending booking confirmation:', error);
+      throw error;
+    }
+  }
+
+  // Send payment success notification
+  static async sendPaymentSuccess(bookingId: string) {
+    try {
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          user: true,
+          activity: {
+            include: {
+              venue: true,
+            },
+          },
+        },
+      });
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      await this.createNotification({
+        userId: booking.userId,
+        venueId: booking.activity.venueId,
+        type: 'payment_success',
+        title: 'Payment Successful!',
+        message: `Your payment for ${booking.activity.name} has been processed successfully.`,
+        data: {
+          bookingId: booking.id,
+          amount: booking.total_amount,
+          activityName: booking.activity.name,
+        },
+        priority: 'medium',
+        channels: ['email', 'in_app'],
+      });
+
+    } catch (error) {
+      logger.error('Error sending payment success notification:', error);
+      throw error;
+    }
+  }
+
+  // Send payment failed notification
+  static async sendPaymentFailed(bookingId: string) {
+    try {
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          user: true,
+          activity: {
+            include: {
+              venue: true,
+            },
+          },
+        },
+      });
+
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      await this.createNotification({
+        userId: booking.userId,
+        venueId: booking.activity.venueId,
+        type: 'payment_failed',
+        title: 'Payment Failed',
+        message: `Your payment for ${booking.activity.name} could not be processed. Please try again.`,
+        data: {
+          bookingId: booking.id,
+          amount: booking.total_amount,
+          activityName: booking.activity.name,
+        },
+        priority: 'high',
+        channels: ['email', 'sms', 'in_app'],
+      });
+
+    } catch (error) {
+      logger.error('Error sending payment failed notification:', error);
+      throw error;
+    }
+  }
+}
+
+export default NotificationService;

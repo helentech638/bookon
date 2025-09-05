@@ -1,3 +1,5 @@
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
 // API Configuration
 export const API_CONFIG = {
   BASE_URL: 'https://bookon-mu.vercel.app/api/v1',
@@ -42,6 +44,49 @@ export const API_CONFIG = {
     NOTIFICATIONS: '/notifications',
   },
 };
+
+// Create axios instance
+const createApiClient = (): AxiosInstance => {
+  const instance = axios.create({
+    baseURL: API_CONFIG.BASE_URL,
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Request interceptor to add auth token
+  instance.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Response interceptor to handle common errors
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Handle unauthorized access
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return instance;
+};
+
+// Export the API client instance
+export const api = createApiClient();
 
 // Helper function to build full API URLs
 export const buildApiUrl = (endpoint: string): string => {

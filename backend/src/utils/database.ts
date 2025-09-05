@@ -1,14 +1,26 @@
 import knex from 'knex';
 import { logger } from './logger';
 
-// Database configuration with Neon support
+// Database configuration with Supabase support
 const getDbConfig = () => {
-  // If DATABASE_URL is provided (Neon), use it directly
+  // If DATABASE_URL is provided (Supabase), use it directly
   if (process.env['DATABASE_URL']) {
+    logger.info('🔌 Using DATABASE_URL for Supabase connection');
+    
+    // Log the DATABASE_URL (without password for security)
+    const dbUrl = process.env['DATABASE_URL'];
+    const urlParts = dbUrl.split('@');
+    if (urlParts.length > 1) {
+      const hostPart = urlParts[1];
+      logger.info(`📊 Database host: ${hostPart}`);
+    }
+    
     return {
-      client: 'postgresql',
-      connection: process.env['DATABASE_URL'],
-      ssl: { rejectUnauthorized: false }, // Required for Neon
+      client: 'pg',
+      connection: {
+        connectionString: process.env['DATABASE_URL'],
+        ssl: { rejectUnauthorized: false }, // Required for Supabase
+      },
       pool: {
         min: 0, // Start with 0 connections for serverless
         max: 10, // Max connections per instance
@@ -18,15 +30,6 @@ const getDbConfig = () => {
         idleTimeoutMillis: 30000,
         reapIntervalMillis: 1000,
         createRetryIntervalMillis: 200,
-        // Neon-specific optimizations
-        afterCreate: (conn: any, done: Function) => {
-          conn.query('SELECT 1', (err: any) => {
-            if (err) {
-              logger.error('Error testing database connection:', err);
-            }
-            done(err, conn);
-          });
-        }
       },
       migrations: {
         directory: './src/migrations',
@@ -111,21 +114,32 @@ export const db = knex(dbConfig);
 // Database connection function
 export const connectDatabase = async (): Promise<void> => {
   try {
-    // Test the connection
-    await db.raw('SELECT 1');
-    logger.info('✅ Database connection established successfully');
+    logger.info('🔌 Testing database connection...');
+    logger.info('🔍 Database config:', {
+      client: dbConfig.client,
+      hasConnectionString: !!dbConfig.connection.connectionString,
+      hasSSL: !!dbConfig.connection.ssl,
+      nodeEnv: process.env['NODE_ENV']
+    });
     
-    // Log database info
-    const result = await db.raw('SELECT version()');
+    // Test with direct pg connection first
+    const { Client } = require('pg');
+    const client = new Client({
+      connectionString: process.env['DATABASE_URL'],
+      ssl: { rejectUnauthorized: false }
+    });
+    
+    await client.connect();
+    logger.info('✅ Direct pg connection successful');
+    
+    const result = await client.query('SELECT version()');
     logger.info(`📊 PostgreSQL version: ${result.rows[0].version}`);
     
-    // Check if migrations table exists
-    const hasMigrationsTable = await db.schema.hasTable('knex_migrations');
-    if (hasMigrationsTable) {
-      logger.info('✅ Database migrations table found - migrations already completed');
-    } else {
-      logger.info('⚠️ No migrations table found - please run migrations manually first');
-    }
+    await client.end();
+    
+    // Now test with Knex
+    await db.raw('SELECT 1');
+    logger.info('✅ Knex connection established successfully');
     
   } catch (error) {
     logger.error('❌ Database connection failed:', error);

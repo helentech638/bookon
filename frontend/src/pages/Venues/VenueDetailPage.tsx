@@ -15,6 +15,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 
+
 interface Venue {
   id: string;
   name: string;
@@ -56,7 +57,7 @@ const VenueDetailPage: React.FC = () => {
   const fetchVenueDetails = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/v1/venues/${id}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/venues/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -79,7 +80,7 @@ const VenueDetailPage: React.FC = () => {
   const fetchVenueActivities = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/v1/activities?venueId=${id}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/activities?venueId=${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

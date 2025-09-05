@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password_hash String?
+  firstName     String
+  lastName      String
+  role          String    @default("user")
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  verificationToken String?
+  resetToken    String?
+  resetTokenExpiry DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  children     Child[]
+  bookings     Booking[]
+  activities   Activity[]
+  venues       Venue[]
+
+  @@map("users")
+}
+
+model Child {
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime
+  parentId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  parent      User     @relation(fields: [parentId], references: [id])
+  bookings    Booking[]
+
+  @@map("children")
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  address     String
+  description String?
+  capacity    Int?
+  ownerId     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  owner       User       @relation(fields: [ownerId], references: [id])
+  activities  Activity[]
+
+  @@map("venues")
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  duration    Int? // in minutes
+  maxCapacity Int?
+  venueId     String
+  ownerId     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  venue       Venue     @relation(fields: [venueId], references: [id])
+  owner       User      @relation(fields: [ownerId], references: [id])
+  bookings    Booking[]
+
+  @@map("activities")
+}
+
+model Booking {
+  id         String   @id @default(uuid())
+  activityId String
+  childId    String
+  parentId    String
+  status     String   @default("pending") // pending, confirmed, cancelled, completed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  activity   Activity @relation(fields: [activityId], references: [id])
+  child      Child    @relation(fields: [childId], references: [id])
+  parent     User     @relation(fields: [parentId], references: [id])
+
+  @@map("bookings")
+}

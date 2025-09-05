@@ -41,7 +41,10 @@ class AuthService {
 
   // Get stored token
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    const token = localStorage.getItem(this.tokenKey);
+    console.log('Getting token from localStorage:', token ? 'EXISTS' : 'MISSING');
+    console.log('Token key:', this.tokenKey);
+    return token;
   }
 
   // Get stored refresh token
@@ -106,9 +109,15 @@ class AuthService {
       }
 
       if (data.success && data.data) {
-        // Handle the correct backend response structure
+        // Handle the backend response structure
         const accessToken = data.data.tokens?.accessToken || data.data.token;
         const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
+        
+        console.log('Login response tokens:', {
+          accessToken: accessToken ? 'EXISTS' : 'MISSING',
+          refreshToken: refreshToken ? 'EXISTS' : 'MISSING',
+          tokens: data.data.tokens
+        });
         
         if (!accessToken || !refreshToken) {
           throw new Error('Invalid response: missing tokens');

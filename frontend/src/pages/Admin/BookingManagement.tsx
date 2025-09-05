@@ -89,13 +89,47 @@ const BookingManagement: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setBookings(data.data.bookings);
-        setPagination(data.data.pagination);
+        // Add safety checks for data structure
+        if (data && data.data) {
+          setBookings(data.data.bookings || []);
+          if (data.data.pagination) {
+            setPagination({
+              page: data.data.pagination.page || 1,
+              limit: data.data.pagination.limit || 20,
+              total: data.data.pagination.total || 0,
+              pages: data.data.pagination.pages || 0
+            });
+          }
+        } else {
+          // Fallback to empty data if structure is unexpected
+          setBookings([]);
+          setPagination({
+            page: 1,
+            limit: 20,
+            total: 0,
+            pages: 0
+          });
+        }
       } else {
         toast.error('Failed to fetch bookings');
+        // Set default pagination on error
+        setPagination({
+          page: 1,
+          limit: 20,
+          total: 0,
+          pages: 0
+        });
       }
     } catch (error) {
+      console.error('Error fetching bookings:', error);
       toast.error('Error fetching bookings');
+      // Set default pagination on error
+      setPagination({
+        page: 1,
+        limit: 20,
+        total: 0,
+        pages: 0
+      });
     } finally {
       setLoading(false);
     }

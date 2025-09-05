@@ -258,6 +258,7 @@ export interface ConfirmPaymentRequest {
 }
 
 export interface RefundRequest {
+  paymentIntentId: string;
   amount?: number;
   reason?: string;
   connectAccountId?: string;

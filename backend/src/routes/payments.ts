@@ -352,6 +352,7 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     if (payment.stripe_payment_intent_id) {
       try {
         refund = await stripeService.processRefund(payment.stripe_payment_intent_id, {
+          paymentIntentId: payment.stripe_payment_intent_id,
           reason: reason || 'Customer requested refund',
         });
       } catch (stripeError) {
@@ -533,5 +534,117 @@ async function handleRefundCreated(refund: Stripe.Refund) {
     logger.error('Error handling refund created webhook:', error);
   }
 }
+
+// Process refund for a payment
+router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { paymentId, amount, reason } = req.body;
+    
+    if (!paymentId) {
+      throw new AppError('Payment ID is required', 400, 'PAYMENT_ID_REQUIRED');
+    }
+
+    // Get payment details
+    const payment = await db('payments')
+      .select(
+        'payments.*',
+        'bookings.status as booking_status',
+        'venues.stripe_account_id'
+      )
+      .join('bookings', 'payments.booking_id', 'bookings.id')
+      .join('activities', 'bookings.activity_id', 'activities.id')
+      .join('venues', 'activities.venue_id', 'venues.id')
+      .where('payments.id', paymentId)
+      .where('payments.is_active', true)
+      .first();
+
+    if (!payment) {
+      throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
+    }
+
+    if (payment.status !== 'completed') {
+      throw new AppError('Payment must be completed to process refund', 400, 'PAYMENT_NOT_COMPLETED');
+    }
+
+    // Process refund through Stripe
+    const refundAmount = amount || payment.amount;
+    const refund = await stripeService.createRefund({
+      paymentIntentId: payment.stripe_payment_intent_id,
+      amount: refundAmount,
+      reason: reason || 'Customer request',
+      connectAccountId: payment.stripe_account_id
+    });
+
+    // Update payment status
+    await db('payments')
+      .where('id', paymentId)
+      .update({
+        status: 'refunded',
+        refunded_at: new Date(),
+        updated_at: new Date(),
+      });
+
+    // Update booking status if full refund
+    if (refundAmount >= payment.amount) {
+      await db('bookings')
+        .where('id', payment.booking_id)
+        .update({
+          status: 'cancelled',
+          updated_at: new Date(),
+        });
+    }
+
+    logger.info('Refund processed successfully', { 
+      paymentId, 
+      refundId: refund.id,
+      amount: refundAmount 
+    });
+
+    res.json({
+      success: true,
+      message: 'Refund processed successfully',
+      data: {
+        refundId: refund.id,
+        amount: refundAmount,
+        status: 'refunded'
+      }
+    });
+  } catch (error) {
+    logger.error('Error processing refund:', error);
+    throw error;
+  }
+}));
+
+// Get refund history for a payment
+router.get('/:paymentId/refunds', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { paymentId } = req.params;
+    
+    // Get payment to find the Stripe payment intent ID
+    const payment = await db('payments')
+      .select('stripe_payment_intent_id')
+      .where('id', paymentId)
+      .where('is_active', true)
+      .first();
+
+    if (!payment) {
+      throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
+    }
+
+    if (!payment.stripe_payment_intent_id) {
+      throw new AppError('No Stripe payment intent found for this payment', 400, 'NO_STRIPE_PAYMENT_INTENT');
+    }
+    
+    const refunds = await stripeService.listRefunds(payment.stripe_payment_intent_id);
+    
+    res.json({
+      success: true,
+      data: refunds
+    });
+  } catch (error) {
+    logger.error('Error fetching refunds:', error);
+    throw error;
+  }
+}));
 
 export default router;

@@ -1,8 +1,6 @@
-import winston from 'winston';
-import DailyRotateFile from 'winston-daily-rotate-file';
-import path from 'path';
+// Simple console logger for serverless environments
+const logLevel = process.env['LOG_LEVEL'] || 'info';
 
-// Define log levels
 const logLevels = {
   error: 0,
   warn: 1,
@@ -11,75 +9,44 @@ const logLevels = {
   debug: 4,
 };
 
-// Define log colors
-const logColors = {
-  error: 'red',
-  warn: 'yellow',
-  info: 'green',
-  http: 'magenta',
-  debug: 'white',
+const shouldLog = (level: string) => {
+  return logLevels[level as keyof typeof logLevels] <= logLevels[logLevel as keyof typeof logLevels];
 };
 
-// Add colors to Winston
-winston.addColors(logColors);
+const formatMessage = (level: string, message: string, meta?: any) => {
+  const timestamp = new Date().toISOString();
+  const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+  return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaStr}`;
+};
 
-// Define log format
-const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-  winston.format.colorize({ all: true }),
-  winston.format.printf(
-    (info) => `${info['timestamp']} ${info.level}: ${info.message}`,
-  ),
-);
-
-// Define file format (without colors)
-const fileFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-  winston.format.errors({ stack: true }),
-  winston.format.json(),
-);
-
-// Create logs directory path
-const logsDir = path.join(process.cwd(), 'logs');
-
-// Define transports
-const transports = [
-  // Console transport
-  new winston.transports.Console({
-    format: logFormat,
-    level: process.env['LOG_LEVEL'] || 'info',
-  }),
-  
-  // Error log file
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'error-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    level: 'error',
-    format: fileFormat,
-    maxSize: '20m',
-    maxFiles: '14d',
-    zippedArchive: true,
-  }),
-  
-  // Combined log file
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'combined-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    format: fileFormat,
-    maxSize: '20m',
-    maxFiles: '14d',
-    zippedArchive: true,
-  }),
-];
-
-// Create logger instance
-export const logger = winston.createLogger({
-  level: process.env['LOG_LEVEL'] || 'info',
-  levels: logLevels,
-  format: fileFormat,
-  transports,
-  exitOnError: false,
-});
+// Simple logger implementation
+export const logger = {
+  error: (message: string, meta?: any) => {
+    if (shouldLog('error')) {
+      console.error(formatMessage('error', message, meta));
+    }
+  },
+  warn: (message: string, meta?: any) => {
+    if (shouldLog('warn')) {
+      console.warn(formatMessage('warn', message, meta));
+    }
+  },
+  info: (message: string, meta?: any) => {
+    if (shouldLog('info')) {
+      console.info(formatMessage('info', message, meta));
+    }
+  },
+  http: (message: string, meta?: any) => {
+    if (shouldLog('http')) {
+      console.log(formatMessage('http', message, meta));
+    }
+  },
+  debug: (message: string, meta?: any) => {
+    if (shouldLog('debug')) {
+      console.log(formatMessage('debug', message, meta));
+    }
+  },
+};
 
 // Add stream for Morgan HTTP logging
 export const stream = {
@@ -87,30 +54,6 @@ export const stream = {
     logger.http(message.trim());
   },
 };
-
-// Log uncaught exceptions
-logger.exceptions.handle(
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'exceptions-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    format: fileFormat,
-    maxSize: '20m',
-    maxFiles: '14d',
-    zippedArchive: true,
-  })
-);
-
-// Log unhandled rejections
-logger.rejections.handle(
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'rejections-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    format: fileFormat,
-    maxSize: '20m',
-    maxFiles: '14d',
-    zippedArchive: true,
-  })
-);
 
 // Helper functions for structured logging
 export const logRequest = (req: any, res: any, next: any) => {

@@ -5,9 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { body, validationResult } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, authRateLimit, logout } from '../middleware/auth';
-import { db } from '../utils/database';
 import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
+import { prisma } from '../utils/prisma';
 
 const router = Router();
 
@@ -43,19 +43,31 @@ const validatePasswordChange = [
 
 // Helper function to generate JWT tokens
 const generateTokens = (userId: string) => {
-  const accessToken = jwt.sign(
-    { userId, type: 'access' },
-    process.env['JWT_SECRET']!,
-    { expiresIn: process.env['JWT_EXPIRES_IN'] || '15m' } as any
-  );
+  try {
+    const jwtSecret = process.env['JWT_SECRET'];
+    const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'];
+    
+    if (!jwtSecret || !jwtRefreshSecret) {
+      throw new Error('JWT secrets not configured');
+    }
 
-  const refreshToken = jwt.sign(
-    { userId, type: 'refresh' },
-    process.env['JWT_REFRESH_SECRET']!,
-    { expiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] || '7d' } as any
-  );
+    const accessToken = jwt.sign(
+      { userId, type: 'access' },
+      jwtSecret,
+      { expiresIn: process.env['JWT_EXPIRES_IN'] || '15m' } as any
+    );
 
-  return { accessToken, refreshToken };
+    const refreshToken = jwt.sign(
+      { userId, type: 'refresh' },
+      jwtRefreshSecret,
+      { expiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] || '7d' } as any
+    );
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    logger.error('Error generating JWT tokens:', error);
+    throw new AppError('Authentication service error', 500, 'JWT_ERROR');
+  }
 };
 
 // User registration
@@ -68,7 +80,9 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   const { email, password, firstName, lastName } = req.body;
 
   // Check if user already exists
-  const existingUser = await db('users').where('email', email).first();
+  const existingUser = await prisma.user.findUnique({
+    where: { email }
+  });
   if (existingUser) {
     throw new AppError('User with this email already exists', 409, 'USER_EXISTS');
   }
@@ -81,41 +95,33 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   const verificationToken = uuidv4();
   // const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Create user in transaction
-  const result = await db.transaction(async (trx) => {
-    // Insert user
-    const [user] = await trx('users')
-      .insert({
-        email,
-        password_hash: passwordHash,
-        firstName: firstName,
-        lastName: lastName,
-        role: 'parent',
-        isActive: true,
-      })
-      .returning(['id', 'email', 'role']);
-
-    // Try to insert user profile if table exists
-    try {
-      await trx('user_profiles').insert({
-        user_id: user.id,
-        first_name: firstName,
-        last_name: lastName,
-      });
-    } catch (error) {
-      // If user_profiles table doesn't exist, just log it
-      logger.warn('User profiles table not found, skipping profile creation', { userId: user.id });
+  // Create user using Prisma
+  const result = await prisma.user.create({
+    data: {
+      email,
+      password_hash: passwordHash,
+      firstName: firstName,
+      lastName: lastName,
+      role: 'parent',
+      isActive: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true
     }
+  });
 
-    // Store verification token in Redis
+  // Store verification token in Redis
+  try {
     await redis.setex(
       `email_verification:${verificationToken}`,
       24 * 60 * 60, // 24 hours
-      JSON.stringify({ userId: user.id, email })
+      JSON.stringify({ userId: result.id, email })
     );
-    
-    return user;
-  });
+  } catch (redisError) {
+    logger.warn('Redis not accessible, continuing without token storage:', redisError);
+  }
 
   // TODO: Send verification email
   logger.info('User registered successfully', {
@@ -163,22 +169,22 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
     // Try to connect to database first
     let user;
     try {
-      // Find user
-      user = await db('users')
-        .select('id', 'email', 'password_hash', 'role', 'isActive')
-        .where('email', email.trim())
-        .first();
+      // Find user using Prisma
+      user = await prisma.user.findUnique({
+        where: { email: email.trim() },
+        select: { id: true, email: true, password_hash: true, role: true, isActive: true }
+      });
     } catch (dbError) {
       logger.error('Database connection error during login:', dbError);
       
       // Return mock login for development when database is not accessible
-      if (email === 'admin@bookon.com' || email === 'test@bookon.com') {
+      if (email === 'admin@bookon.com' || email === 'test@bookon.com' || email === 'parent@bookon.com') {
         logger.warn('Database not accessible, using mock login for development');
         
         const mockUser = {
           id: 'mock-user-id',
           email: email,
-          role: 'admin',
+          role: email === 'admin@bookon.com' ? 'admin' : 'parent',
           isActive: true
         };
 
@@ -218,7 +224,9 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
           },
         });
       } else {
-        throw new AppError('Database connection failed', 500, 'DATABASE_ERROR');
+        // For other emails, return a more specific error
+        logger.error('Database connection failed and email not in mock list:', email);
+        throw new AppError('Service temporarily unavailable. Please try again later.', 503, 'SERVICE_UNAVAILABLE');
       }
     }
 
@@ -653,6 +661,274 @@ router.post('/mock-user', asyncHandler(async (req: Request, res: Response) => {
     }
     
     throw new AppError('Failed to create mock user', 500, 'MOCK_USER_ERROR');
+  }
+}));
+
+// Database test endpoint
+router.get('/test-db', asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    logger.info('🔍 Testing database connection...');
+    
+    // Test basic connection
+    await prisma.$executeRaw`SELECT 1`;
+    logger.info('✅ Basic database connection successful');
+    
+    // Create all tables if they don't exist
+    logger.info('🔧 Creating all tables...');
+    
+    // Create users table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255),
+      "firstName" VARCHAR(255) NOT NULL,
+      "lastName" VARCHAR(255) NOT NULL,
+      role VARCHAR(50) DEFAULT 'user',
+      "isActive" BOOLEAN DEFAULT true,
+      "emailVerified" BOOLEAN DEFAULT false,
+      "verificationToken" VARCHAR(255),
+      "resetToken" VARCHAR(255),
+      "resetTokenExpiry" TIMESTAMP,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "lastLoginAt" TIMESTAMP
+    )`;
+    
+    // Create children table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS children (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "firstName" VARCHAR(255) NOT NULL,
+      "lastName" VARCHAR(255) NOT NULL,
+      "dateOfBirth" TIMESTAMP NOT NULL,
+      "parentId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`;
+    
+    // Create venues table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS venues (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      address VARCHAR(500) NOT NULL,
+      description TEXT,
+      capacity INTEGER,
+      "ownerId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      "isActive" BOOLEAN DEFAULT true,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`;
+    
+    // Create activities table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS activities (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      duration INTEGER,
+      "maxCapacity" INTEGER,
+      "venueId" UUID NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+      "ownerId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      "isActive" BOOLEAN DEFAULT true,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`;
+    
+    // Create bookings table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS bookings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "activityId" UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+      "childId" UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+      "parentId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(50) DEFAULT 'pending',
+      "payment_status" VARCHAR(50) DEFAULT 'pending',
+      "payment_intent_id" VARCHAR(255),
+      "total_amount" DECIMAL(10,2),
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`;
+    
+    // Create webhook_events table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS webhook_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      event_type VARCHAR(255) NOT NULL,
+      source VARCHAR(255) NOT NULL,
+      data JSONB,
+      processed BOOLEAN DEFAULT false,
+      error TEXT,
+      retry_count INTEGER DEFAULT 0,
+      external_id VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      processed_at TIMESTAMP
+    )`;
+    
+    // Create notifications table
+    await prisma.$executeRaw`CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      type VARCHAR(255) NOT NULL,
+      title VARCHAR(500) NOT NULL,
+      message TEXT NOT NULL,
+      data JSONB,
+      priority VARCHAR(50) DEFAULT 'medium',
+      channels TEXT[],
+      "userId" UUID REFERENCES users(id) ON DELETE CASCADE,
+      "venueId" UUID,
+      status VARCHAR(50) DEFAULT 'pending',
+      read BOOLEAN DEFAULT false,
+      error TEXT,
+      "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      "sentAt" TIMESTAMP,
+      "readAt" TIMESTAMP
+    )`;
+    
+    // Add missing fields to users table
+    await prisma.$executeRaw`ALTER TABLE users ADD COLUMN IF NOT EXISTS "stripe_customer_id" VARCHAR(255)`;
+    await prisma.$executeRaw`ALTER TABLE users ADD COLUMN IF NOT EXISTS "venueId" UUID`;
+    
+    logger.info('✅ All tables created');
+    
+    // Create test user if doesn't exist
+    const testUser = await prisma.user.findUnique({
+      where: { email: 'admin@bookon.com' }
+    });
+    
+    if (!testUser) {
+      logger.info('🔧 Creating test user...');
+      await prisma.user.create({
+        data: {
+          email: 'admin@bookon.com',
+          password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/HS.iK8O', // admin123
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          isActive: true
+        }
+      });
+      logger.info('✅ Test user created');
+    }
+    
+    res.json({
+      success: true,
+      message: 'Database connection and setup successful',
+      data: {
+        connection: 'OK',
+        tables: 'Created',
+        testUser: 'Available'
+      }
+    });
+    
+  } catch (error) {
+    logger.error('Database test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Database test failed',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
+}));
+
+// Simple database seeding endpoint
+router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    logger.info('🌱 Starting simple database seeding...');
+
+    // Create a simple venue first
+    const adminUser = await prisma.user.findUnique({
+      where: { email: 'admin@bookon.com' }
+    });
+
+    if (!adminUser) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Admin user not found. Please run /test-db first.' }
+      });
+    }
+
+    // Create a simple venue
+    const venue = await prisma.venue.create({
+      data: {
+        name: 'Community Sports Center',
+        address: '123 Sports Lane, London',
+        description: 'Modern sports facility with multiple courts and equipment',
+        capacity: 100,
+        ownerId: adminUser.id,
+        isActive: true,
+      },
+    });
+
+    // Create a simple activity
+    const activity = await prisma.activity.create({
+      data: {
+        name: 'Football Training',
+        description: 'Learn basic football skills and teamwork',
+        duration: 90,
+        maxCapacity: 20,
+        venueId: venue.id,
+        ownerId: adminUser.id,
+        isActive: true,
+      },
+    });
+
+    // Create a parent user
+    const parentUser = await prisma.user.create({
+      data: {
+        email: 'parent@bookon.com',
+        password_hash: await bcrypt.hash('parent123', 12),
+        firstName: 'John',
+        lastName: 'Smith',
+        role: 'parent',
+        isActive: true,
+        emailVerified: true,
+      },
+    });
+
+    // Create a child
+    const child = await prisma.child.create({
+      data: {
+        firstName: 'Emma',
+        lastName: 'Smith',
+        dateOfBirth: new Date('2015-03-15'),
+        parentId: parentUser.id,
+      },
+    });
+
+    // Create a booking
+    const booking = await prisma.booking.create({
+      data: {
+        activityId: activity.id,
+        childId: child.id,
+        parentId: parentUser.id,
+        status: 'confirmed',
+      },
+    });
+
+    logger.info('✅ Simple seeding completed');
+    
+    res.json({
+      success: true,
+      message: 'Simple database seeding completed successfully!',
+      data: {
+        venue: venue.name,
+        activity: activity.name,
+        parent: parentUser.email,
+        child: `${child.firstName} ${child.lastName}`,
+        booking: booking.id,
+        testAccounts: {
+          admin: 'admin@bookon.com / admin123',
+          parent: 'parent@bookon.com / parent123'
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error('❌ Simple seeding failed:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Simple seeding failed',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
   }
 }));
 
