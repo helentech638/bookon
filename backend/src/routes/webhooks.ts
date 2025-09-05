@@ -2,15 +2,17 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import stripe from 'stripe';
-import NotificationService from '../services/notificationService';
 
 const router = Router();
 
-// Initialize Stripe
-const stripeClient = new stripe(process.env['STRIPE_SECRET_KEY'] || '', {
-  apiVersion: '2023-10-16',
-});
+// Initialize Stripe (only if secret key is available)
+let stripeClient: any = null;
+if (process.env['STRIPE_SECRET_KEY']) {
+  const stripe = require('stripe');
+  stripeClient = new stripe(process.env['STRIPE_SECRET_KEY'], {
+    apiVersion: '2023-10-16',
+  });
+}
 
 // Webhook authentication middleware
 const authenticateWebhook = (req: Request, res: Response, next: Function): void => {
@@ -25,8 +27,13 @@ const authenticateWebhook = (req: Request, res: Response, next: Function): void 
   next();
 };
 
-// Stripe webhook signature verification
+// Stripe webhook signature verification (simplified)
 const verifyStripeWebhook = (req: Request, res: Response, next: Function): void => {
+  if (!stripeClient) {
+    res.status(400).json({ error: 'Stripe not configured' });
+    return;
+  }
+  
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env['STRIPE_WEBHOOK_SECRET'];
   
@@ -169,8 +176,8 @@ async function handleStripePaymentSucceeded(paymentIntent: any) {
       WHERE payment_intent_id = ${paymentIntent.id}
     `;
     
-    // Send confirmation notification
-    await NotificationService.sendPaymentSuccess(paymentIntent.id);
+    // TODO: Send confirmation notification
+    logger.info('Payment success notification would be sent here', { paymentIntentId: paymentIntent.id });
     
     logger.info('Booking payment confirmed successfully', { paymentIntentId: paymentIntent.id });
     
@@ -191,8 +198,8 @@ async function handleStripePaymentFailed(paymentIntent: any) {
       WHERE payment_intent_id = ${paymentIntent.id}
     `;
     
-    // Send payment failed notification
-    await NotificationService.sendPaymentFailed(paymentIntent.id);
+    // TODO: Send payment failed notification
+    logger.info('Payment failed notification would be sent here', { paymentIntentId: paymentIntent.id });
     
     logger.info('Booking payment failed handled', { paymentIntentId: paymentIntent.id });
     
@@ -484,5 +491,62 @@ router.get('/health', (_req: Request, res: Response) => {
     ]
   });
 });
+
+// Simple webhook events endpoint for testing
+router.get('/events', asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const events = await prisma.$queryRaw`
+      SELECT * FROM webhook_events 
+      ORDER BY created_at DESC 
+      LIMIT 10
+    ` as any[];
+
+    res.json({
+      success: true,
+      data: {
+        events,
+        count: events.length
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching webhook events:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch webhook events',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
+}));
+
+// Webhook stats endpoint
+router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const stats = await prisma.$queryRaw`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN processed = true THEN 1 END) as processed,
+        COUNT(CASE WHEN processed = false OR error IS NOT NULL THEN 1 END) as failed,
+        COUNT(CASE WHEN source = 'stripe' THEN 1 END) as stripe_events,
+        COUNT(CASE WHEN source = 'external' THEN 1 END) as external_events
+      FROM webhook_events
+    ` as any[];
+
+    res.json({
+      success: true,
+      data: stats[0] || { total: 0, processed: 0, failed: 0, stripe_events: 0, external_events: 0 }
+    });
+  } catch (error) {
+    logger.error('Error fetching webhook stats:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch webhook stats',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
+}));
 
 export default router;
