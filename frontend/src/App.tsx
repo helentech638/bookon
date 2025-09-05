@@ -31,6 +31,8 @@ import FinancialDashboard from './pages/Admin/FinancialDashboard';
 import EmailTemplates from './pages/Admin/EmailTemplates';
 import BroadcastMessaging from './pages/Admin/BroadcastMessaging';
 import NotificationCenter from './pages/Admin/NotificationCenter';
+import NotificationManagement from './pages/Admin/NotificationManagement';
+import WebhookManagement from './pages/Admin/WebhookManagement';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
@@ -257,6 +259,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <NotificationCenter />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/notification-management"
+          element={
+            <ProtectedRoute>
+              <NotificationManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/webhook-management"
+          element={
+            <ProtectedRoute>
+              <WebhookManagement />
             </ProtectedRoute>
           }
         />
