@@ -549,4 +549,13 @@ router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
   }
 }));
 
+// Simple test endpoint
+router.get('/test', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: 'Webhook routes are working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 export default router;
