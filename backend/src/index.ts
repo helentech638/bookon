@@ -49,6 +49,9 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env['PORT'] || 3000;
 
+// Trust proxy for Vercel deployment
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {

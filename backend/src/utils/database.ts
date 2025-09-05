@@ -3,12 +3,12 @@ import { logger } from './logger';
 
 // Database configuration with Supabase support
 const getDbConfig = () => {
-  // If DATABASE_URL is provided (Supabase), use it directly
-  if (process.env['DATABASE_URL']) {
-    logger.info('🔌 Using DATABASE_URL for Supabase connection');
+  // If DATABASE_DIRECT_URL is provided (Supabase), use it directly
+  if (process.env['DATABASE_DIRECT_URL']) {
+    logger.info('🔌 Using DATABASE_DIRECT_URL for Supabase connection');
     
-    // Log the DATABASE_URL (without password for security)
-    const dbUrl = process.env['DATABASE_URL'];
+    // Log the DATABASE_DIRECT_URL (without password for security)
+    const dbUrl = process.env['DATABASE_DIRECT_URL'];
     const urlParts = dbUrl.split('@');
     if (urlParts.length > 1) {
       const hostPart = urlParts[1];
@@ -18,7 +18,7 @@ const getDbConfig = () => {
     return {
       client: 'pg',
       connection: {
-        connectionString: process.env['DATABASE_URL'],
+        connectionString: process.env['DATABASE_DIRECT_URL'],
         ssl: { rejectUnauthorized: false }, // Required for Supabase
       },
       pool: {
@@ -125,7 +125,7 @@ export const connectDatabase = async (): Promise<void> => {
     // Test with direct pg connection first
     const { Client } = require('pg');
     const client = new Client({
-      connectionString: process.env['DATABASE_URL'],
+      connectionString: process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'],
       ssl: { rejectUnauthorized: false }
     });
     
