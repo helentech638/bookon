@@ -889,6 +889,63 @@ router.get('/test-db', asyncHandler(async (_req: Request, res: Response) => {
   }
 }));
 
+// Reset admin password endpoint
+router.post('/reset-admin-password', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { email = 'admin@bookon.com', password = 'admin123' } = req.body;
+    
+    // Find the admin user
+    const existingUser = await authPrisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: 'Admin user not found'
+        }
+      });
+    }
+    
+    // Hash the new password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+    
+    // Update the user's password
+    const updatedUser = await authPrisma.user.update({
+      where: { email },
+      data: {
+        password_hash: passwordHash
+      }
+    });
+    
+    logger.info('✅ Admin password reset', {
+      email: updatedUser.email,
+      role: updatedUser.role
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Admin password reset successfully',
+      data: {
+        email: updatedUser.email,
+        role: updatedUser.role
+      }
+    });
+    
+  } catch (error) {
+    logger.error('❌ Failed to reset admin password:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to reset admin password',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
+}));
+
 // Create admin user endpoint
 router.post('/create-admin', asyncHandler(async (req: Request, res: Response) => {
   try {
