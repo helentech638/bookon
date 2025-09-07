@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { authService } from '../../services/authService';
 
 interface SystemSettings {
   // General Settings
@@ -137,7 +138,7 @@ const AdminSettings: React.FC = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       
       const response = await fetch('/api/v1/admin/settings', {
         headers: {
@@ -161,7 +162,7 @@ const AdminSettings: React.FC = () => {
   const saveSettings = async () => {
     try {
       setSaving(true);
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       
       const response = await fetch('/api/v1/admin/settings', {
         method: 'PUT',

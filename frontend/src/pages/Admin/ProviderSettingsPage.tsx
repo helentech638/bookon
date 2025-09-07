@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { authService } from '../../services/authService';
 
 interface ProviderSettings {
   id: string;
@@ -85,9 +86,14 @@ const ProviderSettingsPage: React.FC = () => {
 
   const fetchVenues = async () => {
     try {
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('/api/v1/admin/venues', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -114,9 +120,14 @@ const ProviderSettingsPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/v1/provider-settings/${venueId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -141,10 +152,15 @@ const ProviderSettingsPage: React.FC = () => {
     try {
       setSaving(true);
 
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/v1/provider-settings/${selectedVenueId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(settings)
@@ -167,10 +183,15 @@ const ProviderSettingsPage: React.FC = () => {
     if (!selectedVenueId) return;
 
     try {
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/v1/provider-settings/${selectedVenueId}/reset`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });

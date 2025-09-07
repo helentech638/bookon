@@ -39,6 +39,7 @@ import PaymentSettings from './pages/Admin/PaymentSettings';
 import ExportCenter from './pages/Admin/ExportCenter';
 import TFCQueuePage from './pages/Admin/TFCQueuePage';
 import ProviderSettingsPage from './pages/Admin/ProviderSettingsPage';
+import AdminSettings from './pages/Admin/AdminSettings';
 import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
 import MyBookingsPage from './pages/Parent/MyBookingsPage';

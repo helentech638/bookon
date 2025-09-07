@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, XCircleIcon, EnvelopeIcon, FunnelIcon, ArrowDownTrayIcon, CurrencyPoundIcon, CreditCardIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { authService } from '../../services/authService';
 
 interface TFCBooking {
   id: string;
@@ -49,7 +50,7 @@ const TFCQueuePage: React.FC = () => {
       setLoading(true);
       const response = await fetch('/api/v1/tfc/pending', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -142,7 +143,7 @@ const TFCQueuePage: React.FC = () => {
       const response = await fetch(`/api/v1/tfc/confirm/${bookingId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -167,7 +168,7 @@ const TFCQueuePage: React.FC = () => {
       const response = await fetch(`/api/v1/tfc/cancel/${bookingId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -201,7 +202,7 @@ const TFCQueuePage: React.FC = () => {
       const response = await fetch(`/api/v1/tfc/part-paid/${bookingId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -229,7 +230,7 @@ const TFCQueuePage: React.FC = () => {
       const response = await fetch(`/api/v1/tfc/convert-to-credit/${bookingId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -259,7 +260,7 @@ const TFCQueuePage: React.FC = () => {
       const response = await fetch('/api/v1/tfc/bulk-confirm', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
