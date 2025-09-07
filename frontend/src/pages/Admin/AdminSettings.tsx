@@ -4,7 +4,6 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Checkbox } from '../../components/ui/Checkbox';
-import { Select } from '../../components/ui/Select';
 import { 
   CogIcon, 
   ShieldCheckIcon, 
@@ -16,7 +15,7 @@ import {
   DocumentTextIcon,
   KeyIcon,
   ServerIcon,
-  DatabaseIcon,
+  CircleStackIcon,
   CloudIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
@@ -198,7 +197,7 @@ const AdminSettings: React.FC = () => {
     { id: 'tfc', name: 'TFC Settings', icon: ClockIcon },
     { id: 'system', name: 'System', icon: ServerIcon },
     { id: 'api', name: 'API', icon: CloudIcon },
-    { id: 'database', name: 'Database', icon: DatabaseIcon }
+    { id: 'database', name: 'Database', icon: CircleStackIcon }
   ];
 
   const renderGeneralSettings = () => (
@@ -371,14 +370,15 @@ const AdminSettings: React.FC = () => {
           </div>
           <div>
             <Label htmlFor="notificationFrequency">Notification Frequency</Label>
-            <Select
+            <select
               value={settings.notificationFrequency}
-              onValueChange={(value) => updateSetting('notificationFrequency', value)}
+              onChange={(e) => updateSetting('notificationFrequency', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="immediate">Immediate</option>
               <option value="hourly">Hourly</option>
               <option value="daily">Daily</option>
-            </Select>
+            </select>
           </div>
         </CardContent>
       </Card>
@@ -397,14 +397,15 @@ const AdminSettings: React.FC = () => {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="defaultCurrency">Default Currency</Label>
-            <Select
+            <select
               value={settings.defaultCurrency}
-              onValueChange={(value) => updateSetting('defaultCurrency', value)}
+              onChange={(e) => updateSetting('defaultCurrency', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="GBP">British Pound (GBP)</option>
               <option value="USD">US Dollar (USD)</option>
               <option value="EUR">Euro (EUR)</option>
-            </Select>
+            </select>
           </div>
           
           <div className="space-y-4">
@@ -563,26 +564,28 @@ const AdminSettings: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="logLevel">Log Level</Label>
-              <Select
+              <select
                 value={settings.logLevel}
-                onValueChange={(value) => updateSetting('logLevel', value)}
+                onChange={(e) => updateSetting('logLevel', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="error">Error</option>
                 <option value="warn">Warning</option>
                 <option value="info">Info</option>
                 <option value="debug">Debug</option>
-              </Select>
+              </select>
             </div>
             <div>
               <Label htmlFor="backupFrequency">Backup Frequency</Label>
-              <Select
+              <select
                 value={settings.backupFrequency}
-                onValueChange={(value) => updateSetting('backupFrequency', value)}
+                onChange={(e) => updateSetting('backupFrequency', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
-              </Select>
+              </select>
             </div>
           </div>
         </CardContent>
@@ -644,10 +647,10 @@ const AdminSettings: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <DatabaseIcon className="h-5 w-5 mr-2" />
-            Database Configuration
-          </CardTitle>
+        <CardTitle className="flex items-center">
+          <CircleStackIcon className="h-5 w-5 mr-2" />
+          Database Configuration
+        </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -137,8 +137,8 @@ class AuthService {
 
       if (data.success && data.data) {
         // Handle the backend response structure
-        const accessToken = data.data.tokens?.accessToken || data.data.token;
-        const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
+        const accessToken = data.data.token;
+        const refreshToken = data.data.refreshToken;
         
         if (!accessToken || !refreshToken) {
           throw new Error('Invalid response: missing tokens');
