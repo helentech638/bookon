@@ -43,7 +43,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       setIsProcessing(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('https://bookon-mu.vercel.app/api/v1/payments/create-intent', {
+      const response = await fetch('/api/v1/payments/create-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

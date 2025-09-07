@@ -50,7 +50,7 @@ const VenuesPage: React.FC = () => {
   const fetchVenues = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://bookon-mu.vercel.app/api/v1/venues', {
+      const response = await fetch('/api/v1/venues', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

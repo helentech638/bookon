@@ -2,6 +2,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from '../utils/logger';
 import NotificationService from './notificationService';
+import jwt from 'jsonwebtoken';
+import { prisma } from '../utils/prisma';
 
 export class WebSocketService {
   private io: SocketIOServer;
@@ -24,15 +26,34 @@ export class WebSocketService {
       logger.info('User connected to WebSocket', { socketId: socket.id });
 
       // Handle user authentication
-      socket.on('authenticate', (data: { userId: string, token: string }) => {
+      socket.on('authenticate', async (data: { userId: string, token: string }) => {
         try {
-          // TODO: Verify JWT token here
+          // Verify JWT token
+          const decoded = jwt.verify(data.token, process.env.JWT_SECRET!) as any;
+          
+          // Verify user exists and is active
+          const user = await prisma.user.findUnique({
+            where: { id: data.userId },
+            select: { id: true, email: true, role: true, isActive: true }
+          });
+
+          if (!user || !user.isActive) {
+            throw new Error('User not found or inactive');
+          }
+
+          // Verify token belongs to user
+          if (decoded.userId !== data.userId) {
+            throw new Error('Token user mismatch');
+          }
+
           this.connectedUsers.set(data.userId, socket.id);
           socket.join(`user:${data.userId}`);
           
           logger.info('User authenticated via WebSocket', { 
             userId: data.userId, 
-            socketId: socket.id 
+            socketId: socket.id,
+            userEmail: user.email,
+            userRole: user.role
           });
           
           socket.emit('authenticated', { success: true });
@@ -43,15 +64,32 @@ export class WebSocketService {
       });
 
       // Handle venue room joining (for staff/admin)
-      socket.on('join_venue', (data: { venueId: string, userId: string }) => {
+      socket.on('join_venue', async (data: { venueId: string, userId: string }) => {
         try {
-          // TODO: Verify user has access to venue
+          // Verify user has access to venue
+          const user = await prisma.user.findUnique({
+            where: { id: data.userId },
+            select: { id: true, role: true, venueId: true }
+          });
+
+          if (!user) {
+            throw new Error('User not found');
+          }
+
+          // Check if user is admin or has access to this venue
+          const hasAccess = user.role === 'admin' || user.venueId === data.venueId;
+          
+          if (!hasAccess) {
+            throw new Error('Access denied to venue');
+          }
+
           socket.join(`venue:${data.venueId}`);
           
           logger.info('User joined venue room', { 
             userId: data.userId, 
             venueId: data.venueId,
-            socketId: socket.id 
+            socketId: socket.id,
+            userRole: user.role
           });
           
           socket.emit('venue_joined', { venueId: data.venueId });

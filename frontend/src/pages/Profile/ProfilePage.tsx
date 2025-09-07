@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   UserCircleIcon,
@@ -19,61 +19,119 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { authService, User } from '../../services/authService';
+
+interface Child {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  yearGroup?: string;
+  allergies?: string;
+  medicalInfo?: string;
+  emergencyContacts?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState(false);
 
-  // Mock user data - replace with actual user context
-  const user = {
-    id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    phone: '+44 7700 900123',
-    dateOfBirth: '1985-03-15',
-    address: '123 Main Street',
-    city: 'London',
-    postcode: 'SW1A 1AA',
-    role: 'parent',
-    avatar: null,
-    preferences: {
-      emailNotifications: true,
-      smsNotifications: false,
-      marketingEmails: true,
-      newsletter: false,
-      language: 'en',
-      timezone: 'Europe/London'
-    },
-    children: [
-      {
-        id: '1',
-        name: 'Emma Johnson',
-        dateOfBirth: '2015-08-22',
-        age: 8,
-        yearGroup: 'Year 3'
-      },
-      {
-        id: '2',
-        name: 'Liam Johnson',
-        dateOfBirth: '2018-03-10',
-        age: 5,
-        yearGroup: 'Reception'
+  // Load children data
+  const loadChildren = async () => {
+    try {
+      setLoadingChildren(true);
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(`${process.env.VITE_API_BASE_URL || 'https://bookon-mu.vercel.app/api/v1'}/children`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setChildren(data.data);
+        }
       }
-    ]
+    } catch (error) {
+      console.error('Failed to load children:', error);
+    } finally {
+      setLoadingChildren(false);
+    }
   };
 
+  // Load user data on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoadingUser(true);
+        const userData = await authService.getProfile();
+        setUser(userData);
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+        // Fallback to stored user data if API fails
+        const storedUser = authService.getUser();
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  // Load children when children tab is active
+  useEffect(() => {
+    if (activeTab === 'children' && children.length === 0) {
+      loadChildren();
+    }
+  }, [activeTab]);
+
   const [formData, setFormData] = useState({
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phone: user.phone,
-    address: user.address,
-    city: user.city,
-    postcode: user.postcode
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    city: '',
+    postcode: ''
   });
 
-  const [preferences, setPreferences] = useState(user.preferences);
+  const [preferences, setPreferences] = useState({
+    emailNotifications: true,
+    smsNotifications: false,
+    marketingEmails: true,
+    newsletter: false,
+    language: 'en',
+    timezone: 'Europe/London'
+  });
+
+  // Update form data when user data loads
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        city: '',
+        postcode: ''
+      });
+    }
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -85,36 +143,71 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+    
     setIsLoading(true);
     
     try {
-      // TODO: Implement actual save logic
-      // await userService.updateProfile(formData);
-      // await userService.updatePreferences(preferences);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Update profile using authService
+      const updatedUser = await authService.updateProfile(formData);
+      setUser(updatedUser);
       setIsEditing(false);
-      // TODO: Show success message
     } catch (error) {
-      console.error('Failed to save profile:', error);
-      // TODO: Show error message
+      console.error('Save failed:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Show loading state while user data is being fetched
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1">
+                <div className="h-64 bg-gray-200 rounded-lg"></div>
+              </div>
+              <div className="lg:col-span-2">
+                <div className="h-96 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no user data
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Profile Not Found</h1>
+            <p className="text-gray-600 mb-8">Unable to load your profile data.</p>
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleCancel = () => {
-    setFormData({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phone: user.phone,
-      address: user.address,
-      city: user.city,
-      postcode: user.postcode
-    });
-    setPreferences(user.preferences);
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        phone: user.phone || '',
+        address: user.address || '',
+        city: '',
+        postcode: ''
+      });
+    }
     setIsEditing(false);
   };
 
@@ -156,8 +249,8 @@ const ProfilePage: React.FC = () => {
             <Card className="p-6">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-gradient-to-br from-[#041c30] to-[#00806a] rounded-full flex items-center justify-center mx-auto mb-4">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
+                  {(user as any).avatar ? (
+                    <img src={(user as any).avatar} alt="Profile" className="w-20 h-20 rounded-full object-cover" />
                   ) : (
                     <UserCircleIcon className="w-12 h-12 text-white" />
                   )}
@@ -193,28 +286,75 @@ const ProfilePage: React.FC = () => {
             {/* Profile Tab */}
             {activeTab === 'profile' && (
               <Card>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
-                    {isEditing && (
-                      <div className="flex space-x-2">
-                        <Button
-                          onClick={handleCancel}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSave}
-                          disabled={isLoading}
-                          size="sm"
-                        >
-                          {isLoading ? 'Saving...' : 'Save Changes'}
-                        </Button>
-                      </div>
-                    )}
+                <div className="p-8">
+                  {/* Header Section */}
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Your Profile</h3>
+                      <p className="text-gray-600">Manage your personal information and account settings</p>
+                    </div>
+                    <Button
+                      onClick={() => setIsEditing(!isEditing)}
+                      variant="outline"
+                      className="flex items-center space-x-2"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                      <span>Edit Profile</span>
+                    </Button>
                   </div>
+
+                  {/* User Avatar and Basic Info */}
+                  <div className="flex items-start space-x-6 mb-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl">
+                    <div className="flex-shrink-0">
+                      {(user as any)?.avatar ? (
+                        <img
+                          src={(user as any).avatar}
+                          alt="Profile"
+                          className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#00806a] to-[#041c30] flex items-center justify-center">
+                          <UserCircleIcon className="w-12 h-12 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                        {user ? `${user.firstName} ${user.lastName}` : 'Loading...'}
+                      </h4>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <EnvelopeIcon className="w-4 h-4 mr-2" />
+                          <span>{user?.email || 'Loading...'}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <ShieldCheckIcon className="w-4 h-4 mr-2" />
+                          <span className="capitalize">{user?.role || 'Loading...'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Controls */}
+                  {isEditing && (
+                    <div className="flex justify-end space-x-3 mb-6">
+                      <Button
+                        onClick={handleCancel}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSave}
+                        disabled={isLoading}
+                        size="sm"
+                        className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42]"
+                      >
+                        {isLoading ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -361,32 +501,65 @@ const ProfilePage: React.FC = () => {
                     </Link>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {user.children.map((child) => (
-                      <div key={child.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-lg font-medium text-gray-900">{child.name}</h4>
-                          <Link
-                            to={`/children/${child.id}/edit`}
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
-                          >
-                            <PencilIcon className="w-4 h-4 mr-1" />
-                            Edit
-                          </Link>
-                        </div>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          <div className="flex items-center">
-                            <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                            Age: {child.age} years old
+                  {loadingChildren ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00806a] mx-auto"></div>
+                      <p className="mt-2 text-gray-600">Loading children...</p>
+                    </div>
+                  ) : children.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {children.map((child) => {
+                        const age = new Date().getFullYear() - new Date(child.dateOfBirth).getFullYear();
+                        return (
+                          <div key={child.id} className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-lg font-medium text-gray-900">
+                                {child.firstName} {child.lastName}
+                              </h4>
+                              <Link
+                                to={`/children/${child.id}/edit`}
+                                className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
+                              >
+                                <PencilIcon className="w-4 h-4 mr-1" />
+                                Edit
+                              </Link>
+                            </div>
+                            <div className="space-y-2 text-sm text-gray-600">
+                              <div className="flex items-center">
+                                <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                                Age: {age} years old
+                              </div>
+                              {child.yearGroup && (
+                                <div className="flex items-center">
+                                  <UserCircleIcon className="w-4 h-4 mr-2" />
+                                  Year Group: {child.yearGroup}
+                                </div>
+                              )}
+                              {child.allergies && (
+                                <div className="flex items-center">
+                                  <ExclamationTriangleIcon className="w-4 h-4 mr-2 text-amber-500" />
+                                  Allergies: {child.allergies}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center">
-                            <UserCircleIcon className="w-4 h-4 mr-2" />
-                            Year Group: {child.yearGroup}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <UserGroupIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Children Added Yet</h3>
+                      <p className="text-gray-600 mb-4">Add your children to start managing their activities and bookings.</p>
+                      <Link
+                        to="/children"
+                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00806a] hover:bg-[#006b5a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
+                      >
+                        <PlusIcon className="w-4 h-4 mr-2" />
+                        Add Child
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </Card>
             )}

@@ -18,6 +18,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import AdminLayout from '../../components/layout/AdminLayout';
 import { Select } from '../../components/ui/Select';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
@@ -215,18 +216,12 @@ const PaymentSettings: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Payment Settings</h1>
-              <p className="text-gray-600">Configure payment processing, fees, and venue accounts</p>
-            </div>
-          </div>
-        </div>
+    <AdminLayout title="Payment Settings">
+      <div className="mb-6">
+        <p className="text-gray-600">Configure payment processing, fees, and venue accounts</p>
       </div>
+      
+      <div className="min-h-screen bg-gray-50">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation */}
@@ -759,7 +754,8 @@ const PaymentSettings: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

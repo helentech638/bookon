@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { authService } from '../../services/authService';
 
 const RegisterPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -65,6 +66,8 @@ const RegisterPage: React.FC = () => {
         newErrors.password = 'Password is required';
       } else if (formData.password.length < 8) {
         newErrors.password = 'Password must be at least 8 characters';
+      } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(formData.password)) {
+        newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)';
       }
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = 'Please confirm your password';
@@ -107,17 +110,23 @@ const RegisterPage: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // TODO: Implement actual registration logic
-      // const response = await authService.register(formData);
+      // Call the actual registration API
+      const response = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // TODO: Set auth token and user data
-      // authService.setToken(response.token);
-      // authService.setUser(response.user);
-      
-      navigate('/dashboard');
+      if (response.success) {
+        // Registration successful - redirect to login page
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! Please log in with your credentials.',
+            email: formData.email 
+          } 
+        });
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       setErrors({ general: 'Registration failed. Please try again.' });
@@ -138,9 +147,7 @@ const RegisterPage: React.FC = () => {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#041c30] to-[#00806a] rounded-2xl flex items-center justify-center">
-              <span className="text-white font-bold text-3xl">B</span>
-            </div>
+            <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-16 w-auto" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Create your account
@@ -307,6 +314,19 @@ const RegisterPage: React.FC = () => {
                         <EyeIcon className="h-5 w-5 text-gray-400" />
                       )}
                     </button>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    <p className="font-medium mb-1">Password requirements:</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>At least 8 characters long</li>
+                      <li>One uppercase letter (A-Z)</li>
+                      <li>One lowercase letter (a-z)</li>
+                      <li>One number (0-9)</li>
+                      <li>One special character: <span className="font-mono bg-gray-100 px-1 rounded">@ $ ! % * ? &</span></li>
+                    </ul>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Example: <span className="font-mono bg-gray-100 px-1 rounded">Password123!</span>
+                    </p>
                   </div>
                   {errors.password && (
                     <p className="mt-1 text-sm text-red-600">{errors.password}</p>

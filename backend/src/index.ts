@@ -30,11 +30,19 @@ import widgetConfigRoutes from './routes/widget-config';
 import registersRoutes from './routes/registers';
 import webhooksRoutes from './routes/webhooks';
 import setupRoutes from './routes/setup';
+import tfcRoutes from './routes/tfc';
+import cancellationRoutes from './routes/cancellations';
+import walletRoutes from './routes/wallet';
+import providerSettingsRoutes from './routes/provider-settings';
+import auditRoutes from './routes/audit';
+import edgeCaseRoutes from './routes/edge-cases';
+import dataRetentionRoutes from './routes/data-retention';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger } from './utils/logger';
+import { cronService } from './services/cronService';
 
 // Import database connection
 import { connectDatabase } from './utils/database';
@@ -241,6 +249,13 @@ app.use('/api/v1/widget-config', widgetConfigRoutes);
 app.use('/api/v1/registers', registersRoutes);
 app.use('/api/v1/webhooks', webhooksRoutes);
 app.use('/api/v1/setup', setupRoutes);
+app.use('/api/v1/tfc', tfcRoutes);
+app.use('/api/v1/cancellations', cancellationRoutes);
+app.use('/api/v1/wallet', walletRoutes);
+app.use('/api/v1/provider-settings', providerSettingsRoutes);
+app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/edge-cases', edgeCaseRoutes);
+app.use('/api/v1/data-retention', dataRetentionRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
@@ -342,6 +357,10 @@ const startServer = async () => {
     // Initialize WebSocket service
     initializeWebSocket(server);
     logger.info('🔌 WebSocket service initialized');
+
+    // Start cron service for automated notifications
+    cronService.start();
+    logger.info('⏰ Cron service started');
 
     // Start HTTP server
     server.listen(PORT, () => {

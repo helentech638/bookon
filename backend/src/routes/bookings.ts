@@ -4,7 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 
 const router = express.Router();
 
@@ -42,61 +42,55 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   try {
     const userId = req.user!.id;
     
-    const bookings = await db('bookings')
-      .select(
-        'bookings.*',
-        'activities.title as activity_name',
-        'activities.start_date',
-        'activities.start_time',
-        'activities.end_time',
-        'activities.price',
-        'venues.name as venue_name',
-        'venues.address as venue_address',
-        'venues.city as venue_city',
-        'children.firstName as child_firstName',
-        'children.lastName as child_lastName',
-        'payments.status as payment_status'
-      )
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .join('children', 'bookings.child_id', 'children.id')
-      .leftJoin('payments', 'bookings.id', 'payments.booking_id')
-      .where('bookings.user_id', userId)
-      .where('bookings.is_active', true)
-      .orderBy('bookings.created_at', 'desc');
+    const bookings = await prisma.booking.findMany({
+      where: { 
+        parentId: userId,
+        // Note: is_active field doesn't exist in current schema, using status instead
+        status: { not: 'cancelled' }
+      },
+      include: {
+        activity: {
+          include: {
+            venue: true
+          }
+        },
+        child: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => ({
-      id: booking.id,
-      activity_name: booking.activity_name,
-      venue_name: booking.venue_name,
-      child_name: `${booking.child_firstName} ${booking.child_lastName}`,
-      start_date: booking.start_date,
-      start_time: booking.start_time,
-      end_time: booking.end_time,
-      total_amount: booking.price,
+        id: booking.id,
+      activity_name: booking.activity.name,
+      venue_name: booking.activity.venue.name,
+      child_name: `${booking.child.firstName} ${booking.child.lastName}`,
+      start_date: booking.activityDate,
+      start_time: booking.activityTime,
+      end_time: booking.activityTime, // Using same time for end_time
+      total_amount: booking.amount,
       status: booking.status,
-      created_at: booking.created_at,
-      payment_status: booking.payment_status || 'pending',
+      created_at: booking.createdAt,
+      payment_status: booking.paymentStatus || 'pending',
       notes: booking.notes,
-      activity: {
-        id: booking.activity_id,
-        title: booking.activity_name,
-        description: booking.activity_name, // You might want to add description to activities table
-        price: booking.price,
-        max_capacity: 20, // Default value, you might want to add this to activities table
+        activity: {
+          id: booking.activityId,
+        title: booking.activity.name,
+        description: booking.activity.description || booking.activity.name,
+        price: booking.activity.price || booking.amount,
+        max_capacity: booking.activity.maxCapacity || 20,
         current_capacity: 15, // Default value, you might want to add this to activities table
-      },
-      venue: {
-        id: booking.venue_id,
-        name: booking.venue_name,
-        address: booking.venue_address,
-        city: booking.venue_city,
+        },
+        venue: {
+        id: booking.activity.venue.id,
+          name: booking.activity.venue.name,
+        address: booking.activity.venue.address,
+        city: booking.activity.venue.city,
       },
       child: {
-        id: booking.child_id,
-        firstName: booking.child_firstName,
-        lastName: booking.child_lastName,
+        id: booking.childId,
+        firstName: booking.child.firstName,
+        lastName: booking.child.lastName,
       },
     }));
 
@@ -135,7 +129,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
             address: '123 Main Street',
             city: 'London',
           },
-          child: {
+        child: {
             id: '1',
             firstName: 'John',
             lastName: 'Smith',
@@ -153,15 +147,15 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           status: 'pending',
           created_at: '2024-01-12T14:30:00Z',
           payment_status: 'pending',
-          activity: {
+        activity: {
             id: '2',
             title: 'Art Workshop',
             description: 'Creative art session for children',
             price: 30.00,
             max_capacity: 15,
             current_capacity: 12,
-          },
-          venue: {
+        },
+        venue: {
             id: '2',
             name: 'Art Studio',
             address: '456 Oak Avenue',
@@ -190,52 +184,58 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
     const userId = req.user!.id;
 
     // Check if activity exists and has capacity
-    const activity = await db('activities')
-      .select('*')
-      .where('id', activityId)
-      .where('is_active', true)
-      .first();
+    const activity = await prisma.activity.findFirst({
+      where: { 
+        id: activityId,
+        // Note: is_active field doesn't exist in current schema, using status instead
+        status: 'active'
+      }
+    });
 
     if (!activity) {
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
     }
 
     // Check if child belongs to user
-    const child = await db('children')
-      .select('*')
-      .where('id', childId)
-      .where('user_id', userId)
-      .first();
+    const child = await prisma.child.findFirst({
+      where: { 
+        id: childId,
+        parentId: userId
+      }
+    });
 
     if (!child) {
       throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
     }
 
     // Check if user already has a booking for this activity
-    const existingBooking = await db('bookings')
-      .where('user_id', userId)
-      .where('activity_id', activityId)
-      .where('child_id', childId)
-      .where('is_active', true)
-      .first();
+    const existingBooking = await prisma.booking.findFirst({
+      where: { 
+        parentId: userId,
+        activityId: activityId,
+        childId: childId,
+        status: { not: 'cancelled' }
+      }
+    });
 
     if (existingBooking) {
       throw new AppError('Booking already exists for this activity and child', 400, 'BOOKING_ALREADY_EXISTS');
     }
 
     // Create booking
-    const [booking] = await db('bookings')
-      .insert({
-        user_id: userId,
-        activity_id: activityId,
-        child_id: childId,
-        start_date: startDate,
-        start_time: startTime,
+    const booking = await prisma.booking.create({
+      data: {
+        parentId: userId,
+        activityId: activityId,
+        childId: childId,
+        activityDate: new Date(startDate),
+        activityTime: startTime,
         status: 'pending',
         notes: notes || null,
-        is_active: true,
-      })
-      .returning(['id', 'user_id', 'activity_id', 'child_id', 'start_date', 'start_time', 'status', 'created_at']);
+        amount: activity.price || 0,
+        paymentStatus: 'pending',
+        paymentMethod: 'card'
+      });
 
     logger.info(`Booking created: ${booking.id} for user: ${userId}`);
 
@@ -261,14 +261,15 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     const { id } = req.params;
     const { reason, refundRequested } = req.body;
     const userId = req.user!.id;
-
+    
     // Check if booking exists and belongs to user
-    const booking = await db('bookings')
-      .select('*')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const booking = await prisma.booking.findFirst({
+      where: { 
+        id: id,
+        parentId: userId,
+        status: { not: 'cancelled' }
+      }
+    });
 
     if (!booking) {
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
@@ -280,23 +281,17 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     }
 
     // Update booking status
-    await db('bookings')
-      .where('id', id)
-      .update({
+    await prisma.booking.update({
+      where: { id: id },
+      data: {
         status: 'cancelled',
-        cancelled_at: new Date(),
-        cancellation_reason: reason,
-        refund_requested: refundRequested || false,
-      });
-
-    // Create cancellation record
-    await db('booking_cancellations').insert({
-      booking_id: id,
-      reason,
-      refund_requested: refundRequested || false,
-      cancelled_by: userId,
-      cancelled_at: new Date(),
+        // Note: cancelled_at, cancellation_reason, refund_requested fields don't exist in current schema
+        // These would need to be added to the Booking model if needed
+      }
     });
+
+    // Note: booking_cancellations table doesn't exist in current schema
+    // This would need to be added if cancellation tracking is required
 
     logger.info(`Booking cancelled: ${id} by user: ${userId}`);
 
@@ -323,12 +318,13 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
     const userId = req.user!.id;
 
     // Check if booking exists and belongs to user
-    const booking = await db('bookings')
-      .select('*')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const booking = await prisma.booking.findFirst({
+      where: { 
+        id: id,
+        parentId: userId,
+        status: { not: 'cancelled' }
+      }
+    });
 
     if (!booking) {
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
@@ -340,39 +336,33 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
     }
 
     // Check if new date/time is available
-    const conflictingBooking = await db('bookings')
-      .where('activity_id', booking.activity_id)
-      .where('start_date', newDate)
-      .where('start_time', newTime)
-      .where('is_active', true)
-      .where('id', '!=', id)
-      .first();
-
+    const conflictingBooking = await prisma.booking.findFirst({
+      where: { 
+        activityId: booking.activityId,
+        activityDate: new Date(newDate),
+        activityTime: newTime,
+        status: { not: 'cancelled' },
+        id: { not: id }
+      }
+    });
+      
     if (conflictingBooking) {
       throw new AppError('Selected date and time is not available', 400, 'TIME_SLOT_NOT_AVAILABLE');
     }
 
     // Update booking
-    await db('bookings')
-      .where('id', id)
-      .update({
-        start_date: newDate,
-        start_time: newTime,
-        rescheduled_at: new Date(),
+    await prisma.booking.update({
+      where: { id: id },
+      data: {
+        activityDate: new Date(newDate),
+        activityTime: newTime,
         notes: notes || booking.notes,
-      });
-
-    // Create reschedule record
-    await db('booking_reschedules').insert({
-      booking_id: id,
-      old_date: booking.start_date,
-      old_time: booking.start_time,
-      new_date: newDate,
-      new_time: newTime,
-      notes,
-      rescheduled_by: userId,
-      rescheduled_at: new Date(),
+        // Note: rescheduled_at field doesn't exist in current schema
+      }
     });
+
+    // Note: booking_reschedules table doesn't exist in current schema
+    // This would need to be added if reschedule tracking is required
 
     logger.info(`Booking rescheduled: ${id} by user: ${userId}`);
 
@@ -399,12 +389,13 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
     const userId = req.user!.id;
 
     // Check if booking exists and belongs to user
-    const booking = await db('bookings')
-      .select('*')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const booking = await prisma.booking.findFirst({
+      where: { 
+        id: id,
+        parentId: userId,
+        status: { not: 'cancelled' }
+      }
+    });
 
     if (!booking) {
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
@@ -417,42 +408,35 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
 
     // Update booking
     const updateData: any = {
-      amended_at: new Date(),
+      // Note: amended_at field doesn't exist in current schema
     };
 
     if (childId) {
       // Check if new child belongs to user
-      const child = await db('children')
-        .select('*')
-        .where('id', childId)
-        .where('user_id', userId)
-        .first();
+      const child = await prisma.child.findFirst({
+        where: { 
+          id: childId,
+          parentId: userId
+        }
+      });
 
       if (!child) {
         throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
       }
-      updateData.child_id = childId;
+      updateData.childId = childId;
     }
 
     if (notes) {
       updateData.notes = notes;
     }
 
-    await db('bookings')
-      .where('id', id)
-      .update(updateData);
-
-    // Update or create booking amendments
-    await db('booking_amendments').insert({
-      booking_id: id,
-      child_id: childId || booking.child_id,
-      special_requirements: specialRequirements,
-      dietary_restrictions: dietaryRestrictions,
-      medical_notes: medicalNotes,
-      emergency_contact: emergencyContact ? JSON.stringify(emergencyContact) : null,
-      amended_by: userId,
-      amended_at: new Date(),
+    await prisma.booking.update({
+      where: { id: id },
+      data: updateData
     });
+
+    // Note: booking_amendments table doesn't exist in current schema
+    // This would need to be added if amendment tracking is required
 
     logger.info(`Booking amended: ${id} by user: ${userId}`);
 
@@ -472,67 +456,54 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
 
-    const booking = await db('bookings')
-      .select(
-        'bookings.*',
-        'activities.title as activity_name',
-        'activities.description as activity_description',
-        'activities.start_date',
-        'activities.start_time',
-        'activities.end_time',
-        'activities.price',
-        'venues.name as venue_name',
-        'venues.address as venue_address',
-        'venues.city as venue_city',
-        'children.firstName as child_firstName',
-        'children.lastName as child_lastName',
-        'payments.status as payment_status'
-      )
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .join('children', 'bookings.child_id', 'children.id')
-      .leftJoin('payments', 'bookings.id', 'payments.booking_id')
-      .where('bookings.id', id)
-      .where('bookings.user_id', userId)
-      .where('bookings.is_active', true)
-      .first();
+    const booking = await prisma.booking.findUnique({
+      where: { id: id },
+      include: {
+        activity: {
+          include: {
+            venue: true
+          }
+        },
+        child: true
+      }
+    });
 
-    if (!booking) {
+    if (!booking || booking.parentId !== userId) {
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
     }
 
     // Transform the data
     const transformedBooking = {
       id: booking.id,
-      activity_name: booking.activity_name,
-      venue_name: booking.venue_name,
-      child_name: `${booking.child_firstName} ${booking.child_lastName}`,
-      start_date: booking.start_date,
-      start_time: booking.start_time,
-      end_time: booking.end_time,
-      total_amount: booking.price,
+      activity_name: booking.activity.name,
+      venue_name: booking.activity.venue.name,
+      child_name: `${booking.child.firstName} ${booking.child.lastName}`,
+      start_date: booking.activityDate,
+      start_time: booking.activityTime,
+      end_time: booking.activityTime, // Using same time for end_time
+      total_amount: booking.amount,
       status: booking.status,
-      created_at: booking.created_at,
-      payment_status: booking.payment_status || 'pending',
+      created_at: booking.createdAt,
+      payment_status: booking.paymentStatus || 'pending',
       notes: booking.notes,
       activity: {
-        id: booking.activity_id,
-        title: booking.activity_name,
-        description: booking.activity_description,
-        price: booking.price,
-        max_capacity: 20,
+        id: booking.activityId,
+        title: booking.activity.name,
+        description: booking.activity.description,
+        price: booking.activity.price || booking.amount,
+        max_capacity: booking.activity.maxCapacity || 20,
         current_capacity: 15,
       },
       venue: {
-        id: booking.venue_id,
-        name: booking.venue_name,
-        address: booking.venue_address,
-        city: booking.venue_city,
+        id: booking.activity.venue.id,
+        name: booking.activity.venue.name,
+        address: booking.activity.venue.address,
+        city: booking.activity.venue.city,
       },
       child: {
-        id: booking.child_id,
-        firstName: booking.child_firstName,
-        lastName: booking.child_lastName,
+        id: booking.childId,
+        firstName: booking.child.firstName,
+        lastName: booking.child.lastName,
       },
     };
 

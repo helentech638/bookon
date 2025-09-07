@@ -24,10 +24,14 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       notifications = notifications.filter((n: any) => !n.read);
     }
     
+    // Calculate unread count
+    const unreadCount = notifications.filter((n: any) => !n.read).length;
+    
     res.json({
       success: true,
       data: {
-        notifications,
+        notifications: notifications || [],
+        unreadCount: unreadCount || 0,
         pagination: {
           limit: parseInt(limit as string),
           offset: parseInt(offset as string),
@@ -38,7 +42,13 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     
   } catch (error) {
     logger.error('Error fetching user notifications:', error);
-    throw error;
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch notifications',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }
+    });
   }
 }));
 
@@ -48,11 +58,15 @@ router.patch('/:id/read', authenticateToken, asyncHandler(async (req: Request, r
     const { id } = req.params;
     const userId = (req as any).user.id;
     
+    if (!id) {
+      throw new AppError('Notification ID is required', 400, 'MISSING_NOTIFICATION_ID');
+    }
+    
     // Verify notification belongs to user
     const notification = await prisma.notification.findFirst({
       where: {
         id: id,
-        userId: userId,
+        userId: userId as string,
       },
     });
     
@@ -60,7 +74,7 @@ router.patch('/:id/read', authenticateToken, asyncHandler(async (req: Request, r
       throw new AppError('Notification not found', 404, 'NOTIFICATION_NOT_FOUND');
     }
     
-    await NotificationService.markAsRead(id);
+    await NotificationService.markAsRead(id as string);
     
     res.json({
       success: true,
@@ -80,7 +94,7 @@ router.patch('/read-all', authenticateToken, asyncHandler(async (req: Request, r
     
     await prisma.notification.updateMany({
       where: {
-        userId: userId,
+        userId: userId as string,
         read: false,
       },
       data: {
@@ -168,10 +182,14 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = (req as any).user.id;
     
+    if (!id) {
+      throw new AppError('Notification ID is required', 400, 'MISSING_NOTIFICATION_ID');
+    }
+    
     const notification = await prisma.notification.findFirst({
       where: {
         id: id,
-        userId: userId,
+        userId: userId as string,
       },
     });
     
@@ -196,11 +214,15 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
     const { id } = req.params;
     const userId = (req as any).user.id;
     
+    if (!id) {
+      throw new AppError('Notification ID is required', 400, 'MISSING_NOTIFICATION_ID');
+    }
+    
     // Verify notification belongs to user
     const notification = await prisma.notification.findFirst({
       where: {
         id: id,
-        userId: userId,
+        userId: userId as string,
       },
     });
     

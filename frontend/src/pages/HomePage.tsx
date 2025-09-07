@@ -13,163 +13,178 @@ import {
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 relative overflow-hidden">
-      {/* Background Illustration */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 relative overflow-hidden">
+      {/* Simplified Background Elements */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Calendar Icon */}
-        <div className="absolute top-20 right-20 text-green-100 opacity-20">
-          <CalendarDaysIcon className="w-32 h-32" />
-        </div>
-        {/* Checkmark Icon */}
-        <div className="absolute bottom-20 left-20 text-green-100 opacity-20">
-          <CheckCircleIcon className="w-24 h-24" />
-        </div>
-        {/* Floating dots */}
-        <div className="absolute top-1/3 left-1/4 w-3 h-3 bg-green-200 rounded-full opacity-30 animate-pulse"></div>
-        <div className="absolute top-2/3 right-1/3 w-2 h-2 bg-green-300 rounded-full opacity-40 animate-pulse delay-1000"></div>
-        <div className="absolute bottom-1/3 right-1/4 w-4 h-4 bg-green-200 rounded-full opacity-20 animate-pulse delay-2000"></div>
+        {/* Static gradient orbs - no animation */}
+        <div className="absolute top-20 right-20 w-72 h-72 bg-gradient-to-r from-[#00806a]/5 to-[#041c30]/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-gradient-to-r from-[#041c30]/3 to-[#00806a]/3 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto text-center">
             <div className="mb-8">
-              <div className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium mb-6">
-                <CheckCircleIcon className="w-4 h-4 mr-2" />
-                Trusted by 100+ schools & clubs
+              <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 backdrop-blur-sm border border-[#00806a]/20 text-[#00806a] rounded-full text-sm font-semibold mb-8 shadow-lg">
+                <CheckCircleIcon className="w-5 h-5 mr-2" />
+                Trusted by 100+ schools & clubs worldwide
               </div>
             </div>
             
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 className="text-6xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight tracking-tight">
               Simple. Seamless.
-              <span className="text-[#00806a]"> Bookings.</span>
+              <span className="bg-gradient-to-r from-[#00806a] to-[#041c30] bg-clip-text text-transparent"> Bookings.</span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Streamline your school clubs and activities with our intuitive booking platform. 
-              Manage schedules, track attendance, and simplify administration.
+            <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed font-light">
+              Transform your school clubs and activities with our cutting-edge booking platform. 
+              <span className="text-gray-800 font-medium"> Manage schedules effortlessly, track attendance intelligently, and simplify administration completely.</span>
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Link
                 to="/register"
-                className="bg-[#00806a] hover:bg-[#006d5a] text-white px-8 py-4 rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl"
+                className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42] text-white px-8 py-4 rounded-xl text-lg font-semibold transition-colors duration-200 shadow-lg hover:shadow-xl"
               >
                 Start Free Trial
               </Link>
               <Link
                 to="/demo"
-                className="border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
+                className="border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white px-8 py-4 rounded-xl text-lg font-semibold transition-colors duration-200"
               >
                 Watch Demo
               </Link>
             </div>
 
             {/* Trust Indicators */}
-            <div className="flex flex-wrap justify-center items-center space-x-8 text-sm text-gray-500">
+            <div className="flex flex-wrap justify-center items-center space-x-8 text-sm text-gray-600">
               <div className="flex items-center">
-                <ShieldCheckIcon className="w-4 h-4 text-green-500 mr-1" />
-                <span>GDPR Compliant</span>
+                <ShieldCheckIcon className="w-4 h-4 text-[#00806a] mr-2" />
+                <span className="font-medium">GDPR Compliant</span>
               </div>
               <div className="flex items-center">
-                <ShieldCheckIcon className="w-4 h-4 text-green-500 mr-1" />
-                <span>SSL Secure</span>
+                <ShieldCheckIcon className="w-4 h-4 text-[#00806a] mr-2" />
+                <span className="font-medium">SSL Secure</span>
               </div>
               <div className="flex items-center">
-                <ShieldCheckIcon className="w-4 h-4 text-green-500 mr-1" />
-                <span>UK Based</span>
+                <ShieldCheckIcon className="w-4 h-4 text-[#00806a] mr-2" />
+                <span className="font-medium">UK Based</span>
               </div>
             </div>
           </div>
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-20 bg-white/50">
+        <section id="features" className="py-24 bg-gradient-to-b from-white/80 to-slate-50/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                Everything you need to manage activities
+            <div className="text-center mb-20">
+              <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-full text-sm font-semibold text-[#00806a] mb-6">
+                <AcademicCapIcon className="w-4 h-4 mr-2" />
+                Powerful Features
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+                Everything you need to 
+                <span className="bg-gradient-to-r from-[#00806a] to-[#041c30] bg-clip-text text-transparent"> manage activities</span>
               </h2>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                From booking management to attendance tracking, we've got you covered
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                From intelligent booking management to comprehensive attendance tracking, 
+                <span className="text-gray-800 font-medium"> we've got every aspect covered</span>
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Feature 1 */}
-              <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-                <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+              <div className="group bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-100/50 hover:shadow-xl transition-shadow duration-200">
+                <div className="w-16 h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-6">
                   <CalendarDaysIcon className="w-8 h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Easy Booking Management</h3>
-                <p className="text-gray-600 mb-4">
-                  Create and manage activities with simple drag-and-drop scheduling. 
-                  Parents can book with just a few clicks.
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Smart Booking Management</h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Create and manage activities with intelligent drag-and-drop scheduling. 
+                  <span className="text-gray-800 font-medium">Parents can book with just a few clicks.</span>
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Intuitive calendar interface
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Automated confirmations
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Real-time availability
                   </li>
                 </ul>
               </div>
 
               {/* Feature 2 */}
-              <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-                <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+              <div className="group bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-100/50 hover:shadow-xl transition-shadow duration-200">
+                <div className="w-16 h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-6">
                   <UsersIcon className="w-8 h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Parent & Staff Portal</h3>
-                <p className="text-gray-600 mb-4">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Dual Portal System</h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
                   Dedicated portals for parents to book activities and staff to manage schedules. 
-                  Everyone stays informed and organized.
+                  <span className="text-gray-800 font-medium">Everyone stays informed and organized.</span>
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Parent-friendly interface
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Staff management tools
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Communication hub
                   </li>
                 </ul>
               </div>
 
               {/* Feature 3 */}
-              <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
-                <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+              <div className="group bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-gray-100/50 hover:shadow-xl transition-shadow duration-200">
+                <div className="w-16 h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-6">
                   <ChartBarIcon className="w-8 h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Analytics & Reporting</h3>
-                <p className="text-gray-600 mb-4">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Advanced Analytics</h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
                   Get insights into attendance patterns, popular activities, and revenue tracking. 
-                  Make data-driven decisions for your programs.
+                  <span className="text-gray-800 font-medium">Make data-driven decisions for your programs.</span>
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Attendance tracking
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Revenue analytics
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
-                    <CheckCircleIcon className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <CheckCircleIcon className="w-3 h-3 text-white" />
+                    </div>
                     Custom reports
                   </li>
                 </ul>
@@ -231,7 +246,7 @@ const HomePage = () => {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white">
+        <section className="py-20 bg-gradient-to-r from-[#00806a] to-[#041c30] text-white">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Ready to streamline your activities?

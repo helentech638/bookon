@@ -7,6 +7,13 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -41,10 +48,7 @@ class AuthService {
 
   // Get stored token
   getToken(): string | null {
-    const token = localStorage.getItem(this.tokenKey);
-    console.log('Getting token from localStorage:', token ? 'EXISTS' : 'MISSING');
-    console.log('Token key:', this.tokenKey);
-    return token;
+    return localStorage.getItem(this.tokenKey);
   }
 
   // Get stored refresh token
@@ -60,13 +64,9 @@ class AuthService {
 
   // Set authentication data
   setAuth(token: string, refreshToken: string, user: User): void {
-    console.log('Setting auth with token:', token ? 'EXISTS' : 'MISSING');
-    console.log('Setting auth with refreshToken:', refreshToken ? 'EXISTS' : 'MISSING');
     localStorage.setItem(this.tokenKey, token);
     localStorage.setItem(this.refreshTokenKey, refreshToken);
     localStorage.setItem(this.userKey, JSON.stringify(user));
-    console.log('Auth data set. Token key:', this.tokenKey);
-    console.log('Stored token:', localStorage.getItem(this.tokenKey));
   }
 
   // Clear authentication data
@@ -79,9 +79,6 @@ class AuthService {
   // Check if user is authenticated
   isAuthenticated(): boolean {
     const token = this.getToken();
-    console.log('Checking authentication. Token exists:', !!token);
-    console.log('Token key used:', this.tokenKey);
-    console.log('All localStorage keys:', Object.keys(localStorage));
     return !!token;
   }
 
@@ -89,6 +86,36 @@ class AuthService {
   hasRole(role: string): boolean {
     const user = this.getUser();
     return user?.role === role;
+  }
+
+  // Register user
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      if (data.success) {
+        toast.success('Registration successful! Please log in with your credentials.');
+        return data;
+      } else {
+        throw new Error(data.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast.error(error instanceof Error ? error.message : 'Registration failed');
+      throw error;
+    }
   }
 
   // Login user
@@ -112,12 +139,6 @@ class AuthService {
         // Handle the backend response structure
         const accessToken = data.data.tokens?.accessToken || data.data.token;
         const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
-        
-        console.log('Login response tokens:', {
-          accessToken: accessToken ? 'EXISTS' : 'MISSING',
-          refreshToken: refreshToken ? 'EXISTS' : 'MISSING',
-          tokens: data.data.tokens
-        });
         
         if (!accessToken || !refreshToken) {
           throw new Error('Invalid response: missing tokens');
@@ -203,7 +224,7 @@ class AuthService {
         throw new Error('No token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -238,7 +259,7 @@ class AuthService {
         throw new Error('No token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, CheckCircleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -10,7 +10,18 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+
+  // Handle registration success message
+  useEffect(() => {
+    if (location.state?.message) {
+      toast.success(location.state.message);
+      if (location.state.email) {
+        setEmail(location.state.email);
+      }
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,10 +69,7 @@ const LoginPage = () => {
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#00806a] to-[#006d5a] text-white p-12 flex-col justify-center">
           <div className="max-w-md">
             <div className="flex items-center mb-8">
-              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center mr-4">
-                <CheckCircleIcon className="w-8 h-8 text-[#00806a]" />
-              </div>
-              <h1 className="text-3xl font-bold">BookOn</h1>
+              <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
             </div>
             
             <h2 className="text-4xl font-bold mb-6 leading-tight">
@@ -96,10 +104,7 @@ const LoginPage = () => {
             {/* Mobile Logo */}
             <div className="lg:hidden text-center mb-8">
               <div className="flex items-center justify-center mb-4">
-                <div className="w-12 h-12 bg-[#00806a] rounded-lg flex items-center justify-center mr-3">
-                  <CheckCircleIcon className="w-8 h-8 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold text-gray-900">BookOn</h1>
+                <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
               </div>
               <p className="text-lg text-gray-600">Simple. Seamless. Bookings.</p>
             </div>

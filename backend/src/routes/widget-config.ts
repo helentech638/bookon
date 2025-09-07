@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { asyncHandler } from '../middleware/errorHandler';
 // import { authenticateToken, requireRole } from '../middleware/auth';
 
@@ -26,9 +26,10 @@ const transformWidgetData = (widget: any) => ({
 
 // Get all widget configurations
 router.get('/', asyncHandler(async (_req: any, res: any) => {
-  const widgets = await db('widget_configs')
-    .where('is_active', true)
-    .orderBy('created_at', 'desc');
+  const widgets = await prisma.widgetConfig.findMany({
+    where: { isActive: true },
+    orderBy: { createdAt: 'desc' }
+  });
 
   const transformedWidgets = widgets.map(transformWidgetData);
 
@@ -51,9 +52,9 @@ router.get('/:id', [
   }
 
   const { id } = req.params;
-  const widget = await db('widget_configs')
-    .where({ id, is_active: true })
-    .first();
+  const widget = await prisma.widgetConfig.findFirst({
+    where: { id, isActive: true }
+  });
 
   if (!widget) {
     return res.status(404).json({
@@ -96,20 +97,19 @@ router.post('/', [
     customCSS = ''
   } = req.body;
 
-  const [widget] = await db('widget_configs')
-    .insert({
-      id: db.raw('gen_random_uuid()'),
+  const widget = await prisma.widgetConfig.create({
+    data: {
       name,
       theme,
-      primary_color: primaryColor,
+      primaryColor,
       position,
-      show_logo: showLogo,
-      custom_css: customCSS,
-      created_by: req.user!.id,
-      updated_by: req.user!.id,
-      is_active: true
-    })
-    .returning('*');
+      showLogo,
+      customCSS,
+      createdBy: req.user!.id,
+      updatedBy: req.user!.id,
+      isActive: true
+    }
+  });
 
   const transformedWidget = transformWidgetData(widget);
   
@@ -154,10 +154,10 @@ router.put('/:id', [
     }
   });
 
-  const [updatedWidget] = await db('widget_configs')
-    .where({ id, is_active: true })
-    .update(updateData)
-    .returning('*');
+  const updatedWidget = await prisma.widgetConfig.update({
+    where: { id, isActive: true },
+    data: updateData
+  });
 
   if (!updatedWidget) {
     return res.status(404).json({
@@ -187,9 +187,9 @@ router.patch('/:id/toggle', [
   }
 
   const { id } = req.params;
-  const widget = await db('widget_configs')
-    .where({ id, is_active: true })
-    .first();
+  const widget = await prisma.widgetConfig.findFirst({
+    where: { id, isActive: true }
+  });
 
   if (!widget) {
     return res.status(404).json({
@@ -198,14 +198,13 @@ router.patch('/:id/toggle', [
     });
   }
 
-  const [updatedWidget] = await db('widget_configs')
-    .where({ id })
-    .update({
-      is_active: !widget.is_active,
-      updated_by: req.user!.id,
-      updated_at: new Date()
-    })
-    .returning('*');
+  const updatedWidget = await prisma.widgetConfig.update({
+    where: { id },
+    data: {
+      isActive: !widget.isActive,
+      updatedBy: req.user!.id
+    }
+  });
 
   const transformedWidget = transformWidgetData(updatedWidget);
   
@@ -228,16 +227,15 @@ router.delete('/:id', [
   }
 
   const { id } = req.params;
-  const [deletedWidget] = await db('widget_configs')
-    .where({ id, is_active: true })
-    .update({
-      is_active: false,
-      deleted_by: req.user!.id,
-      deleted_at: new Date(),
-      updated_by: req.user!.id,
-      updated_at: new Date()
-    })
-    .returning('*');
+  const deletedWidget = await prisma.widgetConfig.update({
+    where: { id, isActive: true },
+    data: {
+      isActive: false,
+      deletedBy: req.user!.id,
+      deletedAt: new Date(),
+      updatedBy: req.user!.id
+    }
+  });
 
   if (!deletedWidget) {
     return res.status(404).json({

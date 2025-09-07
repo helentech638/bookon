@@ -76,7 +76,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     try {
       // Fetch activities
       if (venueId) {
-        const activitiesResponse = await fetch(`https://bookon-mu.vercel.app/api/v1/venues/${venueId}/activities`);
+        const activitiesResponse = await fetch(`/api/v1/venues/${venueId}/activities`);
         if (activitiesResponse.ok) {
           const activitiesData = await activitiesResponse.json();
           setActivities(activitiesData.data || []);
@@ -86,7 +86,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
       // Fetch user's children
       const token = localStorage.getItem('token');
       if (token) {
-        const childrenResponse = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
+        const childrenResponse = await fetch('/api/v1/children', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (childrenResponse.ok) {
@@ -176,7 +176,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('https://bookon-mu.vercel.app/api/v1/bookings', {
+      const response = await fetch('/api/v1/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/Dialog';
 import { RefreshCw, Bell, Send, Eye, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface Notification {
   id: string;
@@ -250,9 +251,9 @@ const NotificationManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Notification Management</h1>
+    <AdminLayout title="Notification Management">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
         <div className="flex space-x-2">
           <Dialog>
             <DialogTrigger>
@@ -615,7 +616,8 @@ const NotificationManagement: React.FC = () => {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

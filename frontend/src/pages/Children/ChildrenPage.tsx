@@ -47,7 +47,7 @@ const ChildrenPage: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
-      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
+      const response = await fetch('/api/v1/children', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -72,7 +72,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
+      const response = await fetch('/api/v1/children', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -101,7 +101,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/children/${selectedChild.id}`, {
+      const response = await fetch(`/api/v1/children/${selectedChild.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,7 +133,7 @@ const ChildrenPage: React.FC = () => {
     try {
       const token = authService.getToken();
       
-      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/children/${selectedChild.id}`, {
+      const response = await fetch(`/api/v1/children/${selectedChild.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

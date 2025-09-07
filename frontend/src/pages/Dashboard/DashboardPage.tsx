@@ -18,7 +18,8 @@ import {
   AcademicCapIcon,
   BuildingOfficeIcon,
   ClipboardDocumentListIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -233,27 +234,27 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
+      {/* Premium Header */}
+      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">
-                Welcome back, {userProfile?.firstName || 'User'}! Here's your activity overview.
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+              <p className="text-gray-600 text-lg">
+                Welcome back, <span className="font-semibold text-[#00806a]">{userProfile?.firstName || 'User'}</span>! Here's your activity overview.
               </p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex space-x-4">
               <Button
                 onClick={() => setShowQuickBooking(true)}
-                className="bg-[#00806a] hover:bg-[#006d5a] text-white"
-                leftIcon={<PlusIcon className="w-4 h-4" />}
+                className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42] text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                leftIcon={<PlusIcon className="w-5 h-5" />}
               >
                 Quick Booking
               </Button>
-              <Link to="/profile" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                <UserIcon className="w-4 h-4 mr-2" />
+              <Link to="/profile" className="inline-flex items-center px-6 py-3 border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white rounded-xl font-medium transition-all duration-200">
+                <UserIcon className="w-5 h-5 mr-2" />
                 View Profile
               </Link>
             </div>
@@ -262,21 +263,21 @@ const DashboardPage: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Premium Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {displayStats.map((stat, index) => (
-            <Card key={index} className="p-6">
-              <div className="flex items-center">
-                <div className={`p-3 rounded-lg ${stat.color}`}>
-                  <stat.icon className="w-6 h-6 text-white" />
+            <div key={index} className="group bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-gray-100/50 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+              <div className="flex items-center justify-between mb-6">
+                <div className={`p-4 rounded-2xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className="w-8 h-8 text-white" />
                 </div>
-                <div className="ml-4">
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                 </div>
               </div>
-              <div className="mt-4">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              <div className="space-y-2">
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
                   stat.changeType === 'success' 
                     ? 'bg-green-100 text-green-800'
                     : stat.changeType === 'warning'
@@ -285,9 +286,9 @@ const DashboardPage: React.FC = () => {
                 }`}>
                   {stat.change}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">{stat.description}</span>
+                <p className="text-xs text-gray-500">{stat.description}</p>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
 
@@ -357,10 +358,10 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Premium Tabs */}
         <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100/50 p-2">
+            <nav className="flex space-x-1">
               {[
                 { id: 'overview', name: 'Overview', icon: ChartBarIcon },
                 { id: 'profile', name: 'Profile', icon: UserIcon },
@@ -376,14 +377,19 @@ const DashboardPage: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                  className={`relative flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
                     activeTab === tab.id
-                      ? 'border-[#00806a] text-[#00806a]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg transform scale-105'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
                   }`}
                 >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.name}
+                  <tab.icon className={`w-4 h-4 transition-all duration-300 ${
+                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
+                  }`} />
+                  <span className="font-semibold">{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#00806a] to-[#006d5a] opacity-20 animate-pulse"></div>
+                  )}
                 </button>
               ))}
             </nav>
@@ -393,98 +399,113 @@ const DashboardPage: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Welcome Card */}
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Welcome to BookOn!</h3>
-                <BellIcon className="w-5 h-5 text-gray-400" />
+            {/* Premium Welcome Card */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-bold text-gray-900">Welcome to BookOn!</h3>
+                <div className="w-12 h-12 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-2xl flex items-center justify-center">
+                  <BellIcon className="w-6 h-6 text-white" />
+                </div>
               </div>
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <UserIcon className="w-8 h-8 text-blue-600" />
+              <div className="space-y-6">
+                <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center">
+                      <UserIcon className="w-6 h-6 text-white" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-blue-900">
+                      <p className="text-lg font-semibold text-blue-900">
                         Welcome, {userProfile?.firstName} {userProfile?.lastName}!
                       </p>
-                      <p className="text-sm text-blue-700">
-                        You've been a member for {stats?.memberSince || 0} days.
+                      <p className="text-blue-700">
+                        You've been a member for <span className="font-semibold">{stats?.memberSince || 0} days</span>.
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <CalendarDaysIcon className="w-8 h-8 text-green-600" />
+                <div className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center">
+                      <CalendarDaysIcon className="w-6 h-6 text-white" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-green-900">
+                      <p className="text-lg font-semibold text-green-900">
                         Ready to get started?
                       </p>
-                      <p className="text-sm text-green-700">
+                      <p className="text-green-700">
                         Browse available activities and book your first session.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
 
-            {/* Quick Actions */}
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
-                <CogIcon className="w-5 h-5 text-gray-400" />
+            {/* Premium Quick Actions */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-bold text-gray-900">Quick Actions</h3>
+                <div className="w-12 h-12 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-2xl flex items-center justify-center">
+                  <CogIcon className="w-6 h-6 text-white" />
+                </div>
               </div>
               <div className="space-y-4">
                 <Button 
                   onClick={() => setShowQuickBooking(true)}
-                  className="w-full justify-center bg-[#00806a] hover:bg-[#006d5a] text-white"
-                  leftIcon={<PlusIcon className="w-4 h-4" />}
+                  className="w-full justify-center bg-gradient-to-r from-[#00806a] to-[#006d5a] hover:from-[#006b5a] hover:to-[#005a4a] text-white py-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 text-lg font-bold transform hover:-translate-y-1"
+                  leftIcon={<PlusIcon className="w-6 h-6" />}
                 >
                   Quick Booking
                 </Button>
                 <Link 
                   to="/activities" 
-                  className="w-full justify-center inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
+                  className="w-full justify-center inline-flex items-center px-6 py-5 border-2 border-gray-200 rounded-2xl text-gray-700 bg-white hover:border-[#00806a] hover:bg-gradient-to-r hover:from-[#00806a] hover:to-[#006d5a] hover:text-white transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1"
                 >
-                  <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                  <CalendarDaysIcon className="w-6 h-6 mr-3" />
                   Browse Activities
                 </Link>
                 <Link 
                   to="/venues" 
-                  className="w-full justify-center inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
+                  className="w-full justify-center inline-flex items-center px-6 py-5 border-2 border-gray-200 rounded-2xl text-gray-700 bg-white hover:border-[#00806a] hover:bg-gradient-to-r hover:from-[#00806a] hover:to-[#006d5a] hover:text-white transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1"
                 >
-                  <BuildingOfficeIcon className="w-4 h-4 mr-2" />
+                  <BuildingOfficeIcon className="w-6 h-6 mr-3" />
                   Manage Venues
                 </Link>
+                <Link 
+                  to="/profile" 
+                  className="w-full justify-center inline-flex items-center px-6 py-5 border-2 border-gray-200 rounded-2xl text-gray-700 bg-white hover:border-[#00806a] hover:bg-gradient-to-r hover:from-[#00806a] hover:to-[#006d5a] hover:text-white transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                >
+                  <UserIcon className="w-6 h-6 mr-3" />
+                  View Profile
+                </Link>
               </div>
-            </Card>
+            </div>
 
-            {/* Recent Activity */}
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
-                <Link to="/activity-log" className="text-sm text-[#00806a] hover:text-[#006d5a]">
+            {/* Premium Recent Activity */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-bold text-gray-900">Recent Activity</h3>
+                <Link to="/activity-log" className="text-sm font-semibold text-[#00806a] hover:text-[#006d5a] px-3 py-1 rounded-lg hover:bg-[#00806a]/10 transition-colors">
                   View all
                 </Link>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {recentActivities.slice(0, 5).map((activity) => {
                   const IconComponent = getActivityIcon(activity.type);
                   return (
-                    <div key={activity.id} className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <IconComponent className="w-5 h-5 text-gray-400" />
+                    <div key={activity.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors">
+                      <div className="flex-shrink-0 w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                        <IconComponent className="w-5 h-5 text-[#00806a]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                        <p className="text-sm text-gray-500">{activity.description}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-sm font-semibold text-gray-900 mb-1">{activity.title}</p>
+                        <p className="text-sm text-gray-600 mb-2">{activity.description}</p>
+                        <p className="text-xs text-gray-500">
                           {new Date(activity.timestamp).toLocaleString()}
                         </p>
                       </div>
                       {activity.status && (
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
                           {activity.status}
                         </span>
                       )}
@@ -492,80 +513,136 @@ const DashboardPage: React.FC = () => {
                   );
                 })}
                 {recentActivities.length === 0 && (
-                  <div className="text-center py-4 text-gray-500">
-                    <DocumentTextIcon className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No recent activity</p>
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <DocumentTextIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium">No recent activity</p>
+                    <p className="text-xs text-gray-400 mt-1">Your activity will appear here</p>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
           </div>
         )}
 
         {activeTab === 'profile' && (
-          <Card>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-medium text-gray-900">Your Profile</h3>
-              <Link to="/profile/edit" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                <PencilIcon className="w-4 h-4 mr-2" />
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-2xl font-bold text-gray-900">Your Profile</h3>
+              <Link to="/profile/edit" className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold">
+                <PencilIcon className="w-5 h-5 mr-2" />
                 Edit Profile
               </Link>
             </div>
-            {userProfile && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {userProfile.firstName} {userProfile.lastName}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <p className="mt-1 text-sm text-gray-900">{userProfile.email}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Role</label>
-                    <p className="mt-1 text-sm text-gray-900 capitalize">{userProfile.role}</p>
-                  </div>
-                  {userProfile.phone && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Phone</label>
-                      <p className="mt-1 text-sm text-gray-900">{userProfile.phone}</p>
-                    </div>
-                  )}
+            
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a]"></div>
+                <span className="ml-3 text-gray-600">Loading profile...</span>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <XCircleIcon className="w-8 h-8 text-red-600" />
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Member Since</label>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {new Date(userProfile.memberSince).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Status</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      userProfile.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {userProfile.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Last Login</label>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {stats?.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
-                    </p>
-                  </div>
-                  {userProfile.address && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Address</label>
-                      <p className="mt-1 text-sm text-gray-900">{userProfile.address}</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Profile</h3>
+                <p className="text-gray-500 mb-4">{error}</p>
+                <Button 
+                  onClick={fetchDashboardData}
+                  className="bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white"
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : userProfile ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Profile Information */}
+                <div className="space-y-6">
+                  <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
+                    <h4 className="text-lg font-semibold text-blue-900 mb-4">Personal Information</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800">Full Name</label>
+                        <p className="mt-1 text-lg font-semibold text-blue-900">
+                          {userProfile.firstName} {userProfile.lastName}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800">Email</label>
+                        <p className="mt-1 text-lg font-semibold text-blue-900">{userProfile.email}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800">Role</label>
+                        <span className="mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                          {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)}
+                        </span>
+                      </div>
+                      {userProfile.phone && (
+                        <div>
+                          <label className="block text-sm font-medium text-blue-800">Phone</label>
+                          <p className="mt-1 text-lg font-semibold text-blue-900">{userProfile.phone}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                {/* Account Information */}
+                <div className="space-y-6">
+                  <div className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200">
+                    <h4 className="text-lg font-semibold text-green-900 mb-4">Account Information</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-green-800">Member Since</label>
+                        <p className="mt-1 text-lg font-semibold text-green-900">
+                          {new Date(userProfile.memberSince).toLocaleDateString('en-GB', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-green-800">Status</label>
+                        <span className={`mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          userProfile.isActive ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
+                        }`}>
+                          {userProfile.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-green-800">Last Login</label>
+                        <p className="mt-1 text-lg font-semibold text-green-900">
+                          {stats?.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
+                        </p>
+                      </div>
+                      {userProfile.address && (
+                        <div>
+                          <label className="block text-sm font-medium text-green-800">Address</label>
+                          <p className="mt-1 text-lg font-semibold text-green-900">{userProfile.address}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <UserIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Profile Data Available</h3>
+                <p className="text-gray-500 mb-4">Unable to load your profile information.</p>
+                <Button 
+                  onClick={fetchDashboardData}
+                  className="bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white"
+                >
+                  Refresh Profile
+                </Button>
+              </div>
             )}
-          </Card>
+          </div>
         )}
 
         {activeTab === 'activities' && (

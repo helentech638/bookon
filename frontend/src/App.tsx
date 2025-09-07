@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 
 // Contexts
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Layout components
 import Layout from './components/layout/Layout';
@@ -31,16 +32,18 @@ import FinancialDashboard from './pages/Admin/FinancialDashboard';
 import EmailTemplates from './pages/Admin/EmailTemplates';
 import BroadcastMessaging from './pages/Admin/BroadcastMessaging';
 import NotificationCenter from './pages/Admin/NotificationCenter';
-import NotificationManagement from './pages/Admin/NotificationManagement';
-import WebhookManagement from './pages/Admin/WebhookManagement';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
 import PaymentSettings from './pages/Admin/PaymentSettings';
 import ExportCenter from './pages/Admin/ExportCenter';
+import TFCQueuePage from './pages/Admin/TFCQueuePage';
+import ProviderSettingsPage from './pages/Admin/ProviderSettingsPage';
 import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
 import MyBookingsPage from './pages/Parent/MyBookingsPage';
+import WalletPage from './pages/Parent/WalletPage';
+import PendingPaymentPage from './pages/PendingPaymentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import WidgetPage from './pages/WidgetPage';
 
@@ -145,6 +148,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <MyBookingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wallet"
+          element={
+            <ProtectedRoute>
+              <WalletPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pending-payment/:id"
+          element={
+            <ProtectedRoute>
+              <PendingPaymentPage />
             </ProtectedRoute>
           }
         />
@@ -263,22 +282,6 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin/notification-management"
-          element={
-            <ProtectedRoute>
-              <NotificationManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/webhook-management"
-          element={
-            <ProtectedRoute>
-              <WebhookManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/admin/advanced-tools"
           element={
             <ProtectedRoute>
@@ -319,6 +322,22 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/tfc-queue"
+          element={
+            <ProtectedRoute>
+              <TFCQueuePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/provider-settings"
+          element={
+            <ProtectedRoute>
+              <ProviderSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/*"
           element={
             <ProtectedRoute>
@@ -338,37 +357,39 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
-          <div className="App">
-            <AppRoutes />
-            
-            {/* Global toast notifications */}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-                success: {
-                  duration: 3000,
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#fff',
+        <NotificationProvider>
+          <Router>
+            <div className="App">
+              <AppRoutes />
+              
+              {/* Global toast notifications */}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
                   },
-                },
-                error: {
-                  duration: 5000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#fff',
+                    },
                   },
-                },
-              }}
-            />
-          </div>
-        </Router>
+                  error: {
+                    duration: 5000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+              />
+            </div>
+          </Router>
+        </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

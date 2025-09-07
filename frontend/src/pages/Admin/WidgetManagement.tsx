@@ -19,6 +19,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface WidgetConfig {
   id: string;
@@ -254,18 +255,18 @@ const WidgetManagement: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Widget Management</h1>
-          <p className="text-gray-600">Create and manage embeddable booking widgets</p>
+    <AdminLayout title="Widget Management">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-gray-600">Create and manage embeddable booking widgets</p>
+          </div>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <AcademicCapIcon className="w-5 h-5 mr-2" />
+            Create Widget
+          </Button>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <AcademicCapIcon className="w-5 h-5 mr-2" />
-          Create Widget
-        </Button>
-      </div>
 
       {/* Widget Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -601,7 +602,8 @@ const WidgetManagement: React.FC = () => {
           </div>
         )}
       </Modal>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

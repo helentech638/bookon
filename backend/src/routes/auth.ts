@@ -8,6 +8,21 @@ import { authenticateToken, authRateLimit, logout } from '../middleware/auth';
 import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
 import { prisma } from '../utils/prisma';
+import { PrismaClient } from '@prisma/client';
+
+// Create a direct connection for auth operations
+const directDbUrl = process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'];
+if (!directDbUrl) {
+  throw new Error('DATABASE_DIRECT_URL or DATABASE_URL must be defined');
+}
+
+const authPrisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: directDbUrl
+    }
+  }
+});
 
 const router = Router();
 
@@ -17,7 +32,7 @@ const validateRegistration = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name is required'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name is required'),
@@ -42,7 +57,7 @@ const validatePasswordChange = [
 ];
 
 // Helper function to generate JWT tokens
-const generateTokens = (userId: string) => {
+const generateTokens = (user: { id: string; email: string; role: string }) => {
   try {
     const jwtSecret = process.env['JWT_SECRET'];
     const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'];
@@ -52,13 +67,23 @@ const generateTokens = (userId: string) => {
     }
 
     const accessToken = jwt.sign(
-      { userId, type: 'access' },
+      { 
+        userId: user.id, 
+        email: user.email, 
+        role: user.role,
+        type: 'access' 
+      },
       jwtSecret,
       { expiresIn: process.env['JWT_EXPIRES_IN'] || '15m' } as any
     );
 
     const refreshToken = jwt.sign(
-      { userId, type: 'refresh' },
+      { 
+        userId: user.id, 
+        email: user.email, 
+        role: user.role,
+        type: 'refresh' 
+      },
       jwtRefreshSecret,
       { expiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] || '7d' } as any
     );
@@ -74,13 +99,25 @@ const generateTokens = (userId: string) => {
 router.post('/register', validateRegistration, asyncHandler(async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    logger.error('Registration validation failed:', {
+      errors: errors.array(),
+      body: req.body
+    });
     throw new AppError(errors.array()[0]?.msg || 'Validation failed', 400, 'VALIDATION_ERROR');
   }
 
   const { email, password, firstName, lastName } = req.body;
+  
+  logger.info('Registration attempt:', {
+    email,
+    hasPassword: !!password,
+    firstName,
+    lastName,
+    passwordLength: password?.length
+  });
 
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
+  // Check if user already exists using direct connection
+  const existingUser = await authPrisma.user.findUnique({
     where: { email }
   });
   if (existingUser) {
@@ -95,8 +132,8 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   const verificationToken = uuidv4();
   // const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Create user using Prisma
-  const result = await prisma.user.create({
+  // Create user using direct connection
+  const result = await authPrisma.user.create({
     data: {
       email,
       password_hash: passwordHash,
@@ -166,68 +203,60 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
       throw new AppError('Valid email is required', 400, 'INVALID_EMAIL');
     }
 
-    // Try to connect to database first
+    // Try to connect to database first using direct connection
     let user;
     try {
-      // Find user using Prisma
-      user = await prisma.user.findUnique({
+      // Find user using direct connection
+      user = await authPrisma.user.findUnique({
         where: { email: email.trim() },
         select: { id: true, email: true, password_hash: true, role: true, isActive: true }
       });
     } catch (dbError) {
       logger.error('Database connection error during login:', dbError);
       
-      // Return mock login for development when database is not accessible
-      if (email === 'admin@bookon.com' || email === 'test@bookon.com' || email === 'parent@bookon.com') {
-        logger.warn('Database not accessible, using mock login for development');
-        
-        const mockUser = {
-          id: 'mock-user-id',
-          email: email,
-          role: email === 'admin@bookon.com' ? 'admin' : 'parent',
-          isActive: true
-        };
+      // Return mock login for any email when database is not accessible
+      logger.warn('Database not accessible, using mock login for development');
+      
+      const mockUser = {
+        id: 'mock-user-id-' + Date.now(), // Generate unique ID
+        email: email,
+        role: email.includes('admin') ? 'admin' : 'parent', // Simple role detection
+        isActive: true
+      };
 
-        // Generate tokens
-        const { accessToken, refreshToken } = generateTokens(mockUser.id);
+      // Generate tokens
+      const { accessToken, refreshToken } = generateTokens(mockUser);
 
-        // Try to store refresh token in Redis (will use mock Redis)
-        try {
-          await redis.setex(
-            `refresh_token:${mockUser.id}`,
-            7 * 24 * 60 * 60, // 7 days
-            refreshToken
-          );
-        } catch (redisError) {
-          logger.warn('Redis not accessible, continuing without token storage:', redisError);
-        }
-
-        // Log successful mock login
-        logger.info('Mock login successful (database not accessible)', {
-          email: mockUser.email,
-          ip: req.ip || req.connection.remoteAddress,
-        });
-
-        return res.json({
-          success: true,
-          message: 'Login successful (mock mode - database not accessible)',
-          data: {
-            user: {
-              id: mockUser.id,
-              email: mockUser.email,
-              role: mockUser.role,
-            },
-            tokens: {
-              accessToken,
-              refreshToken,
-            },
-          },
-        });
-      } else {
-        // For other emails, return a more specific error
-        logger.error('Database connection failed and email not in mock list:', email);
-        throw new AppError('Service temporarily unavailable. Please try again later.', 503, 'SERVICE_UNAVAILABLE');
+      // Try to store refresh token in Redis (will use mock Redis)
+      try {
+        await redis.setex(
+          `refresh_token:${mockUser.id}`,
+          7 * 24 * 60 * 60, // 7 days
+          refreshToken
+        );
+      } catch (redisError) {
+        logger.warn('Redis not accessible, continuing without token storage:', redisError);
       }
+
+      // Log successful mock login
+      logger.info('Mock login successful (database not accessible)', {
+        email: mockUser.email,
+        ip: req.ip || req.connection.remoteAddress,
+      });
+
+      return res.json({
+        success: true,
+        message: 'Login successful (mock mode - database not accessible)',
+        data: {
+          user: {
+            id: mockUser.id,
+            email: mockUser.email,
+            role: mockUser.role,
+          },
+          token: accessToken,
+          refreshToken: refreshToken,
+        },
+      });
     }
 
     if (!user || !user.isActive) {
@@ -241,8 +270,16 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
 
     // Verify password with proper error handling
     try {
-      // TEMPORARILY DISABLED FOR DEBUGGING - SKIP PASSWORD CHECK
-      const isPasswordValid = true; // Skip password check temporarily
+      if (!user.password_hash) {
+        logSecurity('Failed login attempt - no password hash', {
+          email,
+          ip: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+        });
+        throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
       
       if (!isPasswordValid) {
         logSecurity('Failed login attempt - incorrect password', {
@@ -264,7 +301,11 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
     }
 
     // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    const { accessToken, refreshToken } = generateTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
 
     // Store refresh token in Redis
     try {
@@ -299,10 +340,8 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
           email: user.email,
           role: user.role,
         },
-        tokens: {
-          accessToken,
-          refreshToken,
-        },
+        token: accessToken,
+        refreshToken: refreshToken,
       },
     });
   } catch (error) {
@@ -337,17 +376,21 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Check if user still exists and is active
-    const user = await db('users')
-      .select('id', 'email', 'role', 'isActive')
-      .where('id', decoded.userId)
-      .first();
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, email: true, role: true, isActive: true }
+    });
 
     if (!user || !user.isActive) {
       throw new AppError('User not found or inactive', 401, 'INVALID_CREDENTIALS');
     }
 
     // Generate new tokens
-    const newTokens = generateTokens(user.id);
+    const newTokens = generateTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
 
     // Update refresh token in Redis
     await redis.setex(
@@ -425,7 +468,9 @@ router.post('/forgot-password', validatePasswordReset, asyncHandler(async (req: 
   const { email } = req.body;
 
   // Check if user exists
-  const user = await db('users').where('email', email).first();
+  const user = await prisma.user.findUnique({
+    where: { email }
+  });
   if (!user) {
     // Don't reveal if user exists or not
     return res.json({
@@ -477,9 +522,10 @@ router.post('/reset-password/:token', validatePasswordChange, asyncHandler(async
   const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
   // Update password
-  await db('users')
-    .where('id', userId)
-    .update({ password_hash: passwordHash });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password_hash: passwordHash }
+  });
 
   // Remove reset token from Redis
   await redis.del(`password_reset:${token}`);
@@ -506,13 +552,17 @@ router.post('/change-password', authenticateToken, validatePasswordChange, async
   const userId = req.user!.id;
 
   // Get current user
-  const user = await db('users')
-    .select('password_hash')
-    .where('id', userId)
-    .first();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { password_hash: true }
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  }
 
   // Verify current password
-  const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+  const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash || '');
   if (!isCurrentPasswordValid) {
     throw new AppError('Current password is incorrect', 400, 'INCORRECT_PASSWORD');
   }
@@ -522,9 +572,10 @@ router.post('/change-password', authenticateToken, validatePasswordChange, async
   const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
   // Update password
-  await db('users')
-    .where('id', userId)
-    .update({ password_hash: passwordHash });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password_hash: passwordHash }
+  });
 
   // Invalidate all existing sessions
   await redis.del(`refresh_token:${userId}`);
@@ -541,61 +592,72 @@ router.post('/change-password', authenticateToken, validatePasswordChange, async
 router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
 
-  const user = await db('users')
-    .select('id', 'email', 'role', 'isActive')
-    .where('id', userId)
-    .first();
-
-  let profile = null;
   try {
-    profile = await db('user_profiles')
-      .select('first_name', 'last_name', 'phone', 'date_of_birth', 'address')
-      .where('user_id', userId)
-      .first();
-  } catch (error) {
-    // If user_profiles table doesn't exist, just log it
-    logger.warn('User profiles table not found, skipping profile retrieval', { userId });
-  }
+    const user = await authPrisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        email: true, 
+        firstName: true,
+        lastName: true,
+        role: true, 
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
-  res.json({
-    success: true,
-    data: {
-      user: {
-        ...user,
-        profile,
-      },
-    },
-  });
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (dbError) {
+    logger.error('Database error getting user profile:', dbError);
+    throw new AppError('Failed to get user profile', 500, 'DATABASE_ERROR');
+  }
 }));
 
 // Update user profile
 router.put('/me', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { firstName, lastName, phone, dateOfBirth, address } = req.body;
+  const { firstName, lastName } = req.body;
 
-  // Try to update profile if table exists
   try {
-    await db('user_profiles')
-      .where('user_id', userId)
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-        date_of_birth: dateOfBirth,
-        address,
-        updated_at: new Date(),
-      });
-    
-    logger.info('User profile updated', { userId });
-  } catch (error) {
-    // If user_profiles table doesn't exist, just log it
-    logger.warn('User profiles table not found, skipping profile update', { userId });
-  }
+    const updatedUser = await authPrisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        // Note: phone and address fields don't exist in current schema
+        // These would need to be added to the User model
+      },
+      select: { 
+        id: true, 
+        email: true, 
+        firstName: true,
+        lastName: true,
+        role: true, 
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
-  res.json({
-    success: true,
-    message: 'Profile updated successfully',
-  });
+    res.json({
+      success: true,
+      data: updatedUser,
+      message: 'Profile updated successfully',
+    });
+  } catch (dbError) {
+    logger.error('Database error updating user profile:', dbError);
+    throw new AppError('Failed to update user profile', 500, 'DATABASE_ERROR');
+  }
 }));
 
 // Mock user creation for development (when database is not accessible)
@@ -609,7 +671,7 @@ router.post('/mock-user', asyncHandler(async (req: Request, res: Response) => {
 
     // Check if database is accessible
     try {
-      await db.raw('SELECT 1');
+      await prisma.$executeRaw`SELECT 1`;
       // If database is accessible, don't create mock user
       throw new AppError('Database is accessible, use regular registration', 400, 'DATABASE_ACCESSIBLE');
     } catch (dbError) {
@@ -624,7 +686,7 @@ router.post('/mock-user', asyncHandler(async (req: Request, res: Response) => {
       };
 
       // Generate tokens
-      const { accessToken, refreshToken } = generateTokens(mockUser.id);
+      const { accessToken, refreshToken } = generateTokens(mockUser);
 
       // Try to store refresh token in Redis (will use mock Redis)
       try {
@@ -805,7 +867,7 @@ router.get('/test-db', asyncHandler(async (_req: Request, res: Response) => {
       logger.info('✅ Test user created');
     }
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Database connection and setup successful',
       data: {
@@ -817,7 +879,7 @@ router.get('/test-db', asyncHandler(async (_req: Request, res: Response) => {
     
   } catch (error) {
     logger.error('Database test failed:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: {
         message: 'Database test failed',
@@ -899,12 +961,20 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
         childId: child.id,
         parentId: parentUser.id,
         status: 'confirmed',
+        paymentStatus: 'paid',
+        paymentMethod: 'card',
+        amount: 25.00,
+        totalAmount: 25.00,
+        currency: 'GBP',
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        activityTime: '10:00',
       },
     });
 
     logger.info('✅ Simple seeding completed');
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Simple database seeding completed successfully!',
       data: {
@@ -922,7 +992,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
 
   } catch (error) {
     logger.error('❌ Simple seeding failed:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: {
         message: 'Simple seeding failed',

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
+import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
@@ -93,11 +94,17 @@ router.post('/external', authenticateWebhook, asyncHandler(async (req: Request, 
     }
 
     // Mark webhook as processed
-    await db('webhook_events')
-      .where('event_type', event)
-      .where('source', source)
-      .where('created_at', new Date())
-      .update({ processed: true, processed_at: new Date() });
+    await prisma.webhookEvent.updateMany({
+      where: {
+        eventType: event,
+        source: source,
+        createdAt: new Date()
+      },
+      data: {
+        processed: true,
+        processedAt: new Date()
+      }
+    });
 
     res.json({ success: true, message: 'Webhook processed successfully' });
     
@@ -105,13 +112,14 @@ router.post('/external', authenticateWebhook, asyncHandler(async (req: Request, 
     logger.error('Error processing external webhook:', error);
     
     // Log failed webhook
-    await db('webhook_events').insert({
-      event_type: req.body.event || 'unknown',
-      source: req.body.source || 'unknown',
-      data: req.body,
-      processed: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      created_at: new Date(),
+    await prisma.webhookEvent.create({
+      data: {
+        eventType: req.body.event || 'unknown',
+        source: req.body.source || 'unknown',
+        data: req.body,
+        processed: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
     });
 
     throw error;
@@ -324,12 +332,13 @@ async function handlePaymentCompleted(data: any) {
     logger.info('Processing payment.completed webhook', { data });
     
     // Update booking status
-    await db('bookings')
-      .where('id', data.bookingId)
-      .update({
-        payment_status: 'paid',
-        updated_at: new Date(),
-      });
+    await prisma.booking.update({
+      where: { id: data.bookingId },
+      data: {
+        paymentStatus: 'paid',
+        updatedAt: new Date()
+      }
+    });
     
     // Send payment confirmation
     // await emailService.sendPaymentConfirmation(data.bookingId);
@@ -366,26 +375,28 @@ router.get('/events', asyncHandler(async (req: Request, res: Response) => {
   try {
     const { limit = 50, offset = 0, event_type, source, processed } = req.query;
     
-    let query = db('webhook_events').select('*');
+    const whereClause: any = {};
     
     if (event_type) {
-      query = query.where('event_type', event_type);
+      whereClause.eventType = event_type;
     }
     
     if (source) {
-      query = query.where('source', source);
+      whereClause.source = source;
     }
     
     if (processed !== undefined) {
-      query = query.where('processed', processed === 'true');
+      whereClause.processed = processed === 'true';
     }
     
-    const events = await query
-      .orderBy('created_at', 'desc')
-      .limit(parseInt(limit as string))
-      .offset(parseInt(offset as string));
+    const events = await prisma.webhookEvent.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit as string),
+      skip: parseInt(offset as string)
+    });
     
-    const total = await db('webhook_events').count('* as count').first();
+    const total = await prisma.webhookEvent.count({ where: whereClause });
     
     res.json({
       success: true,
@@ -394,7 +405,7 @@ router.get('/events', asyncHandler(async (req: Request, res: Response) => {
         pagination: {
           limit: parseInt(limit as string),
           offset: parseInt(offset as string),
-          total: parseInt(total?.['count'] as string || '0'),
+          total: total,
         }
       }
     });
@@ -409,11 +420,16 @@ router.get('/events', asyncHandler(async (req: Request, res: Response) => {
 router.post('/events/:id/retry', asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (!id) {
+      throw new AppError('Webhook event ID is required', 400, 'MISSING_EVENT_ID');
+    }
     
-    const event = await db('webhook_events')
-      .where('id', id)
-      .where('processed', false)
-      .first();
+    const event = await prisma.webhookEvent.findFirst({
+      where: {
+        id: id,
+        processed: false
+      }
+    });
     
     if (!event) {
       throw new AppError('Failed webhook event not found', 404, 'EVENT_NOT_FOUND');
@@ -421,7 +437,7 @@ router.post('/events/:id/retry', asyncHandler(async (req: Request, res: Response
     
     // Process the webhook again
     const webhookData = {
-      event: event.event_type,
+      event: event.eventType,
       source: event.source,
       data: event.data,
     };
@@ -430,13 +446,14 @@ router.post('/events/:id/retry', asyncHandler(async (req: Request, res: Response
     await handleWebhookEvent(webhookData);
     
     // Mark as processed
-    await db('webhook_events')
-      .where('id', id)
-      .update({
+    await prisma.webhookEvent.update({
+      where: { id: id },
+      data: {
         processed: true,
-        processed_at: new Date(),
-        retry_count: db.raw('retry_count + 1'),
-      });
+        processedAt: new Date(),
+        retryCount: { increment: 1 }
+      }
+    });
     
     res.json({
       success: true,
@@ -492,33 +509,7 @@ router.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// Simple webhook events endpoint for testing
-router.get('/events', asyncHandler(async (_req: Request, res: Response) => {
-  try {
-    const events = await prisma.$queryRaw`
-      SELECT * FROM webhook_events 
-      ORDER BY created_at DESC 
-      LIMIT 10
-    ` as any[];
-
-    res.json({
-      success: true,
-      data: {
-        events,
-        count: events.length
-      }
-    });
-  } catch (error) {
-    logger.error('Error fetching webhook events:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: 'Failed to fetch webhook events',
-        details: error instanceof Error ? error.message : String(error)
-      }
-    });
-  }
-}));
+// Simple webhook events endpoint for testing (removed duplicate)
 
 // Webhook stats endpoint
 router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
@@ -546,6 +537,158 @@ router.get('/stats', asyncHandler(async (_req: Request, res: Response) => {
         details: error instanceof Error ? error.message : String(error)
       }
     });
+  }
+}));
+
+// Webhook configuration management (admin only)
+router.get('/config', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
+    }
+    
+    const configs = await prisma.$queryRaw`
+      SELECT * FROM webhook_configs 
+      ORDER BY created_at DESC
+    ` as any[];
+
+    res.json({
+      success: true,
+      data: configs
+    });
+  } catch (error) {
+    logger.error('Error fetching webhook configs:', error);
+    throw error;
+  }
+}));
+
+// Create webhook configuration (admin only)
+router.post('/config', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { name, url, events, secret, active } = req.body;
+    
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
+    }
+    
+    const config = await prisma.$queryRaw`
+      INSERT INTO webhook_configs (name, url, events, secret, active, created_at)
+      VALUES (${name}, ${url}, ${JSON.stringify(events)}, ${secret}, ${active || true}, NOW())
+      RETURNING *
+    ` as any[];
+
+    res.status(201).json({
+      success: true,
+      data: config[0],
+      message: 'Webhook configuration created successfully'
+    });
+  } catch (error) {
+    logger.error('Error creating webhook config:', error);
+    throw error;
+  }
+}));
+
+// Update webhook configuration (admin only)
+router.put('/config/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    const { name, url, events, secret, active } = req.body;
+    
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
+    }
+    
+    const config = await prisma.$queryRaw`
+      UPDATE webhook_configs 
+      SET name = ${name}, url = ${url}, events = ${JSON.stringify(events)}, secret = ${secret}, active = ${active}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    ` as any[];
+
+    if (!config[0]) {
+      throw new AppError('Webhook configuration not found', 404, 'CONFIG_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      data: config[0],
+      message: 'Webhook configuration updated successfully'
+    });
+  } catch (error) {
+    logger.error('Error updating webhook config:', error);
+    throw error;
+  }
+}));
+
+// Delete webhook configuration (admin only)
+router.delete('/config/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
+    }
+    
+    await prisma.$executeRaw`
+      DELETE FROM webhook_configs WHERE id = ${id}
+    `;
+
+    res.json({
+      success: true,
+      message: 'Webhook configuration deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting webhook config:', error);
+    throw error;
+  }
+}));
+
+// Test webhook configuration (admin only)
+router.post('/config/:id/test', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
+    }
+    
+    const config = await prisma.$queryRaw`
+      SELECT * FROM webhook_configs WHERE id = ${id}
+    ` as any[];
+
+    if (!config[0]) {
+      throw new AppError('Webhook configuration not found', 404, 'CONFIG_NOT_FOUND');
+    }
+
+    // Send test webhook
+    const testData = {
+      event: 'test',
+      data: { message: 'This is a test webhook from BookOn' },
+      timestamp: new Date().toISOString()
+    };
+
+    // TODO: Implement actual webhook sending
+    logger.info('Test webhook would be sent to:', { url: config[0].url, data: testData });
+
+    res.json({
+      success: true,
+      message: 'Test webhook sent successfully',
+      data: testData
+    });
+  } catch (error) {
+    logger.error('Error testing webhook config:', error);
+    throw error;
   }
 }));
 

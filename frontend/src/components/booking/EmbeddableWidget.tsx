@@ -261,7 +261,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
       <div className="widget-header">
         {config.showLogo && (
           <div className="widget-logo">
-            <img src={config.logo || '/logo.png'} alt="Logo" className="h-8 w-auto" />
+            <img src={config.logo || 'https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png'} alt="Logo" className="h-8 w-auto" />
           </div>
         )}
         <div className="widget-title">

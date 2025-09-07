@@ -51,12 +51,15 @@ export const authenticateToken = async (
         .where('id', decoded.userId)
         .first();
     } catch (error) {
-      // If database is not accessible, use mock user data
-      logger.warn('Database not accessible, using mock user data for authentication');
+      // If database is not accessible, use token data for authentication
+      logger.warn('Database not accessible, using token data for authentication');
+      if (!decoded.email || !decoded.role) {
+        throw new AppError('Invalid token data', 401, 'INVALID_TOKEN');
+      }
       user = {
         id: decoded.userId,
-        email: decoded.email || 'admin@bookon.com',
-        role: decoded.role || 'admin',
+        email: decoded.email,
+        role: decoded.role,
         isActive: true
       };
     }
@@ -89,6 +92,15 @@ export const authenticateToken = async (
 
     next();
   } catch (error) {
+    logger.error('Authentication error:', {
+      error: error instanceof Error ? error.message : String(error),
+      name: (error as any).name,
+      ip: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent'),
+      url: req.originalUrl,
+      method: req.method,
+    });
+
     if (error instanceof AppError) {
       next(error);
     } else if ((error as any).name === 'JsonWebTokenError') {

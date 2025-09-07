@@ -19,6 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/SelectNew';
 import { RefreshCw, Eye, RotateCcw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface WebhookEvent {
   id: string;
@@ -164,9 +165,9 @@ const WebhookManagement: React.FC = () => {
   };
 
   return (
+    <AdminLayout title="Webhook Management">
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Webhook Management</h1>
         <Button onClick={fetchWebhookEvents} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -378,6 +379,7 @@ const WebhookManagement: React.FC = () => {
         </CardContent>
       </Card>
     </div>
+    </AdminLayout>
   );
 };
 

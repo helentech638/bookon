@@ -13,6 +13,7 @@ import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface Booking {
   id: string;
@@ -260,15 +261,16 @@ const BookingManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Booking Management</h1>
-              <p className="text-gray-600">Manage and monitor all bookings across venues</p>
-            </div>
+    <AdminLayout title="Booking Management">
+      <div className="mb-6">
+        <p className="text-gray-600">Manage and monitor all bookings across venues</p>
+      </div>
+      
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
             <div className="flex space-x-3">
               <Button
                 onClick={() => setShowFilters(!showFilters)}
@@ -529,7 +531,8 @@ const BookingManagement: React.FC = () => {
           )}
         </Card>
       </div>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

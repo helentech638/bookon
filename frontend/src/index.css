@@ -107,7 +107,7 @@
 /* Custom base styles */
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
   }
   
   body {

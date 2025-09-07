@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 
@@ -30,31 +30,47 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    let query = db('venues')
-      .where('is_active', true);
+    // Build where clause for Prisma
+    const whereClause: any = {
+      isActive: true
+    };
 
     // Filter by city
     if (city) {
-      query = query.where('city', 'ilike', `%${city}%`);
+      whereClause.city = {
+        contains: city as string,
+        mode: 'insensitive'
+      };
     }
 
     // Search by name or description
     if (search) {
-      query = query.where(function() {
-        this.where('name', 'ilike', `%${search}%`)
-          .orWhere('description', 'ilike', `%${search}%`);
-      });
+      whereClause.OR = [
+        {
+          name: {
+            contains: search as string,
+            mode: 'insensitive'
+          }
+        },
+        {
+          description: {
+            contains: search as string,
+            mode: 'insensitive'
+          }
+        }
+      ];
     }
 
     // Get total count for pagination
-    const countQuery = query.clone();
-    const totalCount = await countQuery.count('* as count').first();
+    const totalCount = await prisma.venue.count({ where: whereClause });
 
     // Get paginated results
-    const venues = await query
-      .orderBy('name', 'asc')
-      .limit(parseInt(limit as string))
-      .offset(offset);
+    const venues = await prisma.venue.findMany({
+      where: whereClause,
+      orderBy: { name: 'asc' },
+      take: parseInt(limit as string),
+      skip: offset
+    });
 
     res.json({
       success: true,
@@ -63,18 +79,18 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
         name: venue.name,
         description: venue.description,
         address: venue.address,
-        city: venue.city,
-        postcode: venue.postcode,
-        phone: venue.phone,
-        email: venue.email,
-        createdAt: venue.created_at,
-        updatedAt: venue.updated_at
+        city: (venue as any).city,
+        postcode: (venue as any).postcode,
+        phone: (venue as any).phone,
+        email: (venue as any).email,
+        createdAt: venue.createdAt,
+        updatedAt: venue.updatedAt
       })),
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        total: parseInt(String(totalCount?.['count'] || '0')),
-        pages: Math.ceil(parseInt(String(totalCount?.['count'] || '0')) / parseInt(limit as string))
+        total: totalCount,
+        pages: Math.ceil(totalCount / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -88,10 +104,12 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
   try {
     const { id } = req.params;
     
-    const venue = await db('venues')
-      .where('id', id)
-      .where('is_active', true)
-      .first();
+    const venue = await prisma.venue.findFirst({
+      where: {
+        id: id!,
+        isActive: true
+      }
+    });
 
     if (!venue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
@@ -104,12 +122,12 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
         name: venue.name,
         description: venue.description,
         address: venue.address,
-        city: venue.city,
-        postcode: venue.postcode,
-        phone: venue.phone,
-        email: venue.email,
-        createdAt: venue.created_at,
-        updatedAt: venue.updated_at
+        city: (venue as any).city,
+        postcode: (venue as any).postcode,
+        phone: (venue as any).phone,
+        email: (venue as any).email,
+        createdAt: venue.createdAt,
+        updatedAt: venue.updatedAt
       }
     });
   } catch (error) {
@@ -141,18 +159,23 @@ router.post('/', authenticateToken, validateVenue, asyncHandler(async (req: Requ
       email
     } = req.body;
 
-    const [venue] = await db('venues')
-      .insert({
+    const venue = await prisma.venue.create({
+      data: {
         name,
         description,
         address,
-        city,
-        postcode,
-        phone,
-        email,
-        is_active: true,
-      })
-      .returning(['id', 'name']);
+        ...(city && { city }),
+        ...(postcode && { postcode }),
+        ...(phone && { phone }),
+        ...(email && { email }),
+        isActive: true,
+        ownerId: req.user!.id, // Add ownerId from authenticated user
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    });
 
     logger.info('Venue created successfully', { 
       venueId: venue.id, 
@@ -190,10 +213,12 @@ router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Re
     }
 
     // Check if venue exists
-    const existingVenue = await db('venues')
-      .where('id', id)
-      .where('is_active', true)
-      .first();
+    const existingVenue = await prisma.venue.findFirst({
+      where: {
+        id: id!,
+        isActive: true
+      }
+    });
 
     if (!existingVenue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
@@ -210,19 +235,23 @@ router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Re
     } = req.body;
 
     // Update venue
-    const [updatedVenue] = await db('venues')
-      .where('id', id)
-      .update({
+    const updatedVenue = await prisma.venue.update({
+      where: { id: id! },
+      data: {
         name,
         description,
         address,
-        city,
-        postcode,
-        phone,
-        email,
-        updated_at: new Date(),
-      })
-      .returning(['id', 'name']);
+        ...(city && { city }),
+        ...(postcode && { postcode }),
+        ...(phone && { phone }),
+        ...(email && { email }),
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    });
 
     logger.info('Venue updated successfully', { 
       venueId: id, 
@@ -255,32 +284,37 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
     }
 
     // Check if venue exists
-    const existingVenue = await db('venues')
-      .where('id', id)
-      .where('is_active', true)
-      .first();
+    const existingVenue = await prisma.venue.findFirst({
+      where: {
+        id: id!,
+        isActive: true
+      }
+    });
 
     if (!existingVenue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
     }
 
     // Check if venue has active activities
-    const activeActivities = await db('activities')
-      .where('venue_id', id)
-      .where('is_active', true)
-      .first();
+    const activeActivities = await prisma.activity.findFirst({
+      where: {
+        venueId: id!,
+        isActive: true
+      }
+    });
 
     if (activeActivities) {
       throw new AppError('Cannot delete venue with active activities', 400, 'VENUE_HAS_ACTIVITIES');
     }
 
     // Soft delete - mark as inactive
-    await db('venues')
-      .where('id', id)
-      .update({
-        is_active: false,
-        updated_at: new Date(),
-      });
+    await prisma.venue.update({
+      where: { id: id! },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      }
+    });
 
     logger.info('Venue deleted successfully', { 
       venueId: id, 

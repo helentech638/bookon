@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -12,46 +12,50 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   
   try {
     // Get user's registration date for "member since" calculation
-    const user = await db('users')
-      .select('created_at')
-      .where('id', userId)
-      .first();
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true }
+    });
 
-    const memberSince = user?.created_at ? new Date(user.created_at) : new Date();
+    const memberSince = user?.createdAt ? new Date(user.createdAt) : new Date();
     const daysSince = Math.floor((new Date().getTime() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Get real booking statistics using only existing columns
-    const totalBookings = await db('bookings')
-      .where('user_id', userId)
-      .count('* as count')
-      .first();
+    // Get real booking statistics using Prisma
+    const totalBookings = await prisma.booking.count({
+      where: { parentId: userId }
+    });
 
-    const confirmedBookings = await db('bookings')
-      .where('user_id', userId)
-      .where('status', 'confirmed')
-      .count('* as count')
-      .first();
+    const confirmedBookings = await prisma.booking.count({
+      where: { 
+        parentId: userId,
+        status: 'confirmed'
+      }
+    });
 
-    const totalSpent = await db('bookings')
-      .where('user_id', userId)
-      .where('status', 'confirmed')
-      .sum('amount as total')
-      .first();
+    const totalSpentResult = await prisma.booking.aggregate({
+      where: { 
+        parentId: userId,
+        status: 'confirmed'
+      },
+      _sum: { 
+        amount: true 
+      }
+    });
 
-    const upcomingActivities = await db('bookings')
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .where('bookings.user_id', userId)
-      .whereIn('bookings.status', ['pending', 'confirmed'])
-      .count('* as count')
-      .first();
+    const upcomingActivities = await prisma.booking.count({
+      where: {
+        parentId: userId,
+        status: { in: ['pending', 'confirmed'] }
+      }
+    });
 
     res.json({
       success: true,
       data: {
-        totalBookings: parseInt(String(totalBookings?.['count'] || '0')),
-        confirmedBookings: parseInt(String(confirmedBookings?.['count'] || '0')),
-        totalSpent: parseFloat(String(totalSpent?.['total'] || '0.00')),
-        upcomingActivities: parseInt(String(upcomingActivities?.['count'] || '0')),
+        totalBookings: totalBookings,
+        confirmedBookings: confirmedBookings,
+        totalSpent: parseFloat(String(totalSpentResult._sum?.amount || '0.00')),
+        upcomingActivities: upcomingActivities,
         memberSince: daysSince,
         lastLogin: new Date().toISOString()
       }
@@ -80,10 +84,10 @@ router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res:
   const userId = req.user!.id;
   
   try {
-    const user = await db('users')
-      .select('id', 'email', 'role', 'created_at')
-      .where('id', userId)
-      .first();
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, createdAt: true }
+    });
 
     if (!user) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
@@ -96,7 +100,7 @@ router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res:
           id: user.id,
           email: user.email,
           role: user.role,
-          memberSince: user.created_at
+          memberSince: user.createdAt
         }
       }
     });
@@ -124,23 +128,37 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
   const userId = req.user!.id;
   
   try {
-    const activities = await db('bookings')
-      .select(
-        'bookings.id',
-        'bookings.status',
-        'bookings.created_at',
-        'activities.name',
-        'activities.description',
-        'venues.name as venue_name'
-      )
-      .leftJoin('activities', 'bookings.activity_id', 'activities.id')
-      .leftJoin('venues', 'activities.venue_id', 'venues.id')
-      .where('bookings.user_id', userId)
-      .orderBy('bookings.created_at', 'desc');
+    const activities = await prisma.booking.findMany({
+      where: { parentId: userId },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        activity: {
+          select: {
+            name: true,
+            description: true,
+            venue: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
     res.json({
       success: true,
-      data: activities
+      data: activities.map(booking => ({
+        id: booking.id,
+        status: booking.status,
+        created_at: booking.createdAt,
+        name: booking.activity.name,
+        description: booking.activity.description,
+        venue_name: booking.activity.venue.name
+      }))
     });
   } catch (error) {
     logger.error('Error fetching user activities:', error);
@@ -176,20 +194,21 @@ router.get('/children', authenticateToken, asyncHandler(async (req: Request, res
   const userId = req.user!.id;
   
   try {
-    const children = await db('children')
-      .select('id', 'first_name', 'last_name', 'date_of_birth', 'gender')
-      .where('user_id', userId)
-      .orderBy('first_name', 'asc');
+    const children = await prisma.child.findMany({
+      where: { parentId: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        dateOfBirth: true,
+        gender: true
+      },
+      orderBy: { firstName: 'asc' }
+    });
 
     res.json({
       success: true,
-      data: children.map(child => ({
-        id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        dateOfBirth: child.date_of_birth,
-        gender: child.gender
-      }))
+      data: children
     });
   } catch (error) {
     logger.error('Error fetching children:', error);
@@ -202,55 +221,49 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
   const userId = req.user!.id;
   
   try {
-    // Get recent bookings
-    const recentBookings = await db('bookings')
-      .select(
-        'bookings.id',
-        'bookings.status',
-        'bookings.created_at',
-        'activities.name as activity_title',
-        'venues.name as venue_name'
-      )
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .where('bookings.user_id', userId)
-      .orderBy('bookings.created_at', 'desc')
-      .limit(3);
+    // Get recent bookings with activity and venue info
+    const recentBookings = await prisma.booking.findMany({
+      where: { parentId: userId },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        amount: true,
+        paymentStatus: true,
+        activity: {
+          select: {
+            name: true,
+            venue: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
 
-    // Get recent payments from bookings (since payments table might not exist)
-    const recentPayments = await db('bookings')
-      .select(
-        'bookings.id',
-        'bookings.payment_status as status',
-        'bookings.amount',
-        'bookings.created_at',
-        'activities.name as activity_title'
-      )
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .where('bookings.user_id', userId)
-      .orderBy('bookings.created_at', 'desc')
-      .limit(3);
-
-    // Combine and sort by date
-    const allActivities = [
-      ...recentBookings.map(booking => ({
+    // Combine bookings and payments into activities
+    const allActivities = recentBookings.map(booking => [
+      {
         type: 'booking',
         id: booking.id,
-        title: `Booked: ${booking.activity_title}`,
-        subtitle: `at ${booking.venue_name}`,
+        title: `Booked: ${booking.activity.name}`,
+        subtitle: `at ${booking.activity.venue.name}`,
         status: booking.status,
-        date: booking.created_at
-      })),
-      ...recentPayments.map(payment => ({
+        date: booking.createdAt
+      },
+      {
         type: 'payment',
-        id: payment.id,
-        title: `Payment: ${payment.activity_title}`,
-        subtitle: `£${parseFloat(payment.amount).toFixed(2)}`,
-        status: payment.status,
-        date: payment.created_at
-      }))
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+        id: booking.id,
+        title: `Payment: ${booking.activity.name}`,
+        subtitle: `£${parseFloat(String(booking.amount || '0')).toFixed(2)}`,
+        status: booking.paymentStatus,
+        date: booking.createdAt
+      }
+    ]).flat().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
     res.json({
       success: true,
@@ -268,31 +281,38 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
     const userId = req.user!.id;
     
     // Get user's recent activities from bookings
-    const recentActivities = await db('bookings')
-      .select(
-        'bookings.id',
-        'bookings.created_at',
-        'bookings.status',
-        'activities.name as activity_name',
-        'activities.description as activity_description',
-        'venues.name as venue_name'
-      )
-      .leftJoin('activities', 'bookings.activity_id', 'activities.id')
-      .leftJoin('venues', 'activities.venue_id', 'venues.id')
-      .where('bookings.user_id', userId)
-      .orderBy('bookings.created_at', 'desc')
-      .limit(10);
+    const recentActivities = await prisma.booking.findMany({
+      where: { parentId: userId },
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        activity: {
+          select: {
+            name: true,
+            description: true,
+            venue: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
 
     res.json({
       success: true,
-      data: recentActivities.map(activity => ({
-        id: activity.id,
+      data: recentActivities.map(booking => ({
+        id: booking.id,
         type: 'booking',
-        title: activity.activity_name,
-        description: activity.activity_description,
-        venue: activity.venue_name,
-        status: activity.status,
-        timestamp: activity.created_at
+        title: booking.activity.name,
+        description: booking.activity.description,
+        venue: booking.activity.venue.name,
+        status: booking.status,
+        timestamp: booking.createdAt
       }))
     });
   } catch (error) {

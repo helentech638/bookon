@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface VenueFormData {
   name: string;
@@ -124,33 +125,15 @@ const VenueForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => navigate('/admin')}
-                variant="outline"
-                className="p-2"
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {isEditing ? 'Edit Venue' : 'Add New Venue'}
-                </h1>
-                <p className="text-gray-600">
-                  {isEditing ? 'Update venue information' : 'Create a new venue for activities'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+    <AdminLayout title={isEditing ? 'Edit Venue' : 'Add New Venue'}>
+      <div className="mb-6">
+        <p className="text-gray-600">
+          {isEditing ? 'Update venue information' : 'Create a new venue for activities'}
+        </p>
       </div>
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name */}
@@ -312,7 +295,8 @@ const VenueForm: React.FC = () => {
           </form>
         </Card>
       </div>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

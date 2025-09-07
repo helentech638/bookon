@@ -18,6 +18,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
+import AdminLayout from '../../components/layout/AdminLayout';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
@@ -399,18 +400,19 @@ const RegisterManagement: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Register Management</h1>
-          <p className="text-gray-600 mt-2">Manage digital registers and track attendance</p>
-        </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create Register
-        </Button>
+    <AdminLayout title="Register Management">
+      <div className="mb-6">
+        <p className="text-gray-600">Manage digital registers and track attendance</p>
       </div>
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <Button onClick={() => setShowCreateModal(true)}>
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create Register
+          </Button>
+        </div>
 
       {/* Filters */}
       <Card className="mb-6">
@@ -700,7 +702,8 @@ const RegisterManagement: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

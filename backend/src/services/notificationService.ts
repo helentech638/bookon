@@ -16,30 +16,25 @@ export class NotificationService {
   // Create a new notification
   static async createNotification(notificationData: NotificationData) {
     try {
-      const result = await prisma.$queryRaw`
-        INSERT INTO notifications (type, title, message, data, priority, channels, "userId", "venueId", status, "createdAt")
-        VALUES (
-          ${notificationData.type},
-          ${notificationData.title},
-          ${notificationData.message},
-          ${JSON.stringify(notificationData.data || {})},
-          ${notificationData.priority || 'medium'},
-          ${JSON.stringify(notificationData.channels || ['in_app'])},
-          ${notificationData.userId || null},
-          ${notificationData.venueId || null},
-          'pending',
-          NOW()
-        )
-        RETURNING id
-      ` as any[];
-
-      const notificationId = result[0]?.id;
+      const notification = await prisma.notification.create({
+        data: {
+          type: notificationData.type,
+          title: notificationData.title,
+          message: notificationData.message,
+          data: notificationData.data || {},
+          priority: notificationData.priority || 'medium',
+          channels: notificationData.channels || ['in_app'],
+          userId: notificationData.userId || '',
+          venueId: notificationData.venueId || null,
+          status: 'pending'
+        }
+      });
       
       // Process notification through different channels
-      await this.processNotification({ id: notificationId, ...notificationData });
+      await this.processNotification({ id: notification.id, ...notificationData });
 
-      logger.info('Notification created successfully', { notificationId });
-      return { id: notificationId, ...notificationData };
+      logger.info('Notification created successfully', { notificationId: notification.id });
+      return { id: notification.id, ...notificationData };
     } catch (error) {
       logger.error('Error creating notification:', error);
       throw error;
@@ -165,12 +160,16 @@ export class NotificationService {
   // Get notifications for a user
   static async getUserNotifications(userId: string, limit: number = 20, offset: number = 0) {
     try {
-      const notifications = await prisma.$queryRaw`
-        SELECT * FROM notifications 
-        WHERE "userId" = ${userId}
-        ORDER BY "createdAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
-      ` as any[];
+      const notifications = await prisma.notification.findMany({
+        where: {
+          userId: userId
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit,
+        skip: offset
+      });
 
       return notifications;
     } catch (error) {
@@ -182,11 +181,15 @@ export class NotificationService {
   // Mark notification as read
   static async markAsRead(notificationId: string) {
     try {
-      await prisma.$executeRaw`
-        UPDATE notifications 
-        SET read = true, "readAt" = NOW()
-        WHERE id = ${notificationId}
-      `;
+      await prisma.notification.update({
+        where: {
+          id: notificationId
+        },
+        data: {
+          read: true,
+          readAt: new Date()
+        }
+      });
 
       logger.info('Notification marked as read', { notificationId });
     } catch (error) {
