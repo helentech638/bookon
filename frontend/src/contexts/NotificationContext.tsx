@@ -279,12 +279,13 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           }
         }
       } catch (error) {
-        console.error('Error polling notifications:', error);
+        // Silently handle errors to avoid console spam
+        console.warn('Notification polling error (non-critical):', error);
       }
     };
 
-    // Poll every 30 seconds on Vercel
-    const interval = setInterval(pollNotifications, 30000);
+    // Poll every 60 seconds on Vercel (reduced frequency for better performance)
+    const interval = setInterval(pollNotifications, 60000);
     
     // Initial poll
     pollNotifications();

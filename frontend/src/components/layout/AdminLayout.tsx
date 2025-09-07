@@ -64,17 +64,25 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Side Panel */}
-      <div className="w-64 bg-gray-800 text-white flex flex-col">
-        {/* Logo and Header */}
-        <div className="p-4 border-b border-gray-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-white">BookOn Admin</h2>
+    <div className="flex h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+      {/* Premium Side Panel */}
+      <div className="w-72 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-2xl border-r border-gray-700/50">
+        {/* Premium Logo and Header */}
+        <div className="p-6 border-b border-gray-700/50 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-900">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg">B</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">BookOn</h2>
+              <p className="text-xs text-gray-400 font-medium">Admin Panel</p>
+            </div>
+          </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-6">
-          <div className="px-4 space-y-1">
+        {/* Premium Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4">
+          <div className="px-4 space-y-2">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.path);
@@ -82,38 +90,54 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`group w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/25 transform scale-105'
+                      : 'text-gray-300 hover:bg-gray-700/50 hover:text-white hover:shadow-md hover:transform hover:scale-102'
                   }`}
                 >
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                  <span className="truncate">{item.name}</span>
+                  <div className={`mr-4 h-5 w-5 flex-shrink-0 transition-colors ${
+                    isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'
+                  }`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="truncate font-medium">{item.name}</span>
+                  {isActive && (
+                    <div className="ml-auto w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  )}
                 </button>
               );
             })}
           </div>
         </nav>
 
-        {/* Logout Button */}
-        <div className="p-4 border-t border-gray-700 flex-shrink-0">
+        {/* Premium Logout Button */}
+        <div className="p-4 border-t border-gray-700/50 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-900">
           <Button
             onClick={handleLogout}
-            variant="outline"
-            className="w-full bg-transparent border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white hover:border-gray-500"
+            className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 rounded-xl shadow-lg hover:shadow-red-500/25 transition-all duration-300 hover:transform hover:scale-105 border-0"
           >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
             Logout
           </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white min-h-full">
-          <div className="p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">{title}</h1>
-            {children}
+      {/* Premium Main Content */}
+      <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 via-white to-green-50">
+        <div className="bg-white/80 backdrop-blur-sm min-h-full shadow-inner">
+          <div className="p-8">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-green-600 to-gray-900 bg-clip-text text-transparent mb-2">
+                {title}
+              </h1>
+              <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-green-600 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/50 p-6">
+              {children}
+            </div>
           </div>
         </div>
       </div>
