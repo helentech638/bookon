@@ -889,6 +889,71 @@ router.get('/test-db', asyncHandler(async (_req: Request, res: Response) => {
   }
 }));
 
+// Create admin user endpoint
+router.post('/create-admin', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { email = 'admin@bookon.com', password = 'admin123', firstName = 'Admin', lastName = 'User' } = req.body;
+    
+    // Check if admin user already exists
+    const existingUser = await authPrisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (existingUser) {
+      return res.json({
+        success: true,
+        message: 'Admin user already exists',
+        data: {
+          email: existingUser.email,
+          role: existingUser.role
+        }
+      });
+    }
+    
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+    
+    // Create admin user
+    const adminUser = await authPrisma.user.create({
+      data: {
+        email,
+        password_hash: passwordHash,
+        firstName,
+        lastName,
+        role: 'admin',
+        isActive: true,
+        emailVerified: true
+      }
+    });
+    
+    logger.info('✅ Admin user created', {
+      email: adminUser.email,
+      role: adminUser.role
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Admin user created successfully',
+      data: {
+        email: adminUser.email,
+        role: adminUser.role,
+        id: adminUser.id
+      }
+    });
+    
+  } catch (error) {
+    logger.error('❌ Failed to create admin user:', error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to create admin user',
+        details: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
+}));
+
 // Simple database seeding endpoint
 router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
   try {
