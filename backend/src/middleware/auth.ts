@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import { logger, logSecurity } from '../utils/logger';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { redis } from '../utils/redis';
 
 // Extend Express Request interface to include user
@@ -46,10 +46,15 @@ export const authenticateToken = async (
     // Check if user still exists and is active
     let user;
     try {
-      user = await db('users')
-        .select('id', 'email', 'role', 'isActive')
-        .where('id', decoded.userId)
-        .first();
+      user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true
+        }
+      });
     } catch (error) {
       // If database is not accessible, use token data for authentication
       logger.warn('Database not accessible, using token data for authentication');
@@ -127,10 +132,15 @@ export const optionalAuth = async (
       // Try to authenticate, but don't fail if it doesn't work
       try {
         const decoded = jwt.verify(token, process.env['JWT_SECRET']!) as any;
-        const user = await db('users')
-          .select('id', 'email', 'role', 'isActive')
-          .where('id', decoded.userId)
-          .first();
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.userId },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isActive: true
+          }
+        });
 
         if (user && user.isActive) {
           req.user = {

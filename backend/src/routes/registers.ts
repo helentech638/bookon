@@ -114,17 +114,11 @@ router.get('/', authenticateToken, requireRole(['admin', 'staff']), [
       query: req.query
     });
     
-    // Return empty data instead of throwing error to prevent 500
-    logger.warn('Returning empty registers due to database error');
-    res.json({
-      success: true,
-      data: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        total: 0,
-        pages: 0
-      }
+    // Return proper error response instead of empty data
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch registers',
+      error: process.env['NODE_ENV'] === 'development' ? (error instanceof Error ? error.message : String(error)) : 'Internal server error'
     });
   }
 }));

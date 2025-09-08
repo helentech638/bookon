@@ -134,7 +134,15 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
+      console.log('AdminDashboard: Token check', { 
+        hasToken: !!token, 
+        tokenLength: token?.length,
+        isAuthenticated: authService.isAuthenticated(),
+        user: authService.getUser()
+      });
+      
       if (!token) {
+        console.warn('AdminDashboard: No token found, redirecting to login');
         navigate('/login');
         return;
       }

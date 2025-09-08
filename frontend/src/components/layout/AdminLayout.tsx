@@ -126,7 +126,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
       </div>
 
       {/* Premium Main Content */}
-      <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 via-white to-green-50">
+      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-green-50 custom-scrollbar-light">
         <div className="bg-white/80 backdrop-blur-sm min-h-full shadow-inner">
           <div className="p-8">
             <div className="mb-8">
@@ -135,7 +135,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
               </h1>
               <div className="w-24 h-1 bg-gradient-to-r from-green-500 to-green-600 rounded-full"></div>
             </div>
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/50 p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/50 p-6 overflow-hidden">
               {children}
             </div>
           </div>

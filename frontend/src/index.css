@@ -313,6 +313,30 @@
     background: #6B7280;
   }
   
+  /* Light theme scrollbar for main content */
+  .custom-scrollbar-light {
+    scrollbar-width: thin;
+    scrollbar-color: #D1D5DB #F3F4F6;
+  }
+  
+  .custom-scrollbar-light::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar-light::-webkit-scrollbar-track {
+    background: #F3F4F6;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar-light::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar-light::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF;
+  }
+  
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
   }

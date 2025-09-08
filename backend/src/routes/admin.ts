@@ -114,38 +114,11 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
       role: _req.user?.role
     });
     
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock admin venues due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          name: 'Swimming Pool Complex',
-          description: 'Modern swimming facility with multiple pools',
-          address: '123 Water Street',
-          city: 'London',
-          postcode: 'SW1A 1AA',
-          phone: '+44 20 7123 4567',
-          email: 'info@swimmingpool.com',
-          isActive: true,
-          createdAt: '2024-01-15T10:00:00Z',
-          updatedAt: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Tennis Academy',
-          description: 'Professional tennis coaching and courts',
-          address: '456 Court Road',
-          city: 'Manchester',
-          postcode: 'M1 1AA',
-          phone: '+44 161 123 4567',
-          email: 'info@tennisacademy.com',
-          isActive: true,
-          createdAt: '2024-01-10T09:00:00Z',
-          updatedAt: '2024-01-10T09:00:00Z'
-        }
-      ]
+    // Return proper error response instead of mock data
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch venues',
+      error: process.env['NODE_ENV'] === 'development' ? (error instanceof Error ? error.message : String(error)) : 'Internal server error'
     });
   }
 }));
@@ -194,38 +167,11 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       role: _req.user?.role
     });
     
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock admin activities due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          name: 'Swimming Lesson',
-          description: 'Learn to swim with professional instructors',
-          duration: 60,
-          price: 45.00,
-          maxCapacity: 8,
-          isActive: true,
-          venueId: 'venue_1',
-          venueName: 'Swimming Pool Complex',
-          createdAt: '2024-01-15T09:00:00Z',
-          updatedAt: '2024-01-15T09:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Tennis Coaching',
-          description: 'Professional tennis coaching for all levels',
-          duration: 90,
-          price: 60.00,
-          maxCapacity: 4,
-          isActive: true,
-          venueId: 'venue_2',
-          venueName: 'Tennis Academy',
-          createdAt: '2024-01-10T08:00:00Z',
-          updatedAt: '2024-01-10T08:00:00Z'
-        }
-      ]
+    // Return proper error response instead of mock data
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch activities',
+      error: process.env['NODE_ENV'] === 'development' ? (error instanceof Error ? error.message : String(error)) : 'Internal server error'
     });
   }
 }));
