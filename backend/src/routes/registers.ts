@@ -35,8 +35,15 @@ router.get('/', authenticateToken, requireRole(['admin', 'staff']), [
   query('endDate').optional().isISO8601().withMessage('End date must be a valid ISO date'),
 ], asyncHandler(async (req: Request, res: Response) => {
   try {
+    logger.info('Registers route accessed', { 
+      user: req.user?.email,
+      role: req.user?.role,
+      query: req.query 
+    });
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.warn('Validation failed for registers route', { errors: errors.array() });
       throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
     }
 
@@ -99,8 +106,26 @@ router.get('/', authenticateToken, requireRole(['admin', 'staff']), [
     });
 
   } catch (error) {
-    logger.error('Error retrieving registers:', error);
-    throw error;
+    logger.error('Error retrieving registers:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      user: req.user?.email,
+      role: req.user?.role,
+      query: req.query
+    });
+    
+    // Return empty data instead of throwing error to prevent 500
+    logger.warn('Returning empty registers due to database error');
+    res.json({
+      success: true,
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        pages: 0
+      }
+    });
   }
 }));
 

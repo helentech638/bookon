@@ -82,9 +82,16 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
 // Get all venues for admin
 router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
+    logger.info('Admin venues route accessed', { 
+      user: _req.user?.email,
+      role: _req.user?.role 
+    });
+
     const venues = await prisma.venue.findMany({
       orderBy: { createdAt: 'desc' }
     });
+
+    logger.info('Successfully fetched venues', { count: venues.length });
 
     res.json({
       success: true,
@@ -100,7 +107,12 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
       }))
     });
   } catch (error) {
-    logger.error('Error fetching admin venues:', error);
+    logger.error('Error fetching admin venues:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      user: _req.user?.email,
+      role: _req.user?.role
+    });
     
     // Return mock data when database is not accessible
     logger.warn('Returning mock admin venues due to database error');
@@ -141,6 +153,11 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
 // Get all activities for admin
 router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
+    logger.info('Admin activities route accessed', { 
+      user: _req.user?.email,
+      role: _req.user?.role 
+    });
+
     const activities = await prisma.activity.findMany({
       include: {
         venue: {
@@ -151,6 +168,8 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    logger.info('Successfully fetched activities', { count: activities.length });
 
     res.json({
       success: true,
@@ -168,7 +187,12 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       }))
     });
   } catch (error) {
-    logger.error('Error fetching admin activities:', error);
+    logger.error('Error fetching admin activities:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      user: _req.user?.email,
+      role: _req.user?.role
+    });
     
     // Return mock data when database is not accessible
     logger.warn('Returning mock admin activities due to database error');

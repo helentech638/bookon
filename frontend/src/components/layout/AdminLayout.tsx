@@ -81,7 +81,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
         </div>
 
         {/* Premium Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4">
+        <nav className="flex-1 overflow-y-auto py-4 custom-scrollbar">
           <div className="px-4 space-y-2">
             {navigationItems.map((item) => {
               const Icon = item.icon;
