@@ -35,6 +35,7 @@ import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface AdminStats {
   totalVenues: number;
@@ -138,58 +139,78 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      // Fetch admin statistics
-      const statsResponse = await fetch(buildApiUrl('/admin/stats'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // Make all API calls in parallel for better performance
+      const [statsResponse, venuesResponse, activitiesResponse, bookingsResponse] = await Promise.allSettled([
+        fetch(buildApiUrl('/admin/stats'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(buildApiUrl('/admin/venues'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(buildApiUrl('/admin/activities'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(buildApiUrl('/admin/recent-bookings'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      ]);
 
-      if (!statsResponse.ok) {
-        throw new Error('Failed to fetch admin statistics');
+      // Process stats
+      if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
+        const statsData = await statsResponse.value.json();
+        setStats(statsData.data);
+      } else {
+        console.warn('Failed to fetch stats, using defaults');
+        setStats({
+          totalUsers: 0,
+          totalVenues: 0,
+          totalActivities: 0,
+          totalBookings: 0,
+          totalRevenue: 0,
+          pendingBookings: 0,
+          activeVenues: 0,
+          upcomingActivities: 0,
+          monthlyGrowth: 0
+        });
       }
 
-      const statsData = await statsResponse.json();
-      setStats(statsData.data);
-
-      // Fetch venues
-      const venuesResponse = await fetch(buildApiUrl('/admin/venues'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (venuesResponse.ok) {
-        const venuesData = await venuesResponse.json();
+      // Process venues
+      if (venuesResponse.status === 'fulfilled' && venuesResponse.value.ok) {
+        const venuesData = await venuesResponse.value.json();
         setVenues(venuesData.data || []);
+      } else {
+        console.warn('Failed to fetch venues');
+        setVenues([]);
       }
 
-      // Fetch activities
-      const activitiesResponse = await fetch(buildApiUrl('/admin/activities'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
+      // Process activities
+      if (activitiesResponse.status === 'fulfilled' && activitiesResponse.value.ok) {
+        const activitiesData = await activitiesResponse.value.json();
         setActivities(activitiesData.data || []);
+      } else {
+        console.warn('Failed to fetch activities');
+        setActivities([]);
       }
 
-      // Fetch recent bookings
-      const bookingsResponse = await fetch(buildApiUrl('/admin/recent-bookings'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
+      // Process bookings
+      if (bookingsResponse.status === 'fulfilled' && bookingsResponse.value.ok) {
+        const bookingsData = await bookingsResponse.value.json();
         setRecentBookings(bookingsData.data || []);
+      } else {
+        console.warn('Failed to fetch bookings');
+        setRecentBookings([]);
       }
 
     } catch (err) {
@@ -331,21 +352,6 @@ const AdminDashboard: React.FC = () => {
     toast.success(`${activeTab} exported successfully`);
   };
 
-  const navigationItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: ComputerDesktopIcon },
-    { id: 'activities', name: 'Activities', icon: CalendarDaysIcon },
-    { id: 'venues', name: 'Venues', icon: MapPinIcon },
-    { id: 'bookings', name: 'Bookings', icon: ClipboardDocumentListIcon },
-    { id: 'registers', name: 'Registers', icon: DocumentTextIcon },
-    { id: 'payments', name: 'Payments', icon: CurrencyPoundIcon },
-    { id: 'tfc-queue', name: 'TFC Queue', icon: ClockIcon },
-    { id: 'provider-settings', name: 'Provider Settings', icon: CogIcon },
-    { id: 'notifications', name: 'Notifications', icon: BellIcon },
-    { id: 'webhooks', name: 'Webhooks', icon: MegaphoneIcon },
-    { id: 'widget', name: 'Widget Management', icon: ComputerDesktopIcon },
-    { id: 'communications', name: 'Communications', icon: ChatBubbleLeftRightIcon },
-    { id: 'settings', name: 'Settings', icon: CogIcon },
-  ];
 
   const getStatusBadge = (status: string | undefined | null) => {
     if (!status) {
@@ -609,19 +615,22 @@ const AdminDashboard: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString()}</span>
-                <Button onClick={fetchAdminData} size="sm" variant="outline">
-                  <ArrowUpIcon className="h-4 w-4 mr-1" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
+       case 'dashboard':
+         return (
+           <div className="space-y-6">
+             <div className="flex items-center justify-between">
+               <div>
+                 <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+                 <p className="text-gray-600">Welcome to the admin panel</p>
+               </div>
+               <div className="flex items-center space-x-2">
+                 <span className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString()}</span>
+                 <Button onClick={fetchAdminData} size="sm" variant="outline">
+                   <ArrowUpIcon className="h-4 w-4 mr-1" />
+                   Refresh
+                 </Button>
+               </div>
+             </div>
             
             {loading ? (
               <div className="flex items-center justify-center h-64">
@@ -727,16 +736,16 @@ const AdminDashboard: React.FC = () => {
           </div>
         );
 
-      case 'activities':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Activities Management</h1>
-              <Button onClick={() => setShowAddModal(true)}>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Activity
-              </Button>
-            </div>
+       case 'activities':
+         return (
+           <div className="space-y-6">
+             <div className="flex items-center justify-between">
+               <h2 className="text-2xl font-bold text-gray-900">Activities Management</h2>
+               <Button onClick={() => setShowAddModal(true)}>
+                 <PlusIcon className="h-4 w-4 mr-2" />
+                 Add Activity
+               </Button>
+             </div>
 
             {/* Search and Filters */}
             <div className="mb-6 flex items-center space-x-4">
@@ -826,9 +835,9 @@ const AdminDashboard: React.FC = () => {
 
       case 'venues':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">Venues Management</h1>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Venues Management</h2>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={handleExport}>
                   <FunnelIcon className="h-4 w-4 mr-2" />
@@ -911,8 +920,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'bookings':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Bookings Management</h1>
               <div className="flex space-x-3">
                 <Button variant="outline" onClick={handleExport}>
@@ -1009,8 +1018,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'registers':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Attendance Registers</h1>
               <div className="flex space-x-3">
                 <Button variant="outline">
@@ -1227,8 +1236,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'payments':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Payments & Transactions</h1>
               <Button onClick={() => navigate('/admin/financial')}>
                 <PlusIcon className="h-4 w-4 mr-2" />
@@ -1327,8 +1336,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'communications':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Communications</h1>
               <Button>
                 <PlusIcon className="h-4 w-4 mr-2" />
@@ -1392,8 +1401,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'settings':
         return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">System Settings</h1>
+          <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900">System Settings</h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* General Settings */}
@@ -1466,8 +1475,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'tfc-queue':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">TFC Payment Queue</h1>
               <Button onClick={() => navigate('/admin/tfc-queue')}>
                 <ClockIcon className="h-4 w-4 mr-2" />
@@ -1582,8 +1591,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'provider-settings':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Provider Settings</h1>
               <Button onClick={() => navigate('/admin/provider-settings')}>
                 <CogIcon className="h-4 w-4 mr-2" />
@@ -1662,8 +1671,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'notifications':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Notification Management</h1>
               <Button onClick={() => navigate('/admin/notifications')}>
                 <BellIcon className="h-4 w-4 mr-2" />
@@ -1724,8 +1733,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'webhooks':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Webhook Management</h1>
               <Button onClick={() => navigate('/admin/webhooks')}>
                 <MegaphoneIcon className="h-4 w-4 mr-2" />
@@ -1786,8 +1795,8 @@ const AdminDashboard: React.FC = () => {
 
       case 'widget':
         return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold text-gray-900">Widget Management</h1>
               <Button onClick={() => navigate('/admin/widget')}>
                 <ComputerDesktopIcon className="h-4 w-4 mr-2" />
@@ -1848,8 +1857,8 @@ const AdminDashboard: React.FC = () => {
 
       default:
         return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+          <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
             <p className="text-gray-600">Welcome to the admin panel</p>
           </div>
         );
@@ -1857,47 +1866,12 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Side Panel */}
-      <div className="w-64 bg-gray-800 text-white">
-        {/* Logo and Logout */}
-        <div className="h-16 border-b border-gray-700">
-        </div>
-
-        {/* Navigation */}
-        <nav className="mt-6">
-          <div className="px-4 space-y-2">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === item.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white min-h-full">
-          {renderContent()}
-        </div>
-      </div>
+    <AdminLayout title="Admin Dashboard">
+      {renderContent()}
       
       {/* Modals */}
       {showAddModal && <AddActivityModal />}
-    </div>
+    </AdminLayout>
   );
 };
 

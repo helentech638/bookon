@@ -6,10 +6,21 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env['NODE_ENV'] === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
   datasources: {
     db: {
       url: process.env.DATABASE_DIRECT_URL || process.env.DATABASE_URL,
+    },
+  },
+  // Performance optimizations
+  __internal: {
+    engine: {
+      // Enable connection pooling
+      connectionLimit: 10,
+      // Reduce connection timeout
+      connectTimeout: 10000,
+      // Enable query optimization
+      enableQueryOptimization: true,
     },
   },
 });

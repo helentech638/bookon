@@ -561,25 +561,25 @@ const DashboardPage: React.FC = () => {
                 <div className="space-y-6">
                   <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
                     <h4 className="text-lg font-semibold text-blue-900 mb-4">Personal Information</h4>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <label className="block text-sm font-medium text-blue-800">Full Name</label>
                         <p className="mt-1 text-lg font-semibold text-blue-900">
-                          {userProfile.firstName} {userProfile.lastName}
-                        </p>
-                      </div>
-                      <div>
+                      {userProfile.firstName} {userProfile.lastName}
+                    </p>
+                  </div>
+                  <div>
                         <label className="block text-sm font-medium text-blue-800">Email</label>
                         <p className="mt-1 text-lg font-semibold text-blue-900">{userProfile.email}</p>
-                      </div>
-                      <div>
+                  </div>
+                  <div>
                         <label className="block text-sm font-medium text-blue-800">Role</label>
                         <span className="mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
                           {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)}
                         </span>
-                      </div>
-                      {userProfile.phone && (
-                        <div>
+                  </div>
+                  {userProfile.phone && (
+                    <div>
                           <label className="block text-sm font-medium text-blue-800">Phone</label>
                           <p className="mt-1 text-lg font-semibold text-blue-900">{userProfile.phone}</p>
                         </div>
@@ -592,8 +592,8 @@ const DashboardPage: React.FC = () => {
                 <div className="space-y-6">
                   <div className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200">
                     <h4 className="text-lg font-semibold text-green-900 mb-4">Account Information</h4>
-                    <div className="space-y-4">
-                      <div>
+                <div className="space-y-4">
+                  <div>
                         <label className="block text-sm font-medium text-green-800">Member Since</label>
                         <p className="mt-1 text-lg font-semibold text-green-900">
                           {new Date(userProfile.memberSince).toLocaleDateString('en-GB', {
@@ -601,24 +601,24 @@ const DashboardPage: React.FC = () => {
                             month: 'long',
                             day: 'numeric'
                           })}
-                        </p>
-                      </div>
-                      <div>
+                    </p>
+                  </div>
+                  <div>
                         <label className="block text-sm font-medium text-green-800">Status</label>
                         <span className={`mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                           userProfile.isActive ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
-                        }`}>
-                          {userProfile.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <div>
+                    }`}>
+                      {userProfile.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div>
                         <label className="block text-sm font-medium text-green-800">Last Login</label>
                         <p className="mt-1 text-lg font-semibold text-green-900">
-                          {stats?.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
-                        </p>
-                      </div>
-                      {userProfile.address && (
-                        <div>
+                      {stats?.lastLogin ? new Date(stats.lastLogin).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                  {userProfile.address && (
+                    <div>
                           <label className="block text-sm font-medium text-green-800">Address</label>
                           <p className="mt-1 text-lg font-semibold text-green-900">{userProfile.address}</p>
                         </div>
