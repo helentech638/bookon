@@ -46,7 +46,7 @@ class CancellationService {
   private readonly ADMIN_FEE = 2.00; // £2 admin fee per cancellation
 
   /**
-   * Calculate pro-rata refund for a booking
+   * Calculate pro-rata refund for a booking (enhanced for multi-session courses)
    */
   async calculateProRataRefund(bookingId: string, cancellationDate: Date): Promise<ProRataCalculation> {
     try {
@@ -75,17 +75,55 @@ class CancellationService {
       const sessionDateTime = new Date(`${activityDate.toISOString().split('T')[0]}T${activityTime}`);
       const hoursUntilSession = (sessionDateTime.getTime() - cancellationDate.getTime()) / (1000 * 60 * 60);
       
-      // For simplicity, assume each booking is for one session
-      // In a real system, you'd calculate based on course duration, number of sessions, etc.
-      const sessionsUsed = hoursUntilSession < 0 ? 1 : 0; // If session has passed, it's used
-      const sessionsRemaining = 1 - sessionsUsed;
-      const valuePerSession = totalPaid; // Assuming single session booking
+      // Enhanced calculation for multi-session courses
+      // Check if this is a course booking (multiple sessions)
+      const isCourseBooking = booking.activity.duration && booking.activity.duration > 1;
+      
+      let sessionsUsed = 0;
+      let sessionsRemaining = 0;
+      let valuePerSession = totalPaid;
+
+      if (isCourseBooking) {
+        // For course bookings, calculate based on course duration
+        const totalSessions = booking.activity.duration || 1;
+        const sessionDuration = booking.activity.sessionDuration || 60; // minutes
+        
+        // Calculate how many sessions have passed
+        const now = new Date();
+        const courseStartDate = new Date(booking.activity.startDate);
+        const courseEndDate = new Date(booking.activity.endDate);
+        
+        if (now < courseStartDate) {
+          // Course hasn't started yet
+          sessionsUsed = 0;
+          sessionsRemaining = totalSessions;
+        } else if (now > courseEndDate) {
+          // Course has finished
+          sessionsUsed = totalSessions;
+          sessionsRemaining = 0;
+        } else {
+          // Course is in progress - calculate sessions based on time elapsed
+          const totalCourseDuration = courseEndDate.getTime() - courseStartDate.getTime();
+          const elapsedTime = now.getTime() - courseStartDate.getTime();
+          sessionsUsed = Math.floor((elapsedTime / totalCourseDuration) * totalSessions);
+          sessionsRemaining = totalSessions - sessionsUsed;
+        }
+        
+        valuePerSession = totalPaid / totalSessions;
+      } else {
+        // Single session booking
+        sessionsUsed = hoursUntilSession < 0 ? 1 : 0;
+        sessionsRemaining = 1 - sessionsUsed;
+        valuePerSession = totalPaid;
+      }
 
       // Calculate refundable amounts
       const refundableAmount = sessionsRemaining * valuePerSession;
-      const creditAmount = refundableAmount - this.ADMIN_FEE;
+      
+      // Apply admin fee only once per cancellation action
+      const creditAmount = Math.max(0, refundableAmount - this.ADMIN_FEE);
       const cashRefund = 0; // Default to credit only
-      const creditRefund = Math.max(0, creditAmount);
+      const creditRefund = creditAmount;
 
       return {
         totalPaid,
@@ -129,10 +167,12 @@ class CancellationService {
       const sessionDateTime = new Date(`${activityDate.toISOString().split('T')[0]}T${activityTime}`);
       const hoursUntilSession = (sessionDateTime.getTime() - cancellationDate.getTime()) / (1000 * 60 * 60);
 
-      // Check if cancellation is eligible
-      const isEligible = hoursUntilSession >= 24; // Must be 24+ hours before session
+      // Enhanced eligibility check with 24-hour rule
       const isPastSession = hoursUntilSession < 0;
       const isWithin24Hours = hoursUntilSession < 24 && hoursUntilSession >= 0;
+      const isEligibleForCashRefund = hoursUntilSession >= 24 && booking.paymentMethod === 'card';
+      const isEligibleForCreditOnly = hoursUntilSession >= 24 && (booking.paymentMethod === 'tfc' || booking.paymentMethod === 'voucher');
+      const isEligibleForProRataCredit = hoursUntilSession < 24 && hoursUntilSession >= 0; // Mid-course cancellation
 
       if (isPastSession) {
         return {
@@ -154,35 +194,43 @@ class CancellationService {
         };
       }
 
-      if (isWithin24Hours) {
+      if (isWithin24Hours && booking.paymentMethod === 'card') {
+        // Inside 24h for card payments - offer pro-rata credit only
+        const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
         return {
-          eligible: false,
-          refundAmount: 0,
-          creditAmount: 0,
-          adminFee: 0,
+          eligible: true,
+          refundAmount: 0, // No cash refund within 24h
+          creditAmount: calculation.creditAmount,
+          adminFee: this.ADMIN_FEE,
           method: 'credit',
-          reason: 'Cancellation must be made at least 24 hours before the session',
-          breakdown: {
-            totalPaid: Number(booking.amount),
-            sessionsUsed: 0,
-            sessionsRemaining: 1,
-            valuePerSession: Number(booking.amount),
-            refundableAmount: Number(booking.amount),
-            creditAmount: 0,
-            adminFee: 0
-          }
+          reason: 'Within 24 hours - pro-rata credit only (no cash refund)',
+          breakdown: calculation.breakdown
+        };
+      }
+
+      if (isWithin24Hours && (booking.paymentMethod === 'tfc' || booking.paymentMethod === 'voucher')) {
+        // Inside 24h for TFC/voucher - offer pro-rata credit
+        const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
+        return {
+          eligible: true,
+          refundAmount: 0,
+          creditAmount: calculation.creditAmount,
+          adminFee: this.ADMIN_FEE,
+          method: 'credit',
+          reason: 'Within 24 hours - pro-rata credit for unused sessions',
+          breakdown: calculation.breakdown
         };
       }
 
       // Calculate refund amounts
       const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
       
-      // Determine refund method based on payment method
+      // Determine refund method based on payment method and timing
       let method: 'cash' | 'credit' | 'mixed' = 'credit';
       let refundAmount = 0;
       let creditAmount = calculation.creditAmount;
 
-      if (booking.paymentMethod === 'card') {
+      if (booking.paymentMethod === 'card' && hoursUntilSession >= 24) {
         method = 'cash';
         refundAmount = calculation.refundableAmount - this.ADMIN_FEE;
         creditAmount = 0;
@@ -192,9 +240,23 @@ class CancellationService {
         creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
       } else if (booking.paymentMethod === 'mixed') {
         method = 'mixed';
-        // For mixed payments, refund card portion as cash, TFC portion as credit
-        refundAmount = calculation.refundableAmount * 0.5 - this.ADMIN_FEE; // Assume 50/50 split
-        creditAmount = calculation.refundableAmount * 0.5 - this.ADMIN_FEE;
+        // For mixed payments, refund card portion as cash (if >=24h), TFC portion as credit
+        if (hoursUntilSession >= 24) {
+          // Refund card portion as cash, TFC portion as credit
+          const cardPortion = calculation.refundableAmount * 0.5; // Assume 50/50 split
+          const tfcPortion = calculation.refundableAmount * 0.5;
+          refundAmount = cardPortion - this.ADMIN_FEE;
+          creditAmount = tfcPortion - this.ADMIN_FEE;
+        } else {
+          // Within 24h - all as credit
+          refundAmount = 0;
+          creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
+        }
+      } else if (booking.paymentMethod === 'card' && hoursUntilSession < 24) {
+        // Card payment within 24h - credit only
+        method = 'credit';
+        refundAmount = 0;
+        creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
       }
 
       return {

@@ -8,21 +8,7 @@ import { authenticateToken, authRateLimit, logout } from '../middleware/auth';
 import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
 import { prisma } from '../utils/prisma';
-import { PrismaClient } from '@prisma/client';
-
-// Create a direct connection for auth operations
-const directDbUrl = process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'];
-if (!directDbUrl) {
-  throw new Error('DATABASE_DIRECT_URL or DATABASE_URL must be defined');
-}
-
-const authPrisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: directDbUrl
-    }
-  }
-});
+import { prismaDirect } from '../utils/prismaDirect';
 
 const router = Router();
 
@@ -59,8 +45,8 @@ const validatePasswordChange = [
 // Helper function to generate JWT tokens
 const generateTokens = (user: { id: string; email: string; role: string }) => {
   try {
-    const jwtSecret = process.env['JWT_SECRET'];
-    const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'];
+    const jwtSecret = process.env['JWT_SECRET'] || 'fallback-jwt-secret-for-development';
+    const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || 'fallback-refresh-secret-for-development';
     
     if (!jwtSecret || !jwtRefreshSecret) {
       throw new Error('JWT secrets not configured');
@@ -74,7 +60,7 @@ const generateTokens = (user: { id: string; email: string; role: string }) => {
         type: 'access' 
       },
       jwtSecret,
-      { expiresIn: process.env['JWT_EXPIRES_IN'] || '15m' } as any
+      { expiresIn: process.env['JWT_EXPIRES_IN'] || '24h' } as any
     );
 
     const refreshToken = jwt.sign(
@@ -117,7 +103,7 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   });
 
   // Check if user already exists using direct connection
-  const existingUser = await authPrisma.user.findUnique({
+  const existingUser = await prismaDirect.user.findUnique({
     where: { email }
   });
   if (existingUser) {
@@ -133,7 +119,7 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   // const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
   // Create user using direct connection
-  const result = await authPrisma.user.create({
+  const result = await prismaDirect.user.create({
     data: {
       email,
       password_hash: passwordHash,
@@ -207,7 +193,7 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
     let user;
     try {
       // Find user using direct connection
-      user = await authPrisma.user.findUnique({
+      user = await prismaDirect.user.findUnique({
         where: { email: email.trim() },
         select: { id: true, email: true, password_hash: true, role: true, isActive: true }
       });
@@ -593,7 +579,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
   const userId = req.user!.id;
 
   try {
-    const user = await authPrisma.user.findUnique({
+    const user = await prismaDirect.user.findUnique({
       where: { id: userId },
       select: { 
         id: true, 
@@ -662,7 +648,7 @@ router.put('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
   const { firstName, lastName } = req.body;
 
   try {
-    const updatedUser = await authPrisma.user.update({
+    const updatedUser = await prismaDirect.user.update({
       where: { id: userId },
       data: {
         firstName: firstName || undefined,
@@ -929,7 +915,7 @@ router.post('/reset-admin-password', asyncHandler(async (req: Request, res: Resp
     const { email = 'admin@bookon.com', password = 'admin123' } = req.body;
     
     // Find the admin user
-    const existingUser = await authPrisma.user.findUnique({
+    const existingUser = await prismaDirect.user.findUnique({
       where: { email }
     });
     
@@ -947,7 +933,7 @@ router.post('/reset-admin-password', asyncHandler(async (req: Request, res: Resp
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
     // Update the user's password
-    const updatedUser = await authPrisma.user.update({
+    const updatedUser = await prismaDirect.user.update({
       where: { email },
       data: {
         password_hash: passwordHash
@@ -986,7 +972,7 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
     const { email = 'admin@bookon.com', password = 'admin123', firstName = 'Admin', lastName = 'User' } = req.body;
     
     // Check if admin user already exists
-    const existingUser = await authPrisma.user.findUnique({
+    const existingUser = await prismaDirect.user.findUnique({
       where: { email }
     });
     
@@ -1006,7 +992,7 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
     // Create admin user
-    const adminUser = await authPrisma.user.create({
+    const adminUser = await prismaDirect.user.create({
       data: {
         email,
         password_hash: passwordHash,

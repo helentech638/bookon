@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 export interface NotificationData {
@@ -160,15 +160,17 @@ export class NotificationService {
   // Get notifications for a user
   static async getUserNotifications(userId: string, limit: number = 20, offset: number = 0) {
     try {
-      const notifications = await prisma.notification.findMany({
-        where: {
-          userId: userId
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: limit,
-        skip: offset
+      const notifications = await safePrismaQuery(async (client) => {
+        return await client.notification.findMany({
+          where: {
+            userId: userId
+          },
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: limit,
+          skip: offset
+        });
       });
 
       return notifications;

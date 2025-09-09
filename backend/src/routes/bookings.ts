@@ -62,7 +62,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => ({
         id: booking.id,
-      activity_name: booking.activity.name,
+      activity_name: booking.activity.title,
       venue_name: booking.activity.venue.name,
       child_name: `${booking.child.firstName} ${booking.child.lastName}`,
       start_date: booking.activityDate,
@@ -75,8 +75,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       notes: booking.notes,
         activity: {
           id: booking.activityId,
-        title: booking.activity.name,
-        description: booking.activity.description || booking.activity.name,
+        title: booking.activity.title,
+        description: booking.activity.description || booking.activity.title,
         price: booking.activity.price || booking.amount,
         max_capacity: booking.activity.maxCapacity || 20,
         current_capacity: 15, // Default value, you might want to add this to activities table
@@ -235,7 +235,8 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
         amount: activity.price || 0,
         paymentStatus: 'pending',
         paymentMethod: 'card'
-      });
+      }
+    });
 
     logger.info(`Booking created: ${booking.id} for user: ${userId}`);
 
@@ -475,7 +476,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     // Transform the data
     const transformedBooking = {
       id: booking.id,
-      activity_name: booking.activity.name,
+      activity_name: booking.activity.title,
       venue_name: booking.activity.venue.name,
       child_name: `${booking.child.firstName} ${booking.child.lastName}`,
       start_date: booking.activityDate,
@@ -488,7 +489,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       notes: booking.notes,
       activity: {
         id: booking.activityId,
-        title: booking.activity.name,
+        title: booking.activity.title,
         description: booking.activity.description,
         price: booking.activity.price || booking.amount,
         max_capacity: booking.activity.maxCapacity || 20,

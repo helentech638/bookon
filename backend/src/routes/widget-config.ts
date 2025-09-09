@@ -2,13 +2,13 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../utils/prisma';
 import { asyncHandler } from '../middleware/errorHandler';
-// import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
 
 // Apply authentication to all routes
-// router.use(authenticateToken);
-// router.use(requireRole(['admin', 'staff']));
+router.use(authenticateToken);
+router.use(requireRole(['admin', 'staff']));
 
 // Transform database fields to frontend format
 const transformWidgetData = (widget: any) => ({
@@ -101,10 +101,10 @@ router.post('/', [
     data: {
       name,
       theme,
-      primaryColor,
+      primaryColor: primaryColor,
       position,
-      showLogo,
-      customCSS,
+      showLogo: showLogo,
+      customCSS: customCSS,
       createdBy: req.user!.id,
       updatedBy: req.user!.id,
       isActive: true

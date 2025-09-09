@@ -20,6 +20,7 @@ model User {
   password_hash String?
   firstName     String
   lastName      String
+  phone         String?
   role          String    @default("user")
   isActive      Boolean   @default(true)
   emailVerified Boolean   @default(false)
@@ -41,6 +42,7 @@ model User {
   widgetConfigs WidgetConfig[]
   walletCredits WalletCredit[]
   auditLogs    AuditLog[]
+  payments     Payment[]
 
   @@map("users")
 }
@@ -50,6 +52,8 @@ model Child {
   firstName   String
   lastName    String
   dateOfBirth DateTime
+  yearGroup   String?
+  allergies   String?
   parentId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -87,10 +91,15 @@ model Venue {
 
 model Activity {
   id          String   @id @default(uuid())
-  name        String
+  title       String
   description String?
-  duration    Int? // in minutes
-  maxCapacity Int?
+  startDate   DateTime
+  endDate     DateTime
+  startTime   String
+  endTime     String
+  capacity    Int
+  price       Decimal  @db.Decimal(10, 2)
+  status      String   @default("active") // active, inactive, cancelled
   venueId     String
   ownerId     String
   isActive    Boolean  @default(true)
@@ -133,9 +142,10 @@ model Booking {
   activity   Activity @relation(fields: [activityId], references: [id])
   child      Child    @relation(fields: [childId], references: [id])
   parent     User     @relation(fields: [parentId], references: [id])
-  refunds    RefundTransaction[]
   credits    WalletCredit[]
   chargebacks Chargeback[]
+  payments   Payment[]
+  refunds    RefundTransaction[]
 
   @@map("bookings")
 }
@@ -263,6 +273,7 @@ model WalletCredit {
 
 model RefundTransaction {
   id          String   @id @default(uuid())
+  paymentId   String
   bookingId   String
   amount      Decimal  @db.Decimal(10, 2)
   method      String   // card, credit, bank_transfer
@@ -277,9 +288,38 @@ model RefundTransaction {
   updatedAt   DateTime @updatedAt
 
   // Relations
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("refund_transactions")
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  bookingId             String
+  userId                String
+  stripePaymentIntentId String?  @unique
+  amount                Decimal  @db.Decimal(10, 2)
+  currency              String   @default("GBP")
+  status                String   @default("pending") // pending, completed, failed, refunded, cancelled
+  paymentMethod         String   @default("stripe") // stripe, tfc, voucher, mixed
+  stripeAccountId       String?  // For Connect payments
+  refundedAmount        Decimal? @db.Decimal(10, 2) @default(0)
+  refundedAt            DateTime?
+  completedAt           DateTime?
+  failedAt              DateTime?
+  failureReason         String?
+  metadata              Json?    // Store additional payment data
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  booking               Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refunds               RefundTransaction[]
+
+  @@map("payments")
 }
 
 model ProviderSettings {

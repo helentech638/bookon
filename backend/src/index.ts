@@ -31,6 +31,7 @@ import registersRoutes from './routes/registers';
 import webhooksRoutes from './routes/webhooks';
 import setupRoutes from './routes/setup';
 import tfcRoutes from './routes/tfc';
+import adminTfcRoutes from './routes/admin-tfc';
 import cancellationRoutes from './routes/cancellations';
 import walletRoutes from './routes/wallet';
 import providerSettingsRoutes from './routes/provider-settings';
@@ -43,6 +44,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger } from './utils/logger';
 import { cronService } from './services/cronService';
+import { schedulerService } from './services/schedulerService';
 
 // Import database connection
 import { connectDatabase } from './utils/database';
@@ -250,6 +252,7 @@ app.use('/api/v1/registers', registersRoutes);
 app.use('/api/v1/webhooks', webhooksRoutes);
 app.use('/api/v1/setup', setupRoutes);
 app.use('/api/v1/tfc', tfcRoutes);
+app.use('/api/v1/admin/tfc', adminTfcRoutes);
 app.use('/api/v1/cancellations', cancellationRoutes);
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/provider-settings', providerSettingsRoutes);
@@ -361,6 +364,10 @@ const startServer = async () => {
     // Start cron service for automated notifications
     cronService.start();
     logger.info('⏰ Cron service started');
+
+    // Initialize scheduled jobs for TFC and wallet management
+    schedulerService.initializeScheduledJobs();
+    logger.info('⏰ Scheduled jobs initialized');
 
     // Start HTTP server
     server.listen(PORT, () => {

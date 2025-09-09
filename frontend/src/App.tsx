@@ -7,6 +7,12 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
+// Components
+import { AuthErrorBoundary } from './components/AuthErrorBoundary';
+
+// Utils
+import { clearAllAuthData } from './utils/authUtils';
+
 // Layout components
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -40,6 +46,7 @@ import ExportCenter from './pages/Admin/ExportCenter';
 import TFCQueuePage from './pages/Admin/TFCQueuePage';
 import ProviderSettingsPage from './pages/Admin/ProviderSettingsPage';
 import AdminSettings from './pages/Admin/AdminSettings';
+import WebhookManagement from './pages/Admin/WebhookManagement';
 import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
 import MyBookingsPage from './pages/Parent/MyBookingsPage';
@@ -347,10 +354,34 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/payments"
+          element={
+            <ProtectedRoute>
+              <FinancialDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/wallet-management"
           element={
             <ProtectedRoute>
-              <AdminDashboard />
+              <WalletPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/webhooks"
+          element={
+            <ProtectedRoute>
+              <WebhookManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/communications"
+          element={
+            <ProtectedRoute>
+              <BroadcastMessaging />
             </ProtectedRoute>
           }
         />
@@ -358,7 +389,7 @@ function AppRoutes() {
           path="/admin/audit-logs"
           element={
             <ProtectedRoute>
-              <AdminDashboard />
+              <AdvancedAdminTools />
             </ProtectedRoute>
           }
         />
@@ -366,7 +397,7 @@ function AppRoutes() {
           path="/admin/data-retention"
           element={
             <ProtectedRoute>
-              <AdminDashboard />
+              <AdvancedAdminTools />
             </ProtectedRoute>
           }
         />
@@ -387,41 +418,70 @@ function AppRoutes() {
 }
 
 function App() {
+  // Global auth check on app load
+  React.useEffect(() => {
+    const checkGlobalAuth = async () => {
+      const token = localStorage.getItem('bookon_token');
+      if (token) {
+        try {
+          const response = await fetch('https://bookon-mu.vercel.app/api/v1/dashboard/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!response.ok) {
+            console.log('Global auth check failed, clearing auth data');
+            clearAllAuthData();
+          }
+        } catch (error) {
+          console.log('Global auth check error, clearing auth data');
+          clearAllAuthData();
+        }
+      }
+    };
+    
+    checkGlobalAuth();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <NotificationProvider>
-          <Router>
-            <div className="App">
-              <AppRoutes />
-              
-              {/* Global toast notifications */}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#363636',
-                    color: '#fff',
-                  },
-                  success: {
-                    duration: 3000,
-                    iconTheme: {
-                      primary: '#10b981',
-                      secondary: '#fff',
+          <AuthErrorBoundary>
+            <Router>
+              <div className="App">
+                <AppRoutes />
+                
+                {/* Global toast notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
                     },
-                  },
-                  error: {
-                    duration: 5000,
-                    iconTheme: {
-                      primary: '#ef4444',
-                      secondary: '#fff',
+                    success: {
+                      duration: 3000,
+                      iconTheme: {
+                        primary: '#10b981',
+                        secondary: '#fff',
+                      },
                     },
-                  },
-                }}
-              />
-            </div>
-          </Router>
+                    error: {
+                      duration: 5000,
+                      iconTheme: {
+                        primary: '#ef4444',
+                        secondary: '#fff',
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </Router>
+          </AuthErrorBoundary>
         </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>

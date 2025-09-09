@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 import stripeService from '../services/stripe';
@@ -30,21 +30,28 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
     const { bookingId, amount, currency = 'gbp', venueId } = req.body;
 
     // Get booking details
-    const booking = await db('bookings')
-      .select(
-        'bookings.*',
-        'activities.title as activity_title',
-        'activities.start_date',
-        'activities.start_time',
-        'venues.name as venue_name',
-        'venues.stripe_account_id'
-      )
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .where('bookings.id', bookingId)
-      .where('bookings.user_id', userId)
-      .where('bookings.is_active', true)
-      .first();
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        parentId: userId,
+        // Note: isActive field doesn't exist in current schema
+      },
+      include: {
+        activity: {
+          select: {
+            title: true,
+            startDate: true,
+            startTime: true,
+            venue: {
+              select: {
+                name: true,
+                stripeAccountId: true
+              }
+            }
+          }
+        }
+      }
+    });
 
     if (!booking) {
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
@@ -55,10 +62,12 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
     }
 
     // Check if payment already exists
-    const existingPayment = await db('payments')
-      .where('booking_id', bookingId)
-      .where('is_active', true)
-      .first();
+    const existingPayment = await prisma.payment.findFirst({
+      where: {
+        bookingId: bookingId,
+        isActive: true
+      }
+    });
 
     if (existingPayment) {
       throw new AppError('Payment already exists for this booking', 400, 'PAYMENT_ALREADY_EXISTS');
@@ -69,29 +78,30 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       bookingId,
       amount,
       currency,
-      venueId: venueId || booking.venue_id,
+      venueId: venueId || booking.activity.venue.stripeAccountId,
     });
 
     // Create payment record in database
-    const [payment] = await db('payments')
-      .insert({
-        booking_id: bookingId,
-        user_id: userId,
-        stripe_payment_intent_id: paymentIntent.id,
+    const payment = await prisma.payment.create({
+      data: {
+        bookingId: bookingId,
+        userId: userId,
+        stripePaymentIntentId: paymentIntent.id,
         amount: amount,
         currency: currency,
         status: 'pending',
-        payment_method: 'stripe',
-        is_active: true,
-      })
-      .returning(['id', 'stripe_payment_intent_id']);
+        paymentMethod: 'stripe',
+        stripeAccountId: venueId || booking.activity.venue.stripeAccountId,
+        isActive: true
+      }
+    });
 
     logger.info('Payment intent created successfully', { 
       paymentId: payment.id, 
       bookingId,
       userId,
       stripeIntentId: paymentIntent.id,
-      venueId: venueId || booking.venue_id
+      venueId: venueId || booking.activity.venue.stripeAccountId
     });
 
     res.json({
@@ -103,10 +113,10 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
         currency: currency,
         booking: {
           id: booking.id,
-          activityTitle: booking.activity_title,
-          venueName: booking.venue_name,
-          startDate: booking.start_date,
-          startTime: booking.start_time,
+          activityTitle: booking.activity.title,
+          venueName: booking.activity.venue.name,
+          startDate: booking.activity.startDate,
+          startTime: booking.activity.startTime,
         }
       }
     });
@@ -127,10 +137,12 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
     }
 
     // Get payment details
-    const payment = await db('payments')
-      .where('stripe_payment_intent_id', paymentIntentId)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        stripePaymentIntentId: paymentIntentId,
+        isActive: true
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
@@ -141,22 +153,24 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
 
     if (paymentIntent.status === 'succeeded') {
       // Update payment status
-      await db('payments')
-        .where('stripe_payment_intent_id', paymentIntentId)
-        .update({
+      await prisma.payment.update({
+        where: { stripePaymentIntentId: paymentIntentId },
+        data: {
           status: 'completed',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
 
       // Update booking status
-      await db('bookings')
-        .where('id', payment.booking_id)
-        .update({
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
           status: 'confirmed',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
 
-      logger.info('Payment confirmed successfully', { paymentIntentId, bookingId: payment.booking_id });
+      logger.info('Payment confirmed successfully', { paymentIntentId, bookingId: payment.bookingId });
 
       res.json({
         success: true,
@@ -187,18 +201,24 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
     const { id } = req.params;
     const userId = req.user!.id;
     
-    const payment = await db('payments')
-      .select(
-        'payments.*',
-        'bookings.status as booking_status',
-        'activities.title as activity_title'
-      )
-      .join('bookings', 'payments.booking_id', 'bookings.id')
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .where('payments.id', id)
-      .where('payments.user_id', userId)
-      .where('payments.is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: id,
+        userId: userId,
+        isActive: true
+      },
+      include: {
+        booking: {
+          include: {
+            activity: {
+              select: {
+                title: true
+              }
+            }
+          }
+        }
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
@@ -206,9 +226,9 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
 
     // Get latest status from Stripe if payment intent exists
     let stripeStatus = null;
-    if (payment.stripe_payment_intent_id) {
+    if (payment.stripePaymentIntentId) {
       try {
-        const paymentIntent = await stripeService.getPaymentIntent(payment.stripe_payment_intent_id);
+        const paymentIntent = await stripeService.getPaymentIntent(payment.stripePaymentIntentId);
         stripeStatus = paymentIntent.status;
       } catch (stripeError) {
         logger.warn('Could not retrieve Stripe payment intent', { 
@@ -224,12 +244,12 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
         id: payment.id,
         status: payment.status,
         stripeStatus,
-        amount: parseFloat(payment.amount),
+        amount: parseFloat(payment.amount.toString()),
         currency: payment.currency,
-        bookingStatus: payment.booking_status,
-        activityTitle: payment.activity_title,
-        createdAt: payment.created_at,
-        completedAt: payment.completed_at
+        bookingStatus: payment.booking.status,
+        activityTitle: payment.booking.activity.title,
+        createdAt: payment.createdAt,
+        completedAt: payment.completedAt
       }
     });
   } catch (error) {
@@ -250,58 +270,65 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    let query = db('payments')
-      .select(
-        'payments.*',
-        'bookings.status as booking_status',
-        'activities.title as activity_title',
-        'activities.start_date',
-        'activities.start_time'
-      )
-      .join('bookings', 'payments.booking_id', 'bookings.id')
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .where('payments.user_id', userId)
-      .where('payments.is_active', true);
+    const whereClause: any = {
+      userId: userId,
+      isActive: true
+    };
 
     // Filter by status
     if (status && status !== 'all') {
-      query = query.where('payments.status', status);
+      whereClause.status = status;
     }
 
-    // Get total count for pagination
-    const countQuery = query.clone();
-    const totalCount = await countQuery.count('* as count').first();
+    const payments = await prisma.payment.findMany({
+      where: whereClause,
+      include: {
+        booking: {
+          include: {
+            activity: {
+              select: {
+                title: true,
+                startDate: true,
+                startTime: true
+              }
+            }
+          }
+        }
+      },
+      skip: offset,
+      take: parseInt(limit as string),
+      orderBy: { createdAt: 'desc' }
+    });
 
-    // Get paginated results
-    const payments = await query
-      .orderBy('payments.created_at', 'desc')
-      .limit(parseInt(limit as string))
-      .offset(offset);
+    // Get total count for pagination
+    const totalCount = await prisma.payment.count({
+      where: whereClause
+    });
 
     res.json({
       success: true,
       data: payments.map(payment => ({
         id: payment.id,
         status: payment.status,
-        amount: parseFloat(payment.amount),
+        amount: parseFloat(payment.amount.toString()),
         currency: payment.currency,
-        paymentMethod: payment.payment_method,
+        paymentMethod: payment.paymentMethod,
         booking: {
-          status: payment.booking_status,
+          status: payment.booking.status,
           activity: {
-            title: payment.activity_title,
-            startDate: payment.start_date,
-            startTime: payment.start_time
+            title: payment.booking.activity.title,
+            startDate: payment.booking.activity.startDate,
+            startTime: payment.booking.activity.startTime
           }
         },
-        createdAt: payment.created_at,
-        completedAt: payment.completed_at
+        createdAt: payment.createdAt,
+        completedAt: payment.completedAt
       })),
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        total: parseInt(String(totalCount?.['count'] || '0')),
-        pages: Math.ceil(parseInt(String(totalCount?.['count'] || '0')) / parseInt(limit as string))
+        total: totalCount,
+        pages: Math.ceil(totalCount / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -318,11 +345,16 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     const { reason } = req.body;
     
     // Get payment record
-    const payment = await db('payments')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: id,
+        userId: userId,
+        isActive: true
+      },
+      include: {
+        booking: true
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
@@ -333,13 +365,11 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     }
 
     // Check if booking is within refund window (e.g., 7 days)
-    const booking = await db('bookings')
-      .where('id', payment.booking_id)
-      .first();
+    const booking = payment.booking;
 
     if (booking) {
       const now = new Date();
-      const paymentDate = new Date(payment.completed_at);
+      const paymentDate = new Date(payment.completedAt!);
       const daysSincePayment = (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24);
       
       if (daysSincePayment > 7) {
@@ -349,10 +379,10 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
 
     // Process refund through Stripe
     let refund;
-    if (payment.stripe_payment_intent_id) {
+    if (payment.stripePaymentIntentId) {
       try {
-        refund = await stripeService.processRefund(payment.stripe_payment_intent_id, {
-          paymentIntentId: payment.stripe_payment_intent_id,
+        refund = await stripeService.processRefund(payment.stripePaymentIntentId, {
+          paymentIntentId: payment.stripePaymentIntentId,
           reason: reason || 'Customer requested refund',
         });
       } catch (stripeError) {
@@ -362,25 +392,27 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     }
 
     // Update payment status
-    await db('payments')
-      .where('id', payment.id)
-      .update({
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
         status: 'refunded',
-        refunded_at: new Date(),
-        updated_at: new Date(),
-      });
+        refundedAt: new Date(),
+        updatedAt: new Date(),
+      }
+    });
 
     // Update booking status
-    await db('bookings')
-      .where('id', payment.booking_id)
-      .update({
+    await prisma.booking.update({
+      where: { id: payment.bookingId },
+      data: {
         status: 'cancelled',
-        updated_at: new Date(),
-      });
+        updatedAt: new Date(),
+      }
+    });
 
     logger.info('Payment refunded successfully', { 
       paymentId: payment.id, 
-      bookingId: payment.booking_id,
+      bookingId: payment.bookingId,
       userId,
       refundId: refund?.id
     });
@@ -445,30 +477,34 @@ router.post('/webhook', asyncHandler(async (req: Request, res: Response) => {
 // Helper functions for webhook handling
 async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   try {
-    const payment = await db('payments')
-      .where('stripe_payment_intent_id', paymentIntent.id)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        stripePaymentIntentId: paymentIntent.id,
+        isActive: true
+      }
+    });
 
     if (payment) {
-      await db('payments')
-        .where('id', payment.id)
-        .update({
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
           status: 'completed',
-          completed_at: new Date(),
-          updated_at: new Date(),
-        });
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        }
+      });
 
-      await db('bookings')
-        .where('id', payment.booking_id)
-        .update({
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
           status: 'confirmed',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
 
       logger.info('Payment completed via webhook', { 
         paymentId: payment.id, 
-        bookingId: payment.booking_id 
+        bookingId: payment.bookingId 
       });
     }
   } catch (error) {
@@ -478,22 +514,25 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
 
 async function handlePaymentFailure(paymentIntent: Stripe.PaymentIntent) {
   try {
-    const payment = await db('payments')
-      .where('stripe_payment_intent_id', paymentIntent.id)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        stripePaymentIntentId: paymentIntent.id,
+        isActive: true
+      }
+    });
 
     if (payment) {
-      await db('payments')
-        .where('id', payment.id)
-        .update({
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
           status: 'failed',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
 
       logger.info('Payment failed via webhook', { 
         paymentId: payment.id, 
-        bookingId: payment.booking_id 
+        bookingId: payment.bookingId 
       });
     }
   } catch (error) {
@@ -503,30 +542,34 @@ async function handlePaymentFailure(paymentIntent: Stripe.PaymentIntent) {
 
 async function handleRefundCreated(refund: Stripe.Refund) {
   try {
-    const payment = await db('payments')
-      .where('stripe_payment_intent_id', refund.payment_intent)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        stripePaymentIntentId: refund.payment_intent as string,
+        isActive: true
+      }
+    });
 
     if (payment) {
-      await db('payments')
-        .where('id', payment.id)
-        .update({
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
           status: 'refunded',
-          refunded_at: new Date(),
-          updated_at: new Date(),
-        });
+          refundedAt: new Date(),
+          updatedAt: new Date(),
+        }
+      });
 
-      await db('bookings')
-        .where('id', payment.booking_id)
-        .update({
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
           status: 'cancelled',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
 
       logger.info('Payment refunded via webhook', { 
         paymentId: payment.id, 
-        bookingId: payment.booking_id,
+        bookingId: payment.bookingId,
         refundId: refund.id
       });
     }
@@ -545,18 +588,27 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
     }
 
     // Get payment details
-    const payment = await db('payments')
-      .select(
-        'payments.*',
-        'bookings.status as booking_status',
-        'venues.stripe_account_id'
-      )
-      .join('bookings', 'payments.booking_id', 'bookings.id')
-      .join('activities', 'bookings.activity_id', 'activities.id')
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .where('payments.id', paymentId)
-      .where('payments.is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        isActive: true
+      },
+      include: {
+        booking: {
+          include: {
+            activity: {
+              include: {
+                venue: {
+                  select: {
+                    stripeAccountId: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
@@ -567,31 +619,33 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
     }
 
     // Process refund through Stripe
-    const refundAmount = amount || payment.amount;
+    const refundAmount = amount || Number(payment.amount);
     const refund = await stripeService.createRefund({
-      paymentIntentId: payment.stripe_payment_intent_id,
+      paymentIntentId: payment.stripePaymentIntentId!,
       amount: refundAmount,
       reason: reason || 'Customer request',
-      connectAccountId: payment.stripe_account_id
+      connectAccountId: payment.booking.activity.venue.stripeAccountId
     });
 
     // Update payment status
-    await db('payments')
-      .where('id', paymentId)
-      .update({
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: {
         status: 'refunded',
-        refunded_at: new Date(),
-        updated_at: new Date(),
-      });
+        refundedAt: new Date(),
+        updatedAt: new Date(),
+      }
+    });
 
     // Update booking status if full refund
-    if (refundAmount >= payment.amount) {
-      await db('bookings')
-        .where('id', payment.booking_id)
-        .update({
+    if (refundAmount >= Number(payment.amount)) {
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
           status: 'cancelled',
-          updated_at: new Date(),
-        });
+          updatedAt: new Date(),
+        }
+      });
     }
 
     logger.info('Refund processed successfully', { 

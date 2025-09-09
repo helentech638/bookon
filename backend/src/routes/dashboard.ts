@@ -1,64 +1,72 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
 // Get dashboard statistics - using only existing columns
 router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const startTime = Date.now();
   const userId = req.user!.id;
   
   try {
-    // Get user's registration date for "member since" calculation
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { createdAt: true }
-    });
+    // Get all dashboard data in a single optimized query
+    const dashboardData = await safePrismaQuery(async (client) => {
+      // Get user's registration date for "member since" calculation
+      const user = await client.user.findUnique({
+        where: { id: userId },
+        select: { createdAt: true }
+      });
 
-    const memberSince = user?.createdAt ? new Date(user.createdAt) : new Date();
-    const daysSince = Math.floor((new Date().getTime() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Get real booking statistics using Prisma
-    const totalBookings = await prisma.booking.count({
-      where: { parentId: userId }
-    });
+      const memberSince = user?.createdAt ? new Date(user.createdAt) : new Date();
+      const daysSince = Math.floor((new Date().getTime() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Get all booking statistics in parallel
+      const [totalBookings, confirmedBookings, totalSpentResult, upcomingActivities] = await Promise.all([
+        client.booking.count({
+          where: { parentId: userId }
+        }),
+        client.booking.count({
+          where: { 
+            parentId: userId,
+            status: 'confirmed'
+          }
+        }),
+        client.booking.aggregate({
+          where: { 
+            parentId: userId,
+            status: 'confirmed'
+          },
+          _sum: { 
+            amount: true 
+          }
+        }),
+        client.booking.count({
+          where: {
+            parentId: userId,
+            status: { in: ['pending', 'confirmed'] }
+          }
+        })
+      ]);
 
-    const confirmedBookings = await prisma.booking.count({
-      where: { 
-        parentId: userId,
-        status: 'confirmed'
-      }
-    });
-
-    const totalSpentResult = await prisma.booking.aggregate({
-      where: { 
-        parentId: userId,
-        status: 'confirmed'
-      },
-      _sum: { 
-        amount: true 
-      }
-    });
-
-    const upcomingActivities = await prisma.booking.count({
-      where: {
-        parentId: userId,
-        status: { in: ['pending', 'confirmed'] }
-      }
-    });
-
-    res.json({
-      success: true,
-      data: {
-        totalBookings: totalBookings,
-        confirmedBookings: confirmedBookings,
+      return {
+        totalBookings,
+        confirmedBookings,
         totalSpent: parseFloat(String(totalSpentResult._sum?.amount || '0.00')),
-        upcomingActivities: upcomingActivities,
+        upcomingActivities,
         memberSince: daysSince,
         lastLogin: new Date().toISOString()
-      }
+      };
+    });
+
+    const endTime = Date.now();
+    logger.info(`Dashboard stats API completed in ${endTime - startTime}ms`, { userId });
+    
+    res.json({
+      success: true,
+      data: dashboardData
     });
   } catch (error) {
     logger.error('Error fetching dashboard stats:', error);
@@ -84,25 +92,29 @@ router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res:
   const userId = req.user!.id;
   
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, role: true, createdAt: true }
-    });
+    const userData = await safePrismaQuery(async (client) => {
+      const user = await client.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, role: true, createdAt: true }
+      });
 
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+      if (!user) {
+        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      }
 
-    res.json({
-      success: true,
-      data: {
+      return {
         user: {
           id: user.id,
           email: user.email,
           role: user.role,
           memberSince: user.createdAt
         }
-      }
+      };
+    });
+
+    res.json({
+      success: true,
+      data: userData
     });
   } catch (error) {
     logger.error('Error fetching user profile:', error);
@@ -128,25 +140,22 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
   const userId = req.user!.id;
   
   try {
-    const activities = await prisma.booking.findMany({
-      where: { parentId: userId },
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
-        activity: {
-          select: {
-            name: true,
-            description: true,
-            venue: {
-              select: {
-                name: true
+    const activities = await safePrismaQuery(async (client) => {
+      return await client.booking.findMany({
+        where: { parentId: userId },
+        include: {
+          activity: {
+            include: {
+              venue: {
+                select: {
+                  name: true
+                }
               }
             }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
     });
 
     res.json({
@@ -194,16 +203,17 @@ router.get('/children', authenticateToken, asyncHandler(async (req: Request, res
   const userId = req.user!.id;
   
   try {
-    const children = await prisma.child.findMany({
+    const children = await safePrismaQuery(async (client) => {
+      return await client.child.findMany({
       where: { parentId: userId },
       select: {
         id: true,
         firstName: true,
         lastName: true,
-        dateOfBirth: true,
-        gender: true
+        dateOfBirth: true
       },
       orderBy: { firstName: 'asc' }
+      });
     });
 
     res.json({
@@ -281,31 +291,25 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
     const userId = req.user!.id;
     
     // Get user's recent activities from bookings
-    const recentActivities = await prisma.booking.findMany({
-      where: { parentId: userId },
-      select: {
-        id: true,
-        createdAt: true,
-        status: true,
-        activity: {
-          select: {
-            name: true,
-            description: true,
-            venue: {
-              select: {
-                name: true
+    const recentActivities = await safePrismaQuery(async (client) => {
+      const activities = await client.booking.findMany({
+        where: { parentId: userId },
+        include: {
+          activity: {
+            include: {
+              venue: {
+                select: {
+                  name: true
+                }
               }
             }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10
-    });
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      });
 
-    res.json({
-      success: true,
-      data: recentActivities.map(booking => ({
+      return activities.map(booking => ({
         id: booking.id,
         type: 'booking',
         title: booking.activity.name,
@@ -313,7 +317,12 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
         venue: booking.activity.venue.name,
         status: booking.status,
         timestamp: booking.createdAt
-      }))
+      }));
+    });
+
+    res.json({
+      success: true,
+      data: recentActivities
     });
   } catch (error) {
     logger.error('Error fetching recent activities:', error);

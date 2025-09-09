@@ -79,7 +79,27 @@ class AuthService {
   // Check if user is authenticated
   isAuthenticated(): boolean {
     const token = this.getToken();
-    return !!token;
+    const user = this.getUser();
+    return !!(token && user);
+  }
+
+  // Verify token with backend
+  async verifyToken(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/dashboard/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return false;
+    }
   }
 
   // Check if user has specific role
@@ -137,14 +157,15 @@ class AuthService {
 
       if (data.success && data.data) {
         // Handle the backend response structure
-        const accessToken = data.data.token;
-        const refreshToken = data.data.refreshToken;
+        const accessToken = data.data.tokens?.accessToken || data.data.token;
+        const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
+        const user = data.data.user;
         
-        if (!accessToken || !refreshToken) {
-          throw new Error('Invalid response: missing tokens');
+        if (!accessToken || !refreshToken || !user) {
+          throw new Error('Invalid response: missing tokens or user data');
         }
         
-        this.setAuth(accessToken, refreshToken, data.data.user);
+        this.setAuth(accessToken, refreshToken, user);
         toast.success('Login successful!');
         return data;
       } else {
@@ -203,8 +224,14 @@ class AuthService {
       if (data.success && data.data) {
         const user = this.getUser();
         if (user) {
-          this.setAuth(data.data.token, data.data.refreshToken, user);
-          return data.data.token;
+          // Handle both possible response structures
+          const accessToken = data.data.tokens?.accessToken || data.data.token;
+          const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
+          
+          if (accessToken && refreshToken) {
+            this.setAuth(accessToken, refreshToken, user);
+            return accessToken;
+          }
         }
       }
 

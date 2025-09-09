@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 import { emailService } from './emailService';
@@ -43,8 +43,10 @@ class NotificationAutomationService {
     }
   ): Promise<void> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await safePrismaQuery(async (client) => {
+        return await client.user.findUnique({
         where: { id: userId }
+        });
       });
 
       if (!user) {
@@ -259,8 +261,10 @@ class NotificationAutomationService {
     }
   ): Promise<void> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await safePrismaQuery(async (client) => {
+        return await client.user.findUnique({
         where: { id: userId }
+        });
       });
 
       if (!user) {
@@ -421,8 +425,10 @@ class NotificationAutomationService {
     }
   ): Promise<void> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await safePrismaQuery(async (client) => {
+        return await client.user.findUnique({
         where: { id: userId }
+        });
       });
 
       if (!user) {
@@ -579,7 +585,8 @@ class NotificationAutomationService {
       const now = new Date();
       
       // Get pending notifications that are due
-      const pendingNotifications = await prisma.notification.findMany({
+      const pendingNotifications = await safePrismaQuery(async (client) => {
+        return await client.notification.findMany({
         where: {
           status: 'pending',
           createdAt: {
@@ -587,6 +594,7 @@ class NotificationAutomationService {
           }
         },
         take: 50 // Process in batches
+        });
       });
 
       let processedCount = 0;
@@ -594,9 +602,11 @@ class NotificationAutomationService {
       for (const notification of pendingNotifications) {
         try {
           // Update status to processing
-          await prisma.notification.update({
-            where: { id: notification.id },
-            data: { status: 'sent', sentAt: new Date() }
+          await safePrismaQuery(async (client) => {
+            return await client.notification.update({
+              where: { id: notification.id },
+              data: { status: 'sent', sentAt: new Date() }
+            });
           });
 
           processedCount++;
@@ -604,12 +614,14 @@ class NotificationAutomationService {
           logger.error(`Error processing notification ${notification.id}:`, error);
           
           // Mark as failed
-          await prisma.notification.update({
-            where: { id: notification.id },
-            data: { 
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Unknown error'
-            }
+          await safePrismaQuery(async (client) => {
+            return await client.notification.update({
+              where: { id: notification.id },
+              data: { 
+                status: 'failed', 
+                error: error instanceof Error ? error.message : 'Unknown error'
+              }
+            });
           });
         }
       }
@@ -638,8 +650,10 @@ class NotificationAutomationService {
     }
   ): Promise<void> {
     try {
-      const user = await prisma.user.findUnique({
+      const user = await safePrismaQuery(async (client) => {
+        return await client.user.findUnique({
         where: { id: userId }
+        });
       });
 
       if (!user) {

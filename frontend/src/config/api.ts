@@ -58,10 +58,18 @@ const createApiClient = (): AxiosInstance => {
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('bookon_token');
+      const refreshToken = localStorage.getItem('bookon_refresh_token');
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Add refresh token to headers for automatic token refresh
+      if (refreshToken) {
+        config.headers['X-Refresh-Token'] = refreshToken;
+      }
+      
       return config;
     },
     (error) => {
@@ -69,15 +77,60 @@ const createApiClient = (): AxiosInstance => {
     }
   );
 
-  // Response interceptor to handle common errors
+  // Response interceptor to handle common errors and token refresh
   instance.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error.response?.status === 401) {
-        // Handle unauthorized access
-        localStorage.removeItem('authToken');
-        window.location.href = '/login';
+    async (error) => {
+      const originalRequest = error.config;
+      
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        
+        console.log('401 error detected, attempting token refresh...');
+        
+        // Try to refresh the token
+        const refreshToken = localStorage.getItem('bookon_refresh_token');
+        if (refreshToken) {
+          try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ refreshToken }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.data?.tokens) {
+                console.log('Token refreshed successfully');
+                localStorage.setItem('bookon_token', data.data.tokens.accessToken);
+                localStorage.setItem('bookon_refresh_token', data.data.tokens.refreshToken);
+                
+                // Retry the original request with new token
+                originalRequest.headers.Authorization = `Bearer ${data.data.tokens.accessToken}`;
+                return instance(originalRequest);
+              }
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+          }
+        }
+        
+        // If refresh fails or no refresh token, clear auth and redirect
+        console.log('Token refresh failed, redirecting to login...');
+        localStorage.removeItem('bookon_token');
+        localStorage.removeItem('bookon_refresh_token');
+        localStorage.removeItem('bookon_user');
+        
+        // Show user-friendly message before redirect
+        if (window.confirm('Your session has expired. Please log in again.')) {
+          window.location.href = '/login';
+        } else {
+          window.location.href = '/login';
+        }
       }
+      
       return Promise.reject(error);
     }
   );

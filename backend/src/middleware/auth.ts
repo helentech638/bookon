@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './errorHandler';
 import { logger, logSecurity } from '../utils/logger';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { redis } from '../utils/redis';
 
 // Extend Express Request interface to include user
@@ -41,19 +41,75 @@ export const authenticateToken = async (
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env['JWT_SECRET']!) as any;
+    const jwtSecret = process.env['JWT_SECRET'] || 'fallback-jwt-secret-for-development';
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret) as any;
+    } catch (jwtError) {
+      logger.error('JWT verification failed:', { error: jwtError, tokenLength: token.length });
+      
+      // If token is expired, try to refresh it automatically
+      if ((jwtError as any).name === 'TokenExpiredError') {
+        // Check if there's a refresh token in the request
+        const refreshToken = req.headers['x-refresh-token'] as string;
+        if (refreshToken) {
+          try {
+            // Verify refresh token
+            const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || 'fallback-refresh-secret-for-development';
+            const decoded = jwt.verify(refreshToken, jwtRefreshSecret) as any;
+            
+            // Check if refresh token exists in Redis
+            const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
+            if (storedToken && storedToken === refreshToken) {
+              // Generate new access token
+              const jwtSecret = process.env['JWT_SECRET'] || 'fallback-jwt-secret-for-development';
+              const newAccessToken = jwt.sign(
+                {
+                  userId: decoded.userId,
+                  email: decoded.email,
+                  role: decoded.role,
+                  type: 'access'
+                },
+                jwtSecret,
+                { expiresIn: process.env['JWT_EXPIRES_IN'] || '24h' } as any
+              );
+              
+              // Add new token to response headers
+              res.setHeader('X-New-Access-Token', newAccessToken);
+              
+              // Continue with the request using the decoded user info
+              req.user = {
+                id: decoded.userId,
+                email: decoded.email,
+                role: decoded.role,
+                isActive: true
+              };
+              
+              logger.info('Token automatically refreshed', { userId: decoded.userId });
+              return next();
+            }
+          } catch (refreshError) {
+            logger.warn('Token refresh failed:', refreshError);
+          }
+        }
+      }
+      
+      throw new AppError('Invalid or expired token', 401, 'INVALID_TOKEN');
+    }
     
     // Check if user still exists and is active
     let user;
     try {
-      user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          isActive: true
-        }
+      user = await safePrismaQuery(async (client) => {
+        return await client.user.findUnique({
+          where: { id: decoded.userId },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isActive: true
+          }
+        });
       });
     } catch (error) {
       // If database is not accessible, use token data for authentication

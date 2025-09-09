@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { db } from '../utils/database';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 
@@ -22,11 +22,17 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   try {
     const userId = req.user!.id;
     
-    const children = await db('children')
-      .select('*')
-      .where('user_id', userId)
-      .where('is_active', true)
-      .orderBy('first_name');
+    const children = await safePrismaQuery(async (client) => {
+      return await client.child.findMany({
+        where: {
+          parentId: userId,
+          isActive: true
+        },
+        orderBy: {
+          firstName: 'asc'
+        }
+      });
+    });
 
     res.json({
       success: true,

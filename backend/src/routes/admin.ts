@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -24,17 +24,17 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
 
     // Get total counts using Prisma for better reliability
     const [totalUsers, totalVenues, totalActivities, totalBookings] = await Promise.all([
-      prisma.user.count(),
-      prisma.venue.count(),
-      prisma.activity.count(),
-      prisma.booking.count()
+      safePrismaQuery(async (client) => await client.user.count()),
+      safePrismaQuery(async (client) => await client.venue.count()),
+      safePrismaQuery(async (client) => await client.activity.count()),
+      safePrismaQuery(async (client) => await client.booking.count())
     ]);
     
     // Get booking status counts using Prisma
     const [confirmedBookingsCount, pendingBookingsCount, cancelledBookingsCount] = await Promise.all([
-      prisma.booking.count({ where: { status: 'confirmed' } }),
-      prisma.booking.count({ where: { status: 'pending' } }),
-      prisma.booking.count({ where: { status: 'cancelled' } })
+      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'confirmed' } })),
+      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'pending' } })),
+      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'cancelled' } }))
     ]);
     
     // Get total revenue - using mock value since amount field doesn't exist yet
@@ -87,8 +87,10 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
       role: _req.user?.role 
     });
 
-    const venues = await prisma.venue.findMany({
-      orderBy: { createdAt: 'desc' }
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
     });
 
     logger.info('Successfully fetched venues', { count: venues.length });
@@ -131,15 +133,17 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       role: _req.user?.role 
     });
 
-    const activities = await prisma.activity.findMany({
-      include: {
-        venue: {
-          select: {
-            name: true
+    const activities = await safePrismaQuery(async (client) => {
+      return await client.activity.findMany({
+        include: {
+          venue: {
+            select: {
+              name: true
+            }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
     });
 
     logger.info('Successfully fetched activities', { count: activities.length });
@@ -148,7 +152,7 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       success: true,
       data: activities.map(activity => ({
         id: activity.id,
-        name: activity.name,
+        name: activity.title,
         description: activity.description,
         duration: activity.duration,
         maxCapacity: activity.maxCapacity,
@@ -187,17 +191,19 @@ router.put('/venues/:id', authenticateToken, requireAdminOrStaff, asyncHandler(a
       throw new AppError('Invalid status', 400, 'INVALID_STATUS');
     }
 
-    const updatedVenue = await prisma.venue.update({
-      where: { id: id! },
-      data: { 
-        isActive: status === 'active',
-        updatedAt: new Date() 
-      },
-      select: {
-        id: true,
-        name: true,
-        isActive: true
-      }
+    const updatedVenue = await safePrismaQuery(async (client) => {
+      return await client.venue.update({
+        where: { id: id! },
+        data: { 
+          isActive: status === 'active',
+          updatedAt: new Date() 
+        },
+        select: {
+          id: true,
+          name: true,
+          isActive: true
+        }
+      });
     });
 
     logger.info('Admin updated venue status', {
@@ -231,15 +237,19 @@ router.delete('/venues/:id', authenticateToken, requireAdminOrStaff, asyncHandle
     const { id } = req.params;
 
     // Check if venue has any activities
-    const activitiesCount = await prisma.activity.count({
-      where: { venueId: id! }
+    const activitiesCount = await safePrismaQuery(async (client) => {
+      return await client.activity.count({
+        where: { venueId: id! }
+      });
     });
     if (activitiesCount > 0) {
       throw new AppError('Cannot delete venue with existing activities', 400, 'VENUE_HAS_ACTIVITIES');
     }
 
-    await prisma.venue.delete({
-      where: { id: id! }
+    await safePrismaQuery(async (client) => {
+      return await client.venue.delete({
+        where: { id: id! }
+      });
     });
 
     logger.info('Admin deleted venue', {
@@ -272,17 +282,19 @@ router.put('/activities/:id', authenticateToken, requireAdminOrStaff, asyncHandl
       throw new AppError('Invalid status', 400, 'INVALID_STATUS');
     }
 
-    const updatedActivity = await prisma.activity.update({
-      where: { id: id! },
-      data: { 
-        isActive: status === 'active',
-        updatedAt: new Date() 
-      },
-      select: {
-        id: true,
-        name: true,
-        isActive: true
-      }
+    const updatedActivity = await safePrismaQuery(async (client) => {
+      return await client.activity.update({
+        where: { id: id! },
+        data: { 
+          isActive: status === 'active',
+          updatedAt: new Date() 
+        },
+        select: {
+          id: true,
+          name: true,
+          isActive: true
+        }
+      });
     });
 
     logger.info('Admin updated activity status', {
@@ -316,15 +328,19 @@ router.delete('/activities/:id', authenticateToken, requireAdminOrStaff, asyncHa
     const { id } = req.params;
 
     // Check if activity has any bookings
-    const bookingsCount = await prisma.booking.count({
-      where: { activityId: id! }
+    const bookingsCount = await safePrismaQuery(async (client) => {
+      return await client.booking.count({
+        where: { activityId: id! }
+      });
     });
     if (bookingsCount > 0) {
       throw new AppError('Cannot delete activity with existing bookings', 400, 'ACTIVITY_HAS_BOOKINGS');
     }
 
-    await prisma.activity.delete({
-      where: { id: id! }
+    await safePrismaQuery(async (client) => {
+      return await client.activity.delete({
+        where: { id: id! }
+      });
     });
 
     logger.info('Admin deleted activity', {
@@ -384,7 +400,7 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
         },
         activity: {
           id: booking.activity.id,
-          name: booking.activity.name
+          name: booking.activity.title
         },
         venue: {
           id: booking.activity.venue.id,

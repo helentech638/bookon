@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
-import { db } from '../utils/database';
+import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 
@@ -37,59 +37,68 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    let query = db('activities')
-      .select(
-        'activities.*',
-        'venues.name as venue_name',
-        'venues.city as venue_city',
-        'venues.address as venue_address'
-      )
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .where('activities.is_active', true);
+    const whereClause: any = {
+      isActive: true
+    };
 
     // Filter by status
     if (status && status !== 'all') {
-      query = query.where('activities.status', status);
+      whereClause.status = status;
     }
 
     // Filter by venue
     if (venueId) {
-      query = query.where('activities.venue_id', venueId);
+      whereClause.venueId = venueId;
     }
 
     // Search by title or description
     if (search) {
-      query = query.where(function() {
-        this.where('activities.title', 'ilike', `%${search}%`)
-          .orWhere('activities.description', 'ilike', `%${search}%`);
-      });
+      whereClause.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
     // Price range filter
     if (minPrice) {
-      query = query.where('activities.price', '>=', parseFloat(minPrice as string));
+      whereClause.price = { gte: parseFloat(minPrice as string) };
     }
     if (maxPrice) {
-      query = query.where('activities.price', '<=', parseFloat(maxPrice as string));
+      whereClause.price = { 
+        ...whereClause.price,
+        lte: parseFloat(maxPrice as string) 
+      };
     }
 
     // Date range filter
     if (dateFrom) {
-      query = query.where('activities.start_date', '>=', dateFrom);
+      whereClause.startDate = { gte: new Date(dateFrom as string) };
     }
     if (dateTo) {
-      query = query.where('activities.end_date', '<=', dateTo);
+      whereClause.endDate = { lte: new Date(dateTo as string) };
     }
 
     // Get total count for pagination
-    const countQuery = query.clone();
-    const totalCount = await countQuery.count('* as count').first();
+    const totalCount = await prisma.activity.count({
+      where: whereClause
+    });
 
     // Get paginated results
-    const activities = await query
-      .orderBy('activities.start_date', 'asc')
-      .limit(parseInt(limit as string))
-      .offset(offset);
+    const activities = await prisma.activity.findMany({
+      where: whereClause,
+      include: {
+        venue: {
+          select: {
+            name: true,
+            city: true,
+            address: true
+          }
+        }
+      },
+      skip: offset,
+      take: parseInt(limit as string),
+      orderBy: { startDate: 'asc' }
+    });
 
     res.json({
       success: true,
@@ -97,27 +106,27 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
         id: activity.id,
         title: activity.title,
         description: activity.description,
-        startDate: activity.start_date,
-        endDate: activity.end_date,
-        startTime: activity.start_time,
-        endTime: activity.end_time,
+        startDate: activity.startDate,
+        endDate: activity.endDate,
+        startTime: activity.startTime,
+        endTime: activity.endTime,
         capacity: activity.capacity,
-        price: parseFloat(activity.price),
+        price: parseFloat(activity.price.toString()),
         status: activity.status,
         venue: {
-          id: activity.venue_id,
-          name: activity.venue_name,
-          city: activity.venue_city,
-          address: activity.venue_address
+          id: activity.venueId,
+          name: activity.venue.name,
+          city: activity.venue.city,
+          address: activity.venue.address
         },
-        createdAt: activity.created_at,
-        updatedAt: activity.updated_at
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt
       })),
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        total: parseInt(String(totalCount?.['count'] || '0')),
-        pages: Math.ceil(parseInt(String(totalCount?.['count'] || '0')) / parseInt(limit as string))
+        total: totalCount,
+        pages: Math.ceil(totalCount / parseInt(limit as string))
       }
     });
   } catch (error) {
@@ -131,19 +140,23 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
   try {
     const { id } = req.params;
     
-    const activity = await db('activities')
-      .select(
-        'activities.*',
-        'venues.name as venue_name',
-        'venues.city as venue_city',
-        'venues.address as venue_address',
-        'venues.phone as venue_phone',
-        'venues.email as venue_email'
-      )
-      .join('venues', 'activities.venue_id', 'venues.id')
-      .where('activities.id', id)
-      .where('activities.is_active', true)
-      .first();
+    const activity = await prisma.activity.findFirst({
+      where: {
+        id: id,
+        isActive: true
+      },
+      include: {
+        venue: {
+          select: {
+            name: true,
+            city: true,
+            address: true,
+            phone: true,
+            email: true
+          }
+        }
+      }
+    });
 
     if (!activity) {
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
@@ -155,23 +168,23 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
         id: activity.id,
         title: activity.title,
         description: activity.description,
-        startDate: activity.start_date,
-        endDate: activity.end_date,
-        startTime: activity.start_time,
-        endTime: activity.end_time,
+        startDate: activity.startDate,
+        endDate: activity.endDate,
+        startTime: activity.startTime,
+        endTime: activity.endTime,
         capacity: activity.capacity,
-        price: parseFloat(activity.price),
+        price: parseFloat(activity.price.toString()),
         status: activity.status,
         venue: {
-          id: activity.venue_id,
-          name: activity.venue_name,
-          city: activity.venue_city,
-          address: activity.venue_address,
-          phone: activity.venue_phone,
-          email: activity.venue_email
+          id: activity.venueId,
+          name: activity.venue.name,
+          city: activity.venue.city,
+          address: activity.venue.address,
+          phone: activity.venue.phone,
+          email: activity.venue.email
         },
-        createdAt: activity.created_at,
-        updatedAt: activity.updated_at
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt
       }
     });
   } catch (error) {

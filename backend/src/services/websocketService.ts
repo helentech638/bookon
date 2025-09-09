@@ -1,9 +1,9 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from '../utils/logger';
-import NotificationService from './notificationService';
+import { NotificationService } from './notificationService';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 
 export class WebSocketService {
   private io: SocketIOServer;
@@ -12,7 +12,7 @@ export class WebSocketService {
   constructor(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:5173",
+        origin: process.env['FRONTEND_URL'] || "http://localhost:5173",
         methods: ["GET", "POST"],
         credentials: true
       }
@@ -29,12 +29,15 @@ export class WebSocketService {
       socket.on('authenticate', async (data: { userId: string, token: string }) => {
         try {
           // Verify JWT token
-          const decoded = jwt.verify(data.token, process.env.JWT_SECRET!) as any;
+          const jwtSecret = process.env['JWT_SECRET'] || 'fallback-jwt-secret-for-development';
+          const decoded = jwt.verify(data.token, jwtSecret) as any;
           
           // Verify user exists and is active
-          const user = await prisma.user.findUnique({
-            where: { id: data.userId },
-            select: { id: true, email: true, role: true, isActive: true }
+          const user = await safePrismaQuery(async (client) => {
+            return await client.user.findUnique({
+              where: { id: data.userId },
+              select: { id: true, email: true, role: true, isActive: true }
+            });
           });
 
           if (!user || !user.isActive) {
@@ -208,7 +211,7 @@ export class WebSocketService {
   }
 
   // Get connected users for venue
-  public getConnectedUsersForVenue(venueId: string): string[] {
+  public getConnectedUsersForVenue(_venueId: string): string[] {
     // This would require additional tracking of venue associations
     // For now, return empty array
     return [];

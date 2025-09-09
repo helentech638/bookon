@@ -77,58 +77,79 @@ const DashboardPage: React.FC = () => {
   }, []);
 
   const fetchDashboardData = async () => {
+    const startTime = performance.now();
     try {
       setLoading(true);
       const token = authService.getToken();
+      const isAuth = authService.isAuthenticated();
+      
+      console.log('Auth Debug:', { 
+        token: token ? 'exists' : 'missing', 
+        isAuth,
+        tokenLength: token?.length || 0
+      });
       
       if (!token) {
-        throw new Error('No authentication token');
+        throw new Error('No authentication token. Please log in.');
       }
 
-      // Fetch dashboard stats
-      const statsResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), {
-        headers: {
+      // Skip redundant token verification - the API calls will handle auth errors
+      // This removes an unnecessary API call that was slowing down dashboard loading
+
+      const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        },
-      });
+      };
 
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+      // Make all API calls in parallel for better performance
+      const apiStartTime = performance.now();
+      const [statsResponse, profileResponse, activitiesResponse] = await Promise.allSettled([
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { headers }),
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { headers }),
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { headers })
+      ]);
+      const apiEndTime = performance.now();
+      console.log(`Dashboard API calls completed in ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
+
+      // Process stats response
+      if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
+        const statsData = await statsResponse.value.json();
         setStats(statsData.data);
+      } else {
+        console.warn('Failed to fetch dashboard stats:', statsResponse.status === 'rejected' ? statsResponse.reason : 'Response not ok');
       }
 
-      // Fetch user profile
-      const profileResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json();
+      // Process profile response
+      if (profileResponse.status === 'fulfilled' && profileResponse.value.ok) {
+        const profileData = await profileResponse.value.json();
         setUserProfile(profileData.data);
+      } else {
+        console.warn('Failed to fetch user profile:', profileResponse.status === 'rejected' ? profileResponse.reason : 'Response not ok');
       }
 
-      // Fetch recent activities
-      const activitiesResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
+      // Process activities response
+      if (activitiesResponse.status === 'fulfilled' && activitiesResponse.value.ok) {
+        const activitiesData = await activitiesResponse.value.json();
         setRecentActivities(activitiesData.data || []);
+      } else {
+        console.warn('Failed to fetch recent activities:', activitiesResponse.status === 'rejected' ? activitiesResponse.reason : 'Response not ok');
       }
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+      setError(errorMessage);
       console.error('Dashboard data fetch error:', err);
+      
+      // If authentication failed, redirect to login after a short delay
+      if (errorMessage.includes('authentication') || errorMessage.includes('token')) {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
     } finally {
       setLoading(false);
+      const endTime = performance.now();
+      console.log(`Total dashboard loading time: ${(endTime - startTime).toFixed(2)}ms`);
     }
   };
 
@@ -157,9 +178,39 @@ const DashboardPage: React.FC = () => {
             <p className="font-bold">Error loading dashboard</p>
             <p>{error}</p>
           </div>
+          
+          {/* Debug Info */}
+          <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left max-w-md mx-auto">
+            <h3 className="font-semibold mb-2">Debug Info:</h3>
+            <p>Token: {authService.getToken() ? '✅ Present' : '❌ Missing'}</p>
+            <p>Authenticated: {authService.isAuthenticated() ? '✅ Yes' : '❌ No'}</p>
+            <p>User: {authService.getUser() ? '✅ Loaded' : '❌ Missing'}</p>
+            <div className="mt-3 p-2 bg-yellow-100 rounded text-sm">
+              <strong>Issue:</strong> Token exists but backend rejects it. This usually means the token is expired or the JWT secret changed.
+            </div>
+          </div>
+          
+          <div className="space-x-4">
           <Button onClick={fetchDashboardData} className="bg-[#00806a] hover:bg-[#006d5a]">
             Retry
           </Button>
+            <Button 
+              onClick={() => window.location.href = '/login'} 
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Go to Login
+            </Button>
+            <Button 
+              onClick={() => {
+                authService.logout();
+                localStorage.clear();
+                window.location.href = '/login';
+              }} 
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Force Logout & Clear All
+          </Button>
+          </div>
         </div>
       </div>
     );
@@ -575,7 +626,7 @@ const DashboardPage: React.FC = () => {
                   <div>
                         <label className="block text-sm font-medium text-blue-800">Role</label>
                         <span className="mt-1 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
-                          {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)}
+                          {userProfile.role ? userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1) : 'User'}
                         </span>
                   </div>
                   {userProfile.phone && (
@@ -694,44 +745,173 @@ const DashboardPage: React.FC = () => {
         )}
 
         {activeTab === 'analytics' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card>
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Account Overview</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+          <div className="space-y-8">
+            {/* Analytics Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Advanced Analytics Dashboard</h2>
+                  <p className="text-blue-100 text-lg">Comprehensive insights into your booking patterns and activity trends</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                    <div className="text-2xl font-bold">Analytics</div>
+                    <div className="text-blue-100 text-sm">Professional</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Analytics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Spending Trends Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <CurrencyPoundIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Spending Trends</h3>
+                      <p className="text-sm text-gray-600">Monthly spending analysis</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">This Month</span>
+                      <span className="text-sm font-medium text-gray-900">£{stats?.totalSpent?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Average per Booking</span>
+                      <span className="text-sm font-medium text-gray-900">£{(stats?.totalSpent && stats?.totalBookings ? (stats.totalSpent / stats.totalBookings).toFixed(2) : '0.00')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Top Activity Type</span>
+                      <span className="text-sm font-medium text-gray-900">-</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-600 text-center">📊 Interactive charts and detailed breakdowns</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Booking Patterns Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <CalendarDaysIcon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Booking Patterns</h3>
+                      <p className="text-sm text-gray-600">Activity preferences & timing</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total Bookings</span>
                   <span className="text-sm font-medium text-gray-900">{stats?.totalBookings || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Confirmed Bookings</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Confirmed</span>
                   <span className="text-sm font-medium text-gray-900">{stats?.confirmedBookings || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Pending Bookings</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Pending</span>
                   <span className="text-sm font-medium text-gray-900">{stats?.pendingBookings || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Total Spent</span>
-                  <span className="text-sm font-medium text-gray-900">£{stats?.totalSpent?.toFixed(2) || '0.00'}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Total Activities</span>
+                  <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs text-green-600 text-center">📈 Detailed analytics and trend analysis</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Activity Insights Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <AcademicCapIcon className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Activity Insights</h3>
+                      <p className="text-sm text-gray-600">Favorite venues & activities</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Activities Booked</span>
                   <span className="text-sm font-medium text-gray-900">{stats?.totalActivities || 0}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm text-gray-600">Total Venues</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Venues Visited</span>
                   <span className="text-sm font-medium text-gray-900">{stats?.totalVenues || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Upcoming</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.upcomingActivities || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                    <p className="text-xs text-purple-600 text-center">🎯 Personalized insights and recommendations</p>
                 </div>
               </div>
             </Card>
+            </div>
             
+            {/* Analytics Features */}
             <Card>
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Coming Soon</h3>
-              <div className="text-center py-8">
-                <ChartBarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">
-                  Advanced analytics and charts will be available here once you start using the platform.
-                </p>
+              <div className="p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Analytics Features</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Interactive Charts & Graphs</h4>
+                      <p className="text-sm text-gray-600">Visualize your data with beautiful, interactive charts</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Spending Trend Analysis</h4>
+                      <p className="text-sm text-gray-600">Track your spending patterns over time</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Activity Preference Insights</h4>
+                      <p className="text-sm text-gray-600">Discover your favorite activities and venues</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Export Reports & Data</h4>
+                      <p className="text-sm text-gray-600">Download your analytics data in various formats</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-gray-900">Personalized Recommendations</h4>
+                      <p className="text-sm text-gray-600">Get AI-powered activity suggestions</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </Card>
           </div>

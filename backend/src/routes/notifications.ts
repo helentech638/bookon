@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import NotificationService from '../services/notificationService';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -80,11 +80,13 @@ router.patch('/:id/read', authenticateToken, asyncHandler(async (req: Request, r
     }
     
     // Verify notification belongs to user
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id: id,
-        userId: userId as string,
-      },
+    const notification = await safePrismaQuery(async (client) => {
+      return await client.notification.findFirst({
+        where: {
+          id: id,
+          userId: userId as string,
+        },
+      });
     });
     
     if (!notification) {
@@ -109,15 +111,17 @@ router.patch('/read-all', authenticateToken, asyncHandler(async (req: Request, r
   try {
     const userId = (req as any).user.id;
     
-    await prisma.notification.updateMany({
-      where: {
-        userId: userId as string,
-        read: false,
-      },
-      data: {
-        read: true,
-        readAt: new Date(),
-      },
+    await safePrismaQuery(async (client) => {
+      return await client.notification.updateMany({
+        where: {
+          userId: userId as string,
+          read: false,
+        },
+        data: {
+          read: true,
+          readAt: new Date(),
+        },
+      });
     });
     
     res.json({
@@ -203,11 +207,13 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       throw new AppError('Notification ID is required', 400, 'MISSING_NOTIFICATION_ID');
     }
     
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id: id,
-        userId: userId as string,
-      },
+    const notification = await safePrismaQuery(async (client) => {
+      return await client.notification.findFirst({
+        where: {
+          id: id,
+          userId: userId as string,
+        },
+      });
     });
     
     if (!notification) {
@@ -236,19 +242,23 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
     }
     
     // Verify notification belongs to user
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id: id,
-        userId: userId as string,
-      },
+    const notification = await safePrismaQuery(async (client) => {
+      return await client.notification.findFirst({
+        where: {
+          id: id,
+          userId: userId as string,
+        },
+      });
     });
     
     if (!notification) {
       throw new AppError('Notification not found', 404, 'NOTIFICATION_NOT_FOUND');
     }
     
-    await prisma.notification.delete({
-      where: { id: id },
+    await safePrismaQuery(async (client) => {
+      return await client.notification.delete({
+        where: { id: id },
+      });
     });
     
     res.json({

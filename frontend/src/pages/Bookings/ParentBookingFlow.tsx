@@ -95,7 +95,7 @@ const ParentBookingFlow: React.FC = () => {
   const fetchActivity = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`/api/v1/activities/${activityId}`, {
+      const response = await fetch(`https://bookon-mu.vercel.app/api/v1/activities/${activityId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -120,7 +120,7 @@ const ParentBookingFlow: React.FC = () => {
   const fetchChildren = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch('/api/v1/children', {
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/children', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

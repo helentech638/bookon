@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 
@@ -161,6 +161,154 @@ class TFCService {
       logger.error('Error confirming TFC payment:', error);
       throw error;
     }
+  }
+
+  /**
+   * Auto-cancel expired TFC bookings (scheduled job)
+   */
+  async autoCancelExpiredTFCBookings(): Promise<{ cancelled: number; errors: number }> {
+    try {
+      const now = new Date();
+      
+      // Find all TFC bookings that have passed their deadline
+      const expiredBookings = await prisma.booking.findMany({
+        where: {
+          paymentMethod: 'tfc',
+          paymentStatus: 'pending_payment',
+          tfcDeadline: {
+            lt: now
+          }
+        },
+        include: {
+          activity: true,
+          child: true,
+          parent: true
+        }
+      });
+
+      let cancelled = 0;
+      let errors = 0;
+
+      for (const booking of expiredBookings) {
+        try {
+          await this.cancelUnpaidTFCBooking(booking.id, 'system', 'Payment deadline exceeded - auto-cancelled');
+          cancelled++;
+          
+          logger.info('Auto-cancelled expired TFC booking', {
+            bookingId: booking.id,
+            reference: booking.tfcReference,
+            deadline: booking.tfcDeadline,
+            amount: booking.amount
+          });
+        } catch (error) {
+          errors++;
+          logger.error('Error auto-cancelling TFC booking:', {
+            bookingId: booking.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      logger.info('TFC auto-cancellation completed', {
+        totalExpired: expiredBookings.length,
+        cancelled,
+        errors
+      });
+
+      return { cancelled, errors };
+    } catch (error) {
+      logger.error('Error in auto-cancellation process:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send TFC payment reminders (scheduled job)
+   */
+  async sendTFCPaymentReminders(): Promise<{ remindersSent: number; errors: number }> {
+    try {
+      const now = new Date();
+      const reminderTime = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
+      
+      // Find TFC bookings that need reminders (deadline in 48 hours)
+      const bookingsNeedingReminders = await safePrismaQuery(async (client) => {
+        return await client.booking.findMany({
+          where: {
+            paymentMethod: 'tfc',
+            paymentStatus: 'pending_payment',
+            tfcDeadline: {
+              gte: now,
+              lte: reminderTime
+            }
+          },
+          include: {
+            activity: {
+              include: {
+                venue: true
+              }
+            },
+            child: true,
+            parent: true
+          }
+        });
+      });
+
+      let remindersSent = 0;
+      let errors = 0;
+
+      for (const booking of bookingsNeedingReminders) {
+        try {
+          // Send reminder email
+          await this.sendTFCPaymentReminder(booking);
+          remindersSent++;
+          
+          logger.info('TFC payment reminder sent', {
+            bookingId: booking.id,
+            reference: booking.tfcReference,
+            deadline: booking.tfcDeadline,
+            parentEmail: booking.parent.email
+          });
+        } catch (error) {
+          errors++;
+          logger.error('Error sending TFC reminder:', {
+            bookingId: booking.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      logger.info('TFC reminder process completed', {
+        totalNeedingReminders: bookingsNeedingReminders.length,
+        remindersSent,
+        errors
+      });
+
+      return { remindersSent, errors };
+    } catch (error) {
+      logger.error('Error in TFC reminder process:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send TFC payment reminder email
+   */
+  private async sendTFCPaymentReminder(booking: any): Promise<void> {
+    // TODO: Implement email service integration
+    // This would send a reminder email to the parent with:
+    // - Payment reference
+    // - Deadline
+    // - Amount
+    // - Instructions
+    // - Link to payment instructions
+    
+    logger.info('TFC payment reminder email would be sent', {
+      bookingId: booking.id,
+      parentEmail: booking.parent.email,
+      reference: booking.tfcReference,
+      deadline: booking.tfcDeadline,
+      amount: booking.amount
+    });
   }
 
   /**

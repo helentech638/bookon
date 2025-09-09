@@ -38,16 +38,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const isAuth = await authService.isAuthenticated();
-      if (isAuth) {
-        // Get user data from localStorage or make API call
+      const token = authService.getToken();
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Verify token with backend by making a test API call
+      const response = await fetch('https://bookon-mu.vercel.app/api/v1/dashboard/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Token is valid, get user data
         const userData = localStorage.getItem('bookon_user');
         if (userData) {
           setUser(JSON.parse(userData));
         }
+      } else {
+        // Token is invalid, clear auth data
+        console.log('Token invalid, clearing auth data');
+        authService.logout();
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      // Clear auth data on error
+      authService.logout();
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
