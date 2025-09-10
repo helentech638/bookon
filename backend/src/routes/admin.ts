@@ -8,7 +8,17 @@ const router = Router();
 
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req: Request, _res: Response, next: Function) => {
-  if (!['admin', 'staff'].includes(req.user!.role)) {
+  console.log('Admin access check:', { 
+    user: req.user?.email, 
+    role: req.user?.role,
+    hasUser: !!req.user 
+  });
+  
+  if (!req.user) {
+    throw new AppError('User not authenticated', 401, 'USER_NOT_AUTHENTICATED');
+  }
+  
+  if (!['admin', 'staff'].includes(req.user.role)) {
     throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
   }
   next();

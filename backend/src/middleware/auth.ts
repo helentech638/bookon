@@ -45,7 +45,17 @@ export const authenticateToken = async (
     let decoded;
     try {
       decoded = jwt.verify(token, jwtSecret) as any;
+      console.log('JWT verification successful:', { 
+        userId: decoded.userId, 
+        email: decoded.email, 
+        role: decoded.role 
+      });
     } catch (jwtError) {
+      console.log('JWT verification failed:', { 
+        error: jwtError, 
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 20) + '...'
+      });
       logger.error('JWT verification failed:', { error: jwtError, tokenLength: token.length });
       
       // If token is expired, try to refresh it automatically
