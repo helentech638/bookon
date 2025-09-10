@@ -147,6 +147,9 @@ model Booking {
   payments   Payment[]
   refunds    RefundTransaction[]
 
+  @@index([parentId])
+  @@index([parentId, status])
+  @@index([createdAt])
   @@map("bookings")
 }
 

@@ -145,7 +145,9 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
         where: { parentId: userId },
         include: {
           activity: {
-            include: {
+            select: {
+              title: true,
+              description: true,
               venue: {
                 select: {
                   name: true
@@ -154,7 +156,8 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 10 // Limit to 10 most recent activities
       });
     });
 
@@ -164,7 +167,7 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
         id: booking.id,
         status: booking.status,
         created_at: booking.createdAt,
-        name: booking.activity.name,
+        name: booking.activity.title,
         description: booking.activity.description,
         venue_name: booking.activity.venue.name
       }))
