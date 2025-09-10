@@ -2240,10 +2240,236 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
+  // Upcoming Activities Component
+  const UpcomingActivities = () => (
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold text-gray-900">Upcoming Activities</CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/admin/activities')}
+          >
+            View All
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {upcomingActivities.length > 0 ? (
+          <div className="space-y-4">
+            {upcomingActivities.map((activity) => {
+              const capacityPercentage = (activity.booked / activity.capacity) * 100;
+              const isFull = capacityPercentage >= 100;
+              const isNearFull = capacityPercentage >= 80;
+              
+              return (
+                <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-semibold text-gray-900 text-sm">{activity.name}</h4>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        isFull ? 'bg-red-100 text-red-800' :
+                        isNearFull ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {isFull ? 'Full' : `${activity.booked}/${activity.capacity}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4 mt-1">
+                      <div className="flex items-center text-xs text-gray-500">
+                        <ClockIcon className="h-3 w-3 mr-1" />
+                        {new Date(activity.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(activity.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <MapPinIcon className="h-3 w-3 mr-1" />
+                        {activity.venue_name}
+                      </div>
+                    </div>
+                  </div>
+                  {activity.waitlist_count > 0 && (
+                    <div className="ml-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                        {activity.waitlist_count} waitlist
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <CalendarDaysIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 mb-4">No upcoming activities</p>
+            <Button onClick={() => navigate('/admin/activities')} size="sm">
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Add Activity
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  // Finance Summary Component
+  const FinanceSummary = () => (
+    <Card className="h-full">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold text-gray-900">Finance Summary</CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/admin/payments')}
+          >
+            View Details
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {financeSummary ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg mr-3">
+                  <CurrencyPoundIcon className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Income</p>
+                  <p className="text-lg font-bold text-green-600">£{financeSummary.income.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg mr-3">
+                  <ArrowPathIcon className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Refunds</p>
+                  <p className="text-lg font-bold text-red-600">£{financeSummary.refunds.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                  <CreditCardIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Credits</p>
+                  <p className="text-lg font-bold text-blue-600">£{financeSummary.credits.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <CurrencyPoundIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 mb-4">No financial data available</p>
+            <Button onClick={() => navigate('/admin/payments')} size="sm">
+              View Transactions
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  // Notifications Feed Component
+  const NotificationsFeed = () => (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold text-gray-900">Recent Notifications</CardTitle>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {/* Mark all as read */}}
+            >
+              Mark All Read
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/admin/notifications')}
+            >
+              View All
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {notifications.length > 0 ? (
+          <div className="space-y-3">
+            {notifications.slice(0, 5).map((notification) => (
+              <div key={notification.id} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                <div className={`h-2 w-2 rounded-full mt-2 flex-shrink-0 ${
+                  notification.type === 'booking' ? 'bg-green-500' :
+                  notification.type === 'cancellation' ? 'bg-red-500' :
+                  notification.type === 'waitlist' ? 'bg-yellow-500' :
+                  'bg-blue-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                  <p className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleString()}</p>
+                </div>
+                {notification.action_url && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => navigate(notification.action_url)}
+                  >
+                    View
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <BellIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 mb-4">You're all caught up 🎉</p>
+            <p className="text-sm text-gray-400">No new notifications</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
       <SnapshotCards />
+      
+      {/* Main Dashboard Content - Responsive Layout */}
+      <div className="px-6 pb-6">
+        {/* Desktop: Two-column grid beneath snapshots */}
+        <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6 mb-6">
+          <UpcomingActivities />
+          <FinanceSummary />
+        </div>
+        
+        {/* Tablet: Stacked layout */}
+        <div className="hidden md:block lg:hidden space-y-6 mb-6">
+          <UpcomingActivities />
+          <FinanceSummary />
+        </div>
+        
+        {/* Mobile: Stacked layout */}
+        <div className="md:hidden space-y-6 mb-6">
+          <UpcomingActivities />
+          <FinanceSummary />
+        </div>
+        
+        {/* Notifications Feed - Full width under both */}
+        <NotificationsFeed />
+      </div>
+      
       <AdminLayout title="Admin Dashboard">
         {renderContent()}
         
