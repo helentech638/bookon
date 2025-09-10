@@ -204,6 +204,37 @@ app.get('/api/verify-token', (req, res) => {
   }
 });
 
+// Simple database test endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const { prisma } = await import('./utils/prisma');
+    
+    // Test simple database query
+    const userCount = await prisma.user.count();
+    const venueCount = await prisma.venue.count();
+    const activityCount = await prisma.activity.count();
+    const bookingCount = await prisma.booking.count();
+    
+    res.json({
+      success: true,
+      message: 'Database connection working',
+      data: {
+        users: userCount,
+        venues: venueCount,
+        activities: activityCount,
+        bookings: bookingCount
+      }
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // Simple mock login endpoint for testing
 app.post('/api/mock-login', (req, res) => {
   try {
