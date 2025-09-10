@@ -29,7 +29,7 @@ export const checkTokenValidity = async (token: string): Promise<boolean> => {
   if (!token) return false;
   
   try {
-    const response = await fetch('https://bookon-mu.vercel.app/api/v1/dashboard/profile', {
+    const response = await fetch('https://bookon-api.vercel.app/api/v1/dashboard/profile', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

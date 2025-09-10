@@ -424,7 +424,7 @@ function App() {
       const token = localStorage.getItem('bookon_token');
       if (token) {
         try {
-          const response = await fetch('https://bookon-mu.vercel.app/api/v1/dashboard/profile', {
+          const response = await fetch('https://bookon-api.vercel.app/api/v1/dashboard/profile', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',

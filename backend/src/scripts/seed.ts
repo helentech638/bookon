@@ -129,10 +129,14 @@ async function main() {
     
     const activity1 = await prisma.activity.create({
       data: {
-        name: 'Football Training',
+        title: 'Football Training',
         description: 'Learn basic football skills and teamwork',
-        duration: 90,
-        maxCapacity: 20,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        startTime: '15:00',
+        endTime: '16:30',
+        capacity: 20,
+        price: 15.00,
         venueId: venue1.id,
         ownerId: adminUser.id,
         isActive: true,
@@ -141,10 +145,14 @@ async function main() {
 
     const activity2 = await prisma.activity.create({
       data: {
-        name: 'Art & Painting',
+        title: 'Art & Painting',
         description: 'Creative painting and drawing sessions',
-        duration: 60,
-        maxCapacity: 15,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        startTime: '16:30',
+        endTime: '17:30',
+        capacity: 15,
+        price: 12.00,
         venueId: venue2.id,
         ownerId: adminUser.id,
         isActive: true,
@@ -153,10 +161,14 @@ async function main() {
 
     const activity3 = await prisma.activity.create({
       data: {
-        name: 'Swimming Lessons',
+        title: 'Swimming Lessons',
         description: 'Learn to swim with certified instructors',
-        duration: 45,
-        maxCapacity: 12,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        startTime: '14:00',
+        endTime: '14:45',
+        capacity: 12,
+        price: 18.00,
         venueId: venue3.id,
         ownerId: adminUser.id,
         isActive: true,
@@ -165,10 +177,14 @@ async function main() {
 
     const activity4 = await prisma.activity.create({
       data: {
-        name: 'Basketball Training',
+        title: 'Basketball Training',
         description: 'Develop basketball skills and fitness',
-        duration: 75,
-        maxCapacity: 16,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        startTime: '17:00',
+        endTime: '18:15',
+        capacity: 16,
+        price: 15.00,
         venueId: venue1.id,
         ownerId: adminUser.id,
         isActive: true,
@@ -177,10 +193,14 @@ async function main() {
 
     const activity5 = await prisma.activity.create({
       data: {
-        name: 'Pottery Workshop',
+        title: 'Pottery Workshop',
         description: 'Hands-on pottery making and glazing',
-        duration: 120,
-        maxCapacity: 10,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        startTime: '10:00',
+        endTime: '12:00',
+        capacity: 10,
+        price: 25.00,
         venueId: venue2.id,
         ownerId: adminUser.id,
         isActive: true,
@@ -198,6 +218,10 @@ async function main() {
         childId: child1.id,
         parentId: parentUser.id,
         status: 'confirmed',
+        amount: 15.00,
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        activityTime: '15:00',
       },
     });
 
@@ -207,6 +231,10 @@ async function main() {
         childId: child1.id,
         parentId: parentUser.id,
         status: 'pending',
+        amount: 12.00,
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+        activityTime: '16:30',
       },
     });
 
@@ -216,6 +244,10 @@ async function main() {
         childId: child2.id,
         parentId: parentUser.id,
         status: 'confirmed',
+        amount: 18.00,
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+        activityTime: '14:00',
       },
     });
 
@@ -225,6 +257,10 @@ async function main() {
         childId: child1.id,
         parentId: parentUser.id,
         status: 'completed',
+        amount: 15.00,
+        bookingDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        activityDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        activityTime: '17:00',
       },
     });
 
@@ -234,6 +270,10 @@ async function main() {
         childId: child2.id,
         parentId: parentUser.id,
         status: 'cancelled',
+        amount: 25.00,
+        bookingDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+        activityDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        activityTime: '10:00',
       },
     });
 
@@ -271,6 +311,10 @@ async function main() {
         childId: child3.id,
         parentId: parent2.id,
         status: 'confirmed',
+        amount: 15.00,
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
+        activityTime: '15:00',
       },
     });
 
@@ -280,6 +324,10 @@ async function main() {
         childId: child3.id,
         parentId: parent2.id,
         status: 'pending',
+        amount: 12.00,
+        bookingDate: new Date(),
+        activityDate: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000), // 28 days from now
+        activityTime: '16:30',
       },
     });
 

@@ -51,7 +51,7 @@ const ProfilePage: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(`${process.env.VITE_API_BASE_URL || 'https://bookon-mu.vercel.app/api/v1'}/children`, {
+      const response = await fetch(`${process.env.VITE_API_BASE_URL || 'https://bookon-api.vercel.app/api/v1'}/children`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

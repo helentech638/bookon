@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://bookon-mu.vercel.app/api/v1',
+  BASE_URL: import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app/api/v1',
   ENDPOINTS: {
     AUTH: {
       LOGIN: '/auth/login',
