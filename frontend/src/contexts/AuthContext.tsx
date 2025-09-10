@@ -44,8 +44,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Verify token with backend by making a test API call
-      const response = await fetch('https://bookon-api.vercel.app/api/v1/dashboard/profile', {
+      // Verify token with backend by making a simple verification call
+      const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

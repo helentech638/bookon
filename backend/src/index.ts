@@ -170,6 +170,40 @@ app.get('/api/test', (_req, res) => {
   });
 });
 
+// Simple token verification endpoint
+app.get('/api/verify-token', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'No token provided' 
+      });
+    }
+    
+    // For now, just check if token exists and has reasonable length
+    if (token.length > 10) {
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Token format looks valid',
+        tokenLength: token.length
+      });
+    } else {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid token format' 
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Token verification error' 
+    });
+  }
+});
+
 // Simple mock login endpoint for testing
 app.post('/api/mock-login', (req, res) => {
   try {

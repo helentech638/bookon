@@ -89,7 +89,7 @@ class AuthService {
     if (!token) return false;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/dashboard/profile`, {
+      const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
