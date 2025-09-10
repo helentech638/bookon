@@ -134,16 +134,26 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
+      const user = authService.getUser();
       console.log('AdminDashboard: Token check', { 
         hasToken: !!token, 
         tokenLength: token?.length,
         isAuthenticated: authService.isAuthenticated(),
-        user: authService.getUser()
+        user: user,
+        userRole: user?.role,
+        userEmail: user?.email,
+        hasAdminRole: authService.hasRole('admin')
       });
       
       if (!token) {
         console.warn('AdminDashboard: No token found, redirecting to login');
         navigate('/login');
+        return;
+      }
+
+      if (!authService.hasRole('admin')) {
+        console.warn('AdminDashboard: User does not have admin role, redirecting to dashboard');
+        navigate('/dashboard');
         return;
       }
 
