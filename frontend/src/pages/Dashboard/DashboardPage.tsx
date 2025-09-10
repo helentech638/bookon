@@ -89,12 +89,20 @@ const DashboardPage: React.FC = () => {
         tokenLength: token?.length || 0
       });
       
-      if (!token) {
-        throw new Error('No authentication token. Please log in.');
+      if (!token || !isAuth) {
+        console.log('No valid authentication, redirecting to login');
+        window.location.href = '/login';
+        return;
       }
 
-      // Skip redundant token verification - the API calls will handle auth errors
-      // This removes an unnecessary API call that was slowing down dashboard loading
+      // Verify token before making API calls
+      const tokenValid = await authService.verifyToken();
+      if (!tokenValid) {
+        console.log('Token verification failed, redirecting to login');
+        authService.logout();
+        window.location.href = '/login';
+        return;
+      }
 
       const headers = {
           'Authorization': `Bearer ${token}`,

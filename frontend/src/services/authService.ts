@@ -89,12 +89,18 @@ class AuthService {
     if (!token) return false;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
       const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       console.error('Token verification failed:', error);
