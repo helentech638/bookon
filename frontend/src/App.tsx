@@ -30,6 +30,7 @@ import ParentBookingFlow from './pages/Bookings/ParentBookingFlow';
 import ChildrenPage from './pages/Parent/ChildrenPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
+import TemplatesPage from './pages/Admin/TemplatesPage';
 import VenueForm from './pages/Admin/VenueForm';
 import ActivityForm from './pages/Admin/ActivityForm';
 import BookingManagement from './pages/Admin/BookingManagement';
@@ -190,6 +191,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/templates"
+          element={
+            <ProtectedRoute>
+              <TemplatesPage />
             </ProtectedRoute>
           }
         />

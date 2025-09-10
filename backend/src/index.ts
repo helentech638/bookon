@@ -42,6 +42,7 @@ import dashboardSnapshotRoutes from './routes/dashboard-snapshot';
 import upcomingActivitiesRoutes from './routes/upcoming-activities';
 import financeSummaryRoutes from './routes/finance-summary';
 import notificationsRoutes from './routes/notifications';
+import templatesRoutes from './routes/templates';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -336,6 +337,7 @@ app.use('/api/v1/dashboard', dashboardSnapshotRoutes);
 app.use('/api/v1/activities', upcomingActivitiesRoutes);
 app.use('/api/v1/finance', financeSummaryRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/templates', templatesRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));

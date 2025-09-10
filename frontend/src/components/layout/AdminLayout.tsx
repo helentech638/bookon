@@ -16,7 +16,8 @@ import {
   ShieldCheckIcon,
   BuildingOfficeIcon,
   CreditCardIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  DocumentDuplicateIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { authService } from '../../services/authService';
@@ -32,6 +33,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
 
   const navigationItems = [
     { id: 'dashboard', name: 'Dashboard', icon: ComputerDesktopIcon, path: '/admin' },
+    { id: 'templates', name: 'Templates', icon: DocumentDuplicateIcon, path: '/admin/templates' },
     { id: 'activities', name: 'Activities', icon: CalendarDaysIcon, path: '/admin/activities' },
     { id: 'venues', name: 'Venues', icon: MapPinIcon, path: '/admin/venues' },
     { id: 'bookings', name: 'Bookings', icon: ClipboardDocumentListIcon, path: '/admin/bookings' },

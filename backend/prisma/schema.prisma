@@ -43,6 +43,7 @@ model User {
   walletCredits WalletCredit[]
   auditLogs    AuditLog[]
   payments     Payment[]
+  templates    Template[]
 
   @@map("users")
 }
@@ -439,4 +440,29 @@ model ProviderSettings {
       user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
       @@map("notifications")
+    }
+
+    model Template {
+      id              String   @id @default(uuid())
+      name            String
+      type            String   // after-school, holiday-club, weekend, etc.
+      years           String   // Y1-Y2, Y3-Y4, etc.
+      description     String?
+      defaultPrice    Decimal  @db.Decimal(10, 2)
+      defaultCapacity Int
+      requiresPhotoConsent Boolean @default(false)
+      requiresMedicalReminder Boolean @default(false)
+      tags            String[] // Array of tags
+      image           String?  // Image URL or path
+      isActive        Boolean  @default(true)
+      isArchived      Boolean  @default(false)
+      createdBy       String
+      createdAt       DateTime @default(now())
+      updatedAt       DateTime @updatedAt
+
+      // Relations
+      creator         User     @relation(fields: [createdBy], references: [id])
+      activities      Activity[] // Activities created from this template
+
+      @@map("templates")
     }
