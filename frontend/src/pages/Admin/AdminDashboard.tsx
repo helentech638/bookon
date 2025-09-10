@@ -28,7 +28,10 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  ChevronDownIcon,
+  ArrowPathIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -47,6 +50,46 @@ interface AdminStats {
   upcomingActivities: number;
   monthlyGrowth: number;
   totalUsers: number;
+}
+
+// New interfaces for the redesigned dashboard
+interface DashboardSnapshot {
+  activities_running: number;
+  attendees_today: number;
+  parents_registered: number;
+  payments_total: number;
+  refunds_total: number;
+  credits_total: number;
+}
+
+interface UpcomingActivity {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  venue_name: string;
+  capacity: number;
+  booked: number;
+  waitlist_count: number;
+}
+
+interface FinanceSummary {
+  income: number;
+  refunds: number;
+  credits: number;
+  timeseries: Array<{
+    date: string;
+    value: number;
+  }>;
+}
+
+interface Notification {
+  id: string;
+  type: 'booking' | 'cancellation' | 'waitlist' | 'refund';
+  title: string;
+  created_at: string;
+  action_url: string;
+  read: boolean;
 }
 
 interface Venue {
@@ -113,6 +156,16 @@ const AdminDashboard: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
 
+  // New state for redesigned dashboard
+  const [dashboardSnapshot, setDashboardSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [upcomingActivities, setUpcomingActivities] = useState<UpcomingActivity[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummary | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   useEffect(() => {
     // Check authentication first
     if (!authService.isAuthenticated()) {
@@ -128,6 +181,107 @@ const AdminDashboard: React.FC = () => {
     
     fetchAdminData();
   }, [navigate]);
+
+  // New function to fetch dashboard snapshot data
+  const fetchDashboardSnapshot = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl(`/dashboard/snapshot?range=${dateRange}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardSnapshot(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard snapshot:', error);
+    }
+  };
+
+  // New function to fetch upcoming activities
+  const fetchUpcomingActivities = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl('/activities/upcoming?limit=5'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUpcomingActivities(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming activities:', error);
+    }
+  };
+
+  // New function to fetch finance summary
+  const fetchFinanceSummary = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl(`/finance/summary?range=${dateRange}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFinanceSummary(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching finance summary:', error);
+    }
+  };
+
+  // New function to fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl('/notifications?limit=10&unread=false'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.data);
+        setUnreadNotifications(data.data.filter((n: Notification) => !n.read).length);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // New function to refresh all dashboard data
+  const refreshDashboardData = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchDashboardSnapshot(),
+      fetchUpcomingActivities(),
+      fetchFinanceSummary(),
+      fetchNotifications()
+    ]);
+    setIsRefreshing(false);
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -157,33 +311,48 @@ const AdminDashboard: React.FC = () => {
         return;
       }
 
-      // Make all API calls in parallel for better performance
-      const [statsResponse, venuesResponse, activitiesResponse, bookingsResponse] = await Promise.allSettled([
-        fetch(buildApiUrl('/admin/stats'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }),
-        fetch(buildApiUrl('/admin/venues'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }),
-        fetch(buildApiUrl('/admin/activities'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }),
-        fetch(buildApiUrl('/admin/recent-bookings'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        })
+      // Fetch both old and new data
+      await Promise.all([
+        fetchOldAdminData(token),
+        refreshDashboardData()
       ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch admin data');
+      console.error('Admin data fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Renamed the original function
+  const fetchOldAdminData = async (token: string) => {
+    // Make all API calls in parallel for better performance
+    const [statsResponse, venuesResponse, activitiesResponse, bookingsResponse] = await Promise.allSettled([
+      fetch(buildApiUrl('/admin/stats'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }),
+      fetch(buildApiUrl('/admin/venues'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }),
+      fetch(buildApiUrl('/admin/activities'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }),
+      fetch(buildApiUrl('/admin/recent-bookings'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+    ]);
 
       // Process stats
       if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
@@ -1883,13 +2052,205 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  return (
-    <AdminLayout title="Admin Dashboard">
-      {renderContent()}
+  // New Dashboard Header Component
+  const DashboardHeader = () => (
+    <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <div className="flex items-center space-x-2">
+            <select
+              value={dateRange}
+              onChange={(e) => {
+                setDateRange(e.target.value as 'today' | 'week' | 'month');
+                refreshDashboardData();
+              }}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+            <button
+              onClick={refreshDashboardData}
+              disabled={isRefreshing}
+              className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              aria-label="Refresh dashboard data"
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-4">
+          {/* Notification Bell */}
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-full"
+            aria-label={`You have ${unreadNotifications} unread notifications`}
+          >
+            <BellIcon className="h-6 w-6" />
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadNotifications}
+              </span>
+            )}
+          </button>
+          
+          {/* Profile Menu */}
+          <div className="relative">
+            <button className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-2">
+              <div className="h-8 w-8 bg-teal-500 rounded-full flex items-center justify-center">
+                <UserIcon className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-sm font-medium">{authService.getUser()?.firstName}</span>
+              <ChevronDownIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
       
-      {/* Modals */}
-      {showAddModal && <AddActivityModal />}
-    </AdminLayout>
+      {/* Notifications Panel */}
+      {showNotifications && (
+        <div className="absolute right-4 top-16 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {notifications.length > 0 ? (
+              notifications.map((notification) => (
+                <div key={notification.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
+                  <div className="flex items-start space-x-3">
+                    <div className={`h-2 w-2 rounded-full mt-2 ${
+                      notification.type === 'booking' ? 'bg-green-500' :
+                      notification.type === 'cancellation' ? 'bg-red-500' :
+                      notification.type === 'waitlist' ? 'bg-yellow-500' :
+                      'bg-blue-500'
+                    }`} />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                      <p className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <BellIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>You're all caught up 🎉</p>
+              </div>
+            )}
+          </div>
+          {notifications.length > 0 && (
+            <div className="p-4 border-t border-gray-200">
+              <button className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium">
+                View all notifications
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  // New Snapshot Cards Component
+  const SnapshotCards = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
+      {/* Activities Running Today */}
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/activities')}>
+        <CardContent className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-teal-100 rounded-lg mr-4">
+              <CalendarDaysIcon className="h-6 w-6 text-teal-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Activities Running Today</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {dashboardSnapshot?.activities_running || 0}
+              </p>
+              <p className="text-xs text-gray-500">
+                {dashboardSnapshot?.attendees_today || 0} children
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Parents Registered */}
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/users')}>
+        <CardContent className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-100 rounded-lg mr-4">
+              <UsersIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Parents Registered</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {dashboardSnapshot?.parents_registered || 0}
+              </p>
+              <p className="text-xs text-gray-500">Active accounts</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payments Collected Today */}
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/payments')}>
+        <CardContent className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-green-100 rounded-lg mr-4">
+              <CurrencyPoundIcon className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Payments Collected Today</p>
+              <p className="text-2xl font-bold text-gray-900">
+                £{dashboardSnapshot?.payments_total?.toFixed(2) || '0.00'}
+              </p>
+              <p className="text-xs text-gray-500">Settled today</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Refunds / Credits Issued */}
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/refunds')}>
+        <CardContent className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-red-100 rounded-lg mr-4">
+              <ArrowPathIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Refunds / Credits Issued</p>
+              <p className="text-2xl font-bold text-gray-900">
+                £{((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0)).toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500">Today</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader />
+      <SnapshotCards />
+      <AdminLayout title="Admin Dashboard">
+        {renderContent()}
+        
+        {/* Modals */}
+        {showAddModal && <AddActivityModal />}
+      </AdminLayout>
+    </div>
   );
 };
 
