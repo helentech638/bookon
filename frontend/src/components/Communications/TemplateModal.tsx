@@ -21,8 +21,8 @@ interface TemplateModalProps {
     bodyHtmlTemplate: string;
     bodyTextTemplate?: string;
     active: boolean;
-    brandOverrides: any;
-    placeholders: string[];
+    brandOverrides?: any;
+    placeholders?: string[];
   } | null;
   onSave: (template: any) => void;
   onDelete?: (id: string) => void;
@@ -47,7 +47,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
       primaryColor: '#2C8F7A',
       secondaryColor: '#0F2230'
     },
-    placeholders: []
+    placeholders: [] as string[]
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isPreview, setIsPreview] = useState(false);

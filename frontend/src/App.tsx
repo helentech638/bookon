@@ -63,7 +63,6 @@ import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
 import MyBookingsPage from './pages/Parent/MyBookingsPage';
 import WalletPage from './pages/Parent/WalletPage';
-import PendingPaymentPage from './pages/PendingPaymentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import WidgetPage from './pages/WidgetPage';
 

@@ -21,7 +21,9 @@ interface EmailTemplate {
   trigger: string;
   subjectTemplate: string;
   bodyHtmlTemplate: string;
+  bodyTextTemplate?: string;
   active: boolean;
+  brandOverrides?: any;
   placeholders: string[];
   createdAt: string;
   creator: {
@@ -37,6 +39,9 @@ interface Broadcast {
   id: string;
   title: string;
   subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  audienceQuery: any;
   channels: string[];
   status: string;
   scheduledFor?: string;

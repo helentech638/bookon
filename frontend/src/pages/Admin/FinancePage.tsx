@@ -55,10 +55,14 @@ interface Discount {
   code: string;
   type: string;
   value: number;
-  usedCount: number;
+  minAmount?: number;
   maxUses?: number;
+  usedCount?: number;
   validFrom: string;
   validUntil?: string;
+  applicableTo: string[];
+  venueIds: string[];
+  activityIds: string[];
   active: boolean;
   createdAt: string;
   creator: {
@@ -75,6 +79,7 @@ interface Credit {
   description?: string;
   status: string;
   expiresAt?: string;
+  parentId: string;
   createdAt: string;
   parent: {
     firstName: string;
@@ -93,6 +98,8 @@ interface Refund {
   method: string;
   reason: string;
   status: string;
+  parentId: string;
+  transactionId: string;
   createdAt: string;
   parent: {
     firstName: string;
@@ -674,7 +681,7 @@ const FinancePage: React.FC = () => {
                         </p>
                         
                         <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                          <span>{discount.usedCount} used</span>
+                          <span>{discount.usedCount || 0} used</span>
                           {discount.maxUses && (
                             <span>of {discount.maxUses}</span>
                           )}
