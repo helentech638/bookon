@@ -34,14 +34,16 @@ interface Template {
   type: string;
   years: string;
   description?: string;
-  defaultPrice: number;
-  defaultCapacity: number;
-  requiresPhotoConsent: boolean;
-  requiresMedicalReminder: boolean;
+  whatToBring?: string;
+  defaultPrice?: number;
+  defaultCapacity?: number;
+  flags: {
+    photo_consent_required: boolean;
+    medical_reminder: boolean;
+  };
   tags: string[];
-  image?: string;
-  isActive: boolean;
-  isArchived: boolean;
+  imageUrl?: string;
+  status: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -223,7 +225,7 @@ const TemplatesPage: React.FC = () => {
   };
 
   const getStatusBadge = (template: Template) => {
-    if (template.isArchived) {
+    if (template.status === 'archived') {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
           <ArchiveBoxIcon className="h-3 w-3 mr-1" />
@@ -231,7 +233,7 @@ const TemplatesPage: React.FC = () => {
         </span>
       );
     }
-    if (!template.isActive) {
+    if (template.status === 'inactive') {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
           Inactive
@@ -246,28 +248,46 @@ const TemplatesPage: React.FC = () => {
     );
   };
 
-  const TemplateCard = ({ template }: { template: Template }) => (
-    <Card className="hover:shadow-lg transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h3>
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                {getTypeLabel(template.type)}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {template.years}
-              </span>
-              {getStatusBadge(template)}
-            </div>
-          </div>
-          {template.image && (
-            <div className="ml-4">
-              <PhotoIcon className="h-8 w-8 text-gray-400" />
+  const TemplateCard = ({ template }: { template: Template }) => {
+    const needsDefaults = !template.defaultPrice || !template.defaultCapacity;
+    
+    return (
+      <Card className="hover:shadow-lg transition-shadow">
+        <CardContent className="p-6">
+          {/* Set Defaults Warning */}
+          {needsDefaults && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2" />
+                <span className="text-sm font-medium text-yellow-800">
+                  Set defaults required
+                </span>
+              </div>
+              <p className="text-xs text-yellow-700 mt-1">
+                This template needs default price and capacity before creating courses
+              </p>
             </div>
           )}
-        </div>
+
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h3>
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                  {getTypeLabel(template.type)}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {template.years}
+                </span>
+                {getStatusBadge(template)}
+              </div>
+            </div>
+            {template.imageUrl && (
+              <div className="ml-4">
+                <PhotoIcon className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+          </div>
 
         {template.description && (
           <p className="text-sm text-gray-600 mb-4 line-clamp-2">{template.description}</p>
@@ -276,13 +296,24 @@ const TemplatesPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="flex items-center text-sm text-gray-600">
             <CurrencyPoundIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>£{template.defaultPrice.toFixed(2)} per session</span>
+            <span>
+              {template.defaultPrice ? `£${template.defaultPrice.toFixed(2)} per session` : 'No default price set'}
+            </span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <UserGroupIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{template.defaultCapacity} capacity</span>
+            <span>
+              {template.defaultCapacity ? `${template.defaultCapacity} capacity` : 'No default capacity set'}
+            </span>
           </div>
         </div>
+
+        {template.whatToBring && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-1">What to bring:</h4>
+            <p className="text-sm text-gray-600">{template.whatToBring}</p>
+          </div>
+        )}
 
         {template.tags.length > 0 && (
           <div className="flex items-center mb-4">
@@ -302,13 +333,13 @@ const TemplatesPage: React.FC = () => {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            {template.requiresPhotoConsent && (
+            {template.flags.photo_consent_required && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                 <PhotoIcon className="h-3 w-3 mr-1" />
                 Photo Consent
               </span>
             )}
-            {template.requiresMedicalReminder && (
+            {template.flags.medical_reminder && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                 <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
                 Medical Reminder
@@ -327,6 +358,8 @@ const TemplatesPage: React.FC = () => {
               setShowCreateCourseModal(true);
             }}
             className="flex-1 mr-2"
+            disabled={needsDefaults}
+            title={needsDefaults ? "Set default price and capacity first" : "Create course from template"}
           >
             <CalendarDaysIcon className="h-4 w-4 mr-2" />
             Create Course

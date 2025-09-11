@@ -31,6 +31,8 @@ import ChildrenPage from './pages/Parent/ChildrenPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import TemplatesPage from './pages/Admin/TemplatesPage';
+import CoursesPage from './pages/Admin/CoursesPage';
+import VenueSetupPage from './pages/Admin/VenueSetupPage';
 import VenueForm from './pages/Admin/VenueForm';
 import ActivityForm from './pages/Admin/ActivityForm';
 import BookingManagement from './pages/Admin/BookingManagement';
@@ -199,6 +201,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <TemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/courses"
+          element={
+            <ProtectedRoute>
+              <CoursesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/venue-setup"
+          element={
+            <ProtectedRoute>
+              <VenueSetupPage />
             </ProtectedRoute>
           }
         />
