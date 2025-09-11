@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   CogIcon,
   CurrencyPoundIcon,
-  PercentIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   InformationCircleIcon
@@ -293,7 +292,7 @@ const FranchiseFeeSettings: React.FC = () => {
                           className="mr-2"
                         />
                         <span className="flex items-center">
-                          <PercentIcon className="h-4 w-4 mr-1" />
+                          <CurrencyPoundIcon className="h-4 w-4 mr-1" />
                           Percentage
                         </span>
                       </label>
