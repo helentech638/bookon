@@ -135,6 +135,51 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
   }
 }));
 
+// Get upcoming activities
+router.get('/upcoming', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { limit = '5' } = req.query;
+    
+    const activities = await prisma.activity.findMany({
+      where: {
+        isActive: true,
+        startDate: {
+          gte: new Date() // Only future activities
+        }
+      },
+      include: {
+        venue: {
+          select: {
+            name: true,
+            city: true
+          }
+        }
+      },
+      orderBy: { startDate: 'asc' },
+      take: parseInt(limit as string)
+    });
+
+    res.json({
+      success: true,
+      data: activities.map(activity => ({
+        id: activity.id,
+        name: activity.title,
+        startDate: activity.startDate,
+        endDate: activity.endDate,
+        startTime: activity.startTime,
+        endTime: activity.endTime,
+        venue: activity.venue.name,
+        capacity: activity.capacity,
+        price: parseFloat(activity.price.toString()),
+        status: activity.status
+      }))
+    });
+  } catch (error) {
+    logger.error('Error fetching upcoming activities:', error);
+    throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
+  }
+}));
+
 // Get single activity by ID
 router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
