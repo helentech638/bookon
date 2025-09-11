@@ -88,6 +88,7 @@ const TemplatesPage: React.FC = () => {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
+      const startTime = performance.now();
       const token = authService.getToken();
       if (!token) return;
 
@@ -107,6 +108,10 @@ const TemplatesPage: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setTemplates(data.data);
+        
+        const endTime = performance.now();
+        const loadTime = endTime - startTime;
+        console.log(`Templates loaded in ${loadTime.toFixed(2)}ms`);
       } else {
         throw new Error('Failed to fetch templates');
       }
@@ -118,8 +123,13 @@ const TemplatesPage: React.FC = () => {
     }
   };
 
+  // Debounced search effect
   useEffect(() => {
-    fetchTemplates();
+    const timeoutId = setTimeout(() => {
+      fetchTemplates();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
   }, [searchTerm, filterType, filterYears, filterStatus]);
 
   const handleArchiveTemplate = async (templateId: string) => {

@@ -182,6 +182,26 @@ const AdminDashboard: React.FC = () => {
     fetchAdminData();
   }, [navigate]);
 
+  // Real-time updates for notifications
+  useEffect(() => {
+    if (!authService.isAuthenticated()) return;
+
+    // Poll for notification updates every 30 seconds
+    const notificationInterval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+
+    // Poll for dashboard updates every 2 minutes
+    const dashboardInterval = setInterval(() => {
+      fetchDashboardSnapshot();
+    }, 120000);
+
+    return () => {
+      clearInterval(notificationInterval);
+      clearInterval(dashboardInterval);
+    };
+  }, []);
+
   // New function to fetch dashboard snapshot data
   const fetchDashboardSnapshot = async () => {
     try {
@@ -271,16 +291,34 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // New function to refresh all dashboard data
+  // New function to refresh all dashboard data with performance optimization
   const refreshDashboardData = async () => {
     setIsRefreshing(true);
-    await Promise.all([
-      fetchDashboardSnapshot(),
-      fetchUpcomingActivities(),
-      fetchFinanceSummary(),
-      fetchNotifications()
-    ]);
-    setIsRefreshing(false);
+    const startTime = performance.now();
+    
+    try {
+      await Promise.all([
+        fetchDashboardSnapshot(),
+        fetchUpcomingActivities(),
+        fetchFinanceSummary(),
+        fetchNotifications()
+      ]);
+      
+      const endTime = performance.now();
+      const loadTime = endTime - startTime;
+      
+      // Log performance metrics
+      console.log(`Dashboard data refreshed in ${loadTime.toFixed(2)}ms`);
+      
+      // Show success message if refresh took longer than expected
+      if (loadTime > 1000) {
+        console.warn('Dashboard refresh took longer than expected:', loadTime.toFixed(2) + 'ms');
+      }
+    } catch (error) {
+      console.error('Error refreshing dashboard data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const fetchAdminData = async () => {
