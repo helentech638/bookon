@@ -1,170 +1,304 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { logger } from '../utils/logger';
 
-export interface EmailOptions {
+interface EmailData {
   to: string;
+  toName: string;
   subject: string;
-  html: string;
-  text?: string;
-  from?: string;
+  htmlContent: string;
+  textContent?: string;
+  templateId?: string;
+  placeholders?: Record<string, string>;
+  trackingEnabled?: boolean;
+}
+
+interface EmailEvent {
+  emailId: string;
+  eventType: string;
+  timestamp: string;
+  metadata?: any;
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private apiKey: string;
+  private fromEmail: string;
+  private fromName: string;
+  private webhookSecret: string;
 
   constructor() {
-    this.initializeTransporter();
-  }
+    this.apiKey = process.env.SENDGRID_API_KEY || '';
+    this.fromEmail = process.env.FROM_EMAIL || 'noreply@bookon.com';
+    this.fromName = process.env.FROM_NAME || 'BookOn';
+    this.webhookSecret = process.env.SENDGRID_WEBHOOK_SECRET || '';
 
-  private initializeTransporter() {
-    try {
-      // For development/testing, use a mock transporter
-      this.transporter = nodemailer.createTransporter({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.EMAIL_USER || 'test@example.com',
-          pass: process.env.EMAIL_PASS || 'test-password',
-        },
-      });
-
-      logger.info('📧 Email service initialized');
-    } catch (error) {
-      logger.warn('📧 Email service initialization failed, using mock mode:', error);
-      this.transporter = null;
+    if (this.apiKey) {
+      sgMail.setApiKey(this.apiKey);
     }
   }
 
-  async sendEmail(options: EmailOptions): Promise<boolean> {
+  async sendEmail(emailData: EmailData): Promise<string | null> {
     try {
-      if (!this.transporter) {
-        // Mock email sending for development
-        logger.info('📧 Mock email sent:', {
-          to: options.to,
-          subject: options.subject,
-          html: options.html.substring(0, 100) + '...'
-        });
-        return true;
+      if (!this.apiKey) {
+        logger.warn('SendGrid API key not configured, skipping email send');
+        return null;
       }
 
-      const mailOptions = {
-        from: options.from || process.env.EMAIL_FROM || 'noreply@bookon.com',
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      logger.info('📧 Email sent successfully:', {
-        messageId: result.messageId,
-        to: options.to,
-        subject: options.subject,
-      });
-
-      return true;
-    } catch (error) {
-      logger.error('📧 Failed to send email:', error);
-      
-      // In development, don't fail completely
-      if (process.env.NODE_ENV === 'development') {
-        logger.warn('📧 Email sending failed in development, continuing...');
-        return true;
-      }
-      
-      return false;
-    }
-  }
-
-  async sendTemplatedEmail(
-    templateId: string,
-    to: string,
-    variables: Record<string, any>
-  ): Promise<boolean> {
-    try {
-      // Simple template system
-      const templates = {
-        'tfc-instructions': {
-          subject: 'Tax-Free Childcare Payment Instructions',
-          html: `
-            <h2>Tax-Free Childcare Payment Instructions</h2>
-            <p>Dear Parent,</p>
-            <p>Please complete your payment using the following details:</p>
-            <p><strong>Reference:</strong> ${variables.reference}</p>
-            <p><strong>Amount:</strong> £${variables.amount}</p>
-            <p><strong>Deadline:</strong> ${variables.deadline}</p>
-            <p>Thank you for using BookOn!</p>
-          `
+      const msg = {
+        to: emailData.to,
+        from: {
+          email: this.fromEmail,
+          name: this.fromName
         },
-        'payment-confirmation': {
-          subject: 'Payment Confirmed - Booking Confirmed',
-          html: `
-            <h2>Payment Confirmed!</h2>
-            <p>Dear Parent,</p>
-            <p>Your payment has been confirmed and your booking is now active.</p>
-            <p><strong>Activity:</strong> ${variables.activityName}</p>
-            <p><strong>Date:</strong> ${variables.activityDate}</p>
-            <p><strong>Time:</strong> ${variables.activityTime}</p>
-            <p>Thank you for using BookOn!</p>
-          `
+        subject: emailData.subject,
+        html: emailData.htmlContent,
+        text: emailData.textContent,
+        trackingSettings: {
+          clickTracking: {
+            enable: emailData.trackingEnabled !== false
+          },
+          openTracking: {
+            enable: emailData.trackingEnabled !== false
+          }
         },
-        'cancellation-confirmation': {
-          subject: 'Booking Cancellation Confirmed',
-          html: `
-            <h2>Booking Cancellation Confirmed</h2>
-            <p>Dear Parent,</p>
-            <p>Your booking has been cancelled as requested.</p>
-            <p><strong>Refund Amount:</strong> £${variables.refundAmount}</p>
-            <p><strong>Refund Method:</strong> ${variables.refundMethod}</p>
-            <p>Thank you for using BookOn!</p>
-          `
-        },
-        'credit-expiry-reminder': {
-          subject: 'Credit Expiry Reminder',
-          html: `
-            <h2>Credit Expiry Reminder</h2>
-            <p>Dear Parent,</p>
-            <p>Your wallet credit of £${variables.creditAmount} will expire on ${variables.expiryDate}.</p>
-            <p>Please use it before it expires!</p>
-            <p>Thank you for using BookOn!</p>
-          `
+        customArgs: {
+          emailId: emailData.templateId || 'unknown'
         }
       };
 
-      const template = templates[templateId as keyof typeof templates];
-      if (!template) {
-        logger.error('📧 Template not found:', templateId);
-        return false;
-      }
-
-      return await this.sendEmail({
-        to,
-        subject: template.subject,
-        html: template.html,
+      const response = await sgMail.send(msg);
+      const messageId = response[0]?.headers?.['x-message-id'] as string;
+      
+      logger.info('Email sent successfully', {
+        to: emailData.to,
+        subject: emailData.subject,
+        messageId
       });
+
+      return messageId;
     } catch (error) {
-      logger.error('📧 Failed to send templated email:', error);
-      return false;
+      logger.error('Failed to send email:', error);
+      throw error;
     }
   }
 
-  async sendBulkEmail(emails: EmailOptions[]): Promise<{ sent: number; failed: number }> {
-    let sent = 0;
+  async sendTemplateEmail(
+    templateId: string,
+    to: string,
+    toName: string,
+    placeholders: Record<string, string> = {}
+  ): Promise<string | null> {
+    try {
+      if (!this.apiKey) {
+        logger.warn('SendGrid API key not configured, skipping template email send');
+        return null;
+      }
+
+      const msg = {
+        to: to,
+        from: {
+          email: this.fromEmail,
+          name: this.fromName
+        },
+        templateId: templateId,
+        dynamicTemplateData: {
+          to_name: toName,
+          ...placeholders
+        },
+        trackingSettings: {
+          clickTracking: { enable: true },
+          openTracking: { enable: true }
+        },
+        customArgs: {
+          templateId,
+          emailId: `template_${templateId}_${Date.now()}`
+        }
+      };
+
+      const response = await sgMail.send(msg);
+      const messageId = response[0]?.headers?.['x-message-id'] as string;
+      
+      logger.info('Template email sent successfully', {
+        to,
+        templateId,
+        messageId
+      });
+
+      return messageId;
+    } catch (error) {
+      logger.error('Failed to send template email:', error);
+      throw error;
+    }
+  }
+
+  async sendBulkEmails(emails: EmailData[]): Promise<{ success: number; failed: number }> {
+    let success = 0;
     let failed = 0;
 
-    for (const email of emails) {
-      const success = await this.sendEmail(email);
-      if (success) {
-        sent++;
-      } else {
-        failed++;
+    // SendGrid allows up to 1000 emails per request
+    const batchSize = 1000;
+    const batches = [];
+
+    for (let i = 0; i < emails.length; i += batchSize) {
+      batches.push(emails.slice(i, i + batchSize));
+    }
+
+    for (const batch of batches) {
+      try {
+        const messages = batch.map(emailData => ({
+          to: emailData.to,
+          from: {
+            email: this.fromEmail,
+            name: this.fromName
+          },
+          subject: emailData.subject,
+          html: emailData.htmlContent,
+          text: emailData.textContent,
+          trackingSettings: {
+            clickTracking: { enable: emailData.trackingEnabled !== false },
+            openTracking: { enable: emailData.trackingEnabled !== false }
+          },
+          customArgs: {
+            emailId: emailData.templateId || 'unknown'
+          }
+        }));
+
+        await sgMail.send(messages);
+        success += batch.length;
+        
+        logger.info(`Batch of ${batch.length} emails sent successfully`);
+      } catch (error) {
+        logger.error(`Failed to send batch of ${batch.length} emails:`, error);
+        failed += batch.length;
       }
     }
 
-    logger.info('📧 Bulk email completed:', { sent, failed });
-    return { sent, failed };
+    return { success, failed };
+  }
+
+  processWebhookEvent(event: any): EmailEvent | null {
+    try {
+      // Verify webhook signature if secret is configured
+      if (this.webhookSecret) {
+        // Add signature verification logic here
+        // This is a simplified version - implement proper HMAC verification
+      }
+
+      const eventType = event.event;
+      const emailId = event.sg_message_id;
+      const timestamp = event.timestamp;
+
+      if (!emailId || !eventType) {
+        logger.warn('Invalid webhook event received:', event);
+        return null;
+      }
+
+      const emailEvent: EmailEvent = {
+        emailId,
+        eventType: this.mapEventType(eventType),
+        timestamp: new Date(parseInt(timestamp) * 1000).toISOString(),
+        metadata: {
+          userAgent: event.useragent,
+          ip: event.ip,
+          url: event.url,
+          reason: event.reason,
+          response: event.response,
+          attempt: event.attempt,
+          category: event.category,
+          sgEventId: event.sg_event_id,
+          sgMessageId: event.sg_message_id
+        }
+      };
+
+      logger.info('Email event processed', {
+        emailId,
+        eventType: emailEvent.eventType,
+        timestamp: emailEvent.timestamp
+      });
+
+      return emailEvent;
+    } catch (error) {
+      logger.error('Failed to process webhook event:', error);
+      return null;
+    }
+  }
+
+  private mapEventType(sendGridEventType: string): string {
+    const eventTypeMap: Record<string, string> = {
+      'processed': 'sent',
+      'delivered': 'delivered',
+      'open': 'opened',
+      'click': 'clicked',
+      'bounce': 'bounced',
+      'dropped': 'dropped',
+      'spam_report': 'spam_report',
+      'unsubscribe': 'unsubscribed',
+      'group_unsubscribe': 'unsubscribed',
+      'group_resubscribe': 'resubscribed'
+    };
+
+    return eventTypeMap[sendGridEventType] || sendGridEventType;
+  }
+
+  async validateEmail(email: string): Promise<boolean> {
+    try {
+      if (!this.apiKey) {
+        return true; // Skip validation if no API key
+      }
+
+      // Use SendGrid's email validation API
+      const response = await fetch('https://api.sendgrid.com/v3/validations/email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.result?.valid === true;
+      }
+
+      return true; // Default to valid if validation fails
+    } catch (error) {
+      logger.error('Email validation failed:', error);
+      return true; // Default to valid if validation fails
+    }
+  }
+
+  async getEmailStats(startDate: string, endDate: string): Promise<any> {
+    try {
+      if (!this.apiKey) {
+        return null;
+      }
+
+      const response = await fetch(
+        `https://api.sendgrid.com/v3/stats?start_date=${startDate}&end_date=${endDate}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      return null;
+    } catch (error) {
+      logger.error('Failed to fetch email stats:', error);
+      return null;
+    }
+  }
+
+  isConfigured(): boolean {
+    return !!this.apiKey;
   }
 }
 
 export const emailService = new EmailService();
+export default emailService;

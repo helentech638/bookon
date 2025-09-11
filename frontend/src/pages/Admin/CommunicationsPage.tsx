@@ -12,6 +12,8 @@ import {
   XCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import TemplateModal from '../../components/Communications/TemplateModal';
+import BroadcastModal from '../../components/Communications/BroadcastModal';
 
 interface EmailTemplate {
   id: string;
@@ -82,6 +84,10 @@ const CommunicationsPage: React.FC = () => {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [selectedBroadcast, setSelectedBroadcast] = useState<Broadcast | null>(null);
 
   // Load data based on active tab
   useEffect(() => {
@@ -179,6 +185,111 @@ const CommunicationsPage: React.FC = () => {
     });
   };
 
+  const handleCreateTemplate = () => {
+    setSelectedTemplate(null);
+    setShowTemplateModal(true);
+  };
+
+  const handleEditTemplate = (template: EmailTemplate) => {
+    setSelectedTemplate(template);
+    setShowTemplateModal(true);
+  };
+
+  const handleSaveTemplate = async (templateData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const url = selectedTemplate 
+        ? `/api/v1/communications/templates/${selectedTemplate.id}`
+        : '/api/v1/communications/templates';
+      
+      const method = selectedTemplate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload data
+        setShowTemplateModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save template');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save template');
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`/api/v1/communications/templates/${templateId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete template');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete template');
+    }
+  };
+
+  const handleCreateBroadcast = () => {
+    setSelectedBroadcast(null);
+    setShowBroadcastModal(true);
+  };
+
+  const handleEditBroadcast = (broadcast: Broadcast) => {
+    setSelectedBroadcast(broadcast);
+    setShowBroadcastModal(true);
+  };
+
+  const handleSaveBroadcast = async (broadcastData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const url = selectedBroadcast 
+        ? `/api/v1/communications/broadcasts/${selectedBroadcast.id}`
+        : '/api/v1/communications/broadcasts';
+      
+      const method = selectedBroadcast ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(broadcastData)
+      });
+
+      if (response.ok) {
+        await loadData(); // Reload data
+        setShowBroadcastModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save broadcast');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save broadcast');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -189,13 +300,19 @@ const CommunicationsPage: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           {activeTab === 'templates' && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={handleCreateTemplate}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <PlusIcon className="w-5 h-5" />
               <span>New Template</span>
             </button>
           )}
           {activeTab === 'broadcasts' && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={handleCreateBroadcast}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <PlusIcon className="w-5 h-5" />
               <span>Send Broadcast</span>
             </button>
@@ -289,11 +406,17 @@ const CommunicationsPage: React.FC = () => {
                             <EyeIcon className="w-4 h-4" />
                             <span>Preview</span>
                           </button>
-                          <button className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 flex items-center justify-center space-x-1">
+                          <button 
+                            onClick={() => handleEditTemplate(template)}
+                            className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 flex items-center justify-center space-x-1"
+                          >
                             <PencilIcon className="w-4 h-4" />
                             <span>Edit</span>
                           </button>
-                          <button className="bg-red-100 text-red-700 px-3 py-2 rounded text-sm hover:bg-red-200">
+                          <button 
+                            onClick={() => handleDeleteTemplate(template.id)}
+                            className="bg-red-100 text-red-700 px-3 py-2 rounded text-sm hover:bg-red-200"
+                          >
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
@@ -365,7 +488,10 @@ const CommunicationsPage: React.FC = () => {
                               <button className="text-blue-600 hover:text-blue-900 mr-3">
                                 <EyeIcon className="w-4 h-4" />
                               </button>
-                              <button className="text-gray-600 hover:text-gray-900">
+                              <button 
+                                onClick={() => handleEditBroadcast(broadcast)}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
                                 <PencilIcon className="w-4 h-4" />
                               </button>
                             </td>
@@ -452,6 +578,22 @@ const CommunicationsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <TemplateModal
+        isOpen={showTemplateModal}
+        onClose={() => setShowTemplateModal(false)}
+        template={selectedTemplate}
+        onSave={handleSaveTemplate}
+        onDelete={handleDeleteTemplate}
+      />
+
+      <BroadcastModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        broadcast={selectedBroadcast}
+        onSave={handleSaveBroadcast}
+      />
     </div>
   );
 };
