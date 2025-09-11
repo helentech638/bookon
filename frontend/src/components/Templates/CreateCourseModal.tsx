@@ -25,7 +25,7 @@ interface Template {
   whatToBring?: string;
   defaultPrice?: number;
   defaultCapacity?: number;
-  flags: {
+  flags?: {
     photo_consent_required: boolean;
     medical_reminder: boolean;
   };
@@ -94,8 +94,8 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
           endTime: '',
           price: template.defaultPrice?.toString() || '0',
           capacity: template.defaultCapacity?.toString() || '0',
-          requiresPhotoConsent: template.flags.photo_consent_required,
-          requiresMedicalReminder: template.flags.medical_reminder
+          requiresPhotoConsent: template.flags?.photo_consent_required || false,
+          requiresMedicalReminder: template.flags?.medical_reminder || false
         });
       }
     }
