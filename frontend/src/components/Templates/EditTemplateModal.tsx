@@ -18,12 +18,26 @@ interface Template {
   type: string;
   years: string;
   description?: string;
-  defaultPrice: number;
-  defaultCapacity: number;
-  requiresPhotoConsent: boolean;
-  requiresMedicalReminder: boolean;
+  whatToBring?: string;
+  defaultPrice?: number;
+  defaultCapacity?: number;
+  flags: {
+    photo_consent_required: boolean;
+    medical_reminder: boolean;
+  };
   tags: string[];
-  image?: string;
+  imageUrl?: string;
+  status: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  creator: {
+    firstName: string;
+    lastName: string;
+  };
+  _count: {
+    activities: number;
+  };
 }
 
 interface EditTemplateModalProps {
@@ -61,12 +75,12 @@ const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
         type: template.type,
         years: template.years,
         description: template.description || '',
-        defaultPrice: template.defaultPrice.toString(),
-        defaultCapacity: template.defaultCapacity.toString(),
-        requiresPhotoConsent: template.requiresPhotoConsent,
-        requiresMedicalReminder: template.requiresMedicalReminder,
+        defaultPrice: template.defaultPrice?.toString() || '0',
+        defaultCapacity: template.defaultCapacity?.toString() || '0',
+        requiresPhotoConsent: template.flags.photo_consent_required,
+        requiresMedicalReminder: template.flags.medical_reminder,
         tags: template.tags || [],
-        image: template.image || ''
+        image: template.imageUrl || ''
       });
     }
   }, [isOpen, template]);

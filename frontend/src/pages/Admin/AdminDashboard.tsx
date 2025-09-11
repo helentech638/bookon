@@ -364,8 +364,9 @@ const AdminDashboard: React.FC = () => {
 
   // Renamed the original function
   const fetchOldAdminData = async (token: string) => {
-    // Make all API calls in parallel for better performance
-    const [statsResponse, venuesResponse, activitiesResponse, bookingsResponse] = await Promise.allSettled([
+    try {
+      // Make all API calls in parallel for better performance
+      const [statsResponse, venuesResponse, activitiesResponse, bookingsResponse] = await Promise.allSettled([
       fetch(buildApiUrl('/admin/stats'), {
         headers: {
           'Authorization': `Bearer ${token}`,

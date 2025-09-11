@@ -408,7 +408,7 @@ const TemplatesPage: React.FC = () => {
             >
               <PencilIcon className="h-4 w-4" />
             </Button>
-            {template.isArchived ? (
+            {template.status === 'archived' ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -443,6 +443,7 @@ const TemplatesPage: React.FC = () => {
       </CardContent>
     </Card>
   );
+  };
 
   if (loading) {
     return (

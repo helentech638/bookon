@@ -22,11 +22,26 @@ interface Template {
   type: string;
   years: string;
   description?: string;
-  defaultPrice: number;
-  defaultCapacity: number;
-  requiresPhotoConsent: boolean;
-  requiresMedicalReminder: boolean;
+  whatToBring?: string;
+  defaultPrice?: number;
+  defaultCapacity?: number;
+  flags: {
+    photo_consent_required: boolean;
+    medical_reminder: boolean;
+  };
   tags: string[];
+  imageUrl?: string;
+  status: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  creator: {
+    firstName: string;
+    lastName: string;
+  };
+  _count: {
+    activities: number;
+  };
 }
 
 interface Venue {
@@ -77,10 +92,10 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
           endDate: '',
           startTime: '',
           endTime: '',
-          price: template.defaultPrice.toString(),
-          capacity: template.defaultCapacity.toString(),
-          requiresPhotoConsent: template.requiresPhotoConsent,
-          requiresMedicalReminder: template.requiresMedicalReminder
+          price: template.defaultPrice?.toString() || '0',
+          capacity: template.defaultCapacity?.toString() || '0',
+          requiresPhotoConsent: template.flags.photo_consent_required,
+          requiresMedicalReminder: template.flags.medical_reminder
         });
       }
     }
