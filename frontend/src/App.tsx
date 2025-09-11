@@ -44,6 +44,9 @@ import EmailTemplates from './pages/Admin/EmailTemplates';
 import BroadcastMessaging from './pages/Admin/BroadcastMessaging';
 import NotificationCenter from './pages/Admin/NotificationCenter';
 import NotificationsPage from './pages/Notifications/NotificationsPage';
+import CommunicationsPage from './pages/Admin/CommunicationsPage';
+import FinancePage from './pages/Admin/FinancePage';
+import CreateActivityPage from './pages/Admin/CreateActivityPage';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
@@ -292,6 +295,30 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ActivityForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/communications"
+          element={
+            <ProtectedRoute>
+              <CommunicationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/finance"
+          element={
+            <ProtectedRoute>
+              <FinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/create-activity"
+          element={
+            <ProtectedRoute>
+              <CreateActivityPage />
             </ProtectedRoute>
           }
         />

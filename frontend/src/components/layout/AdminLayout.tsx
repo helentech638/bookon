@@ -20,7 +20,8 @@ import {
   DocumentDuplicateIcon,
   LinkIcon,
   ChartBarIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { authService } from '../../services/authService';
@@ -53,6 +54,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'webhooks', name: 'Webhooks', icon: MegaphoneIcon, path: '/admin/webhooks' },
     { id: 'widget', name: 'Widget Management', icon: ComputerDesktopIcon, path: '/admin/widget' },
     { id: 'communications', name: 'Communications', icon: ChatBubbleLeftRightIcon, path: '/admin/communications' },
+    { id: 'finance', name: 'Finance', icon: CurrencyPoundIcon, path: '/admin/finance' },
+    { id: 'create-activity', name: 'Create Activity', icon: PlusIcon, path: '/admin/create-activity' },
     { id: 'audit-logs', name: 'Audit Logs', icon: ShieldCheckIcon, path: '/admin/audit-logs' },
     { id: 'data-retention', name: 'Data Retention', icon: ExclamationTriangleIcon, path: '/admin/data-retention' },
     { id: 'settings', name: 'System Settings', icon: CogIcon, path: '/admin/settings' },
