@@ -37,7 +37,7 @@ interface Template {
   whatToBring?: string;
   defaultPrice?: number;
   defaultCapacity?: number;
-  flags: {
+  flags?: {
     photo_consent_required: boolean;
     medical_reminder: boolean;
   };
@@ -364,13 +364,13 @@ const TemplatesPage: React.FC = () => {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            {template.flags.photo_consent_required && (
+            {template.flags?.photo_consent_required && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                 <PhotoIcon className="h-3 w-3 mr-1" />
                 Photo Consent
               </span>
             )}
-            {template.flags.medical_reminder && (
+            {template.flags?.medical_reminder && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                 <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
                 Medical Reminder
