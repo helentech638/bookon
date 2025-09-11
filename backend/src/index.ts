@@ -49,6 +49,7 @@ import financeReportingRoutes from './routes/finance-reporting';
 import communicationsRoutes from './routes/communications';
 import financeRoutes from './routes/finance';
 import webhookRoutes from './routes/webhooks';
+import registersRoutes from './routes/registers';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -350,6 +351,7 @@ app.use('/api/v1/finance', financeReportingRoutes);
 app.use('/api/v1/communications', communicationsRoutes);
 app.use('/api/v1/finance', financeRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
+app.use('/api/v1/registers', registersRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));

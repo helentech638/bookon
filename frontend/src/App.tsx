@@ -47,6 +47,7 @@ import NotificationsPage from './pages/Notifications/NotificationsPage';
 import CommunicationsPage from './pages/Admin/CommunicationsPage';
 import FinancePage from './pages/Admin/FinancePage';
 import CreateActivityPage from './pages/Admin/CreateActivityPage';
+import RegisterManagementPage from './pages/Admin/RegisterManagementPage';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
@@ -319,6 +320,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <CreateActivityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/register-management"
+          element={
+            <ProtectedRoute>
+              <RegisterManagementPage />
             </ProtectedRoute>
           }
         />
