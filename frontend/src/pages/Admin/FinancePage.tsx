@@ -14,6 +14,9 @@ import {
   ClockIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import DiscountModal from '../../components/Finance/DiscountModal';
+import CreditModal from '../../components/Finance/CreditModal';
+import RefundModal from '../../components/Finance/RefundModal';
 
 interface Transaction {
   id: string;
@@ -117,6 +120,12 @@ const FinancePage: React.FC = () => {
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [selectedDiscount, setSelectedDiscount] = useState<Discount | null>(null);
+  const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
+  const [selectedRefund, setSelectedRefund] = useState<Refund | null>(null);
   const [stats, setStats] = useState<any>(null);
 
   // Load data based on active tab
@@ -228,6 +237,196 @@ const FinancePage: React.FC = () => {
     }).format(amount);
   };
 
+  // Modal handlers
+  const handleCreateDiscount = () => {
+    setSelectedDiscount(null);
+    setShowDiscountModal(true);
+  };
+
+  const handleEditDiscount = (discount: Discount) => {
+    setSelectedDiscount(discount);
+    setShowDiscountModal(true);
+  };
+
+  const handleSaveDiscount = async (discountData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const url = selectedDiscount 
+        ? `/api/v1/finance/discounts/${selectedDiscount.id}`
+        : '/api/v1/finance/discounts';
+      
+      const method = selectedDiscount ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(discountData)
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowDiscountModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save discount');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save discount');
+    }
+  };
+
+  const handleDeleteDiscount = async (discountId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`/api/v1/finance/discounts/${discountId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        await loadData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete discount');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete discount');
+    }
+  };
+
+  const handleCreateCredit = () => {
+    setSelectedCredit(null);
+    setShowCreditModal(true);
+  };
+
+  const handleEditCredit = (credit: Credit) => {
+    setSelectedCredit(credit);
+    setShowCreditModal(true);
+  };
+
+  const handleSaveCredit = async (creditData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const url = selectedCredit 
+        ? `/api/v1/finance/credits/${selectedCredit.id}`
+        : '/api/v1/finance/credits';
+      
+      const method = selectedCredit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(creditData)
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowCreditModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save credit');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save credit');
+    }
+  };
+
+  const handleDeleteCredit = async (creditId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`/api/v1/finance/credits/${creditId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        await loadData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete credit');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete credit');
+    }
+  };
+
+  const handleCreateRefund = () => {
+    setSelectedRefund(null);
+    setShowRefundModal(true);
+  };
+
+  const handleEditRefund = (refund: Refund) => {
+    setSelectedRefund(refund);
+    setShowRefundModal(true);
+  };
+
+  const handleSaveRefund = async (refundData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const url = selectedRefund 
+        ? `/api/v1/finance/refunds/${selectedRefund.id}`
+        : '/api/v1/finance/refunds';
+      
+      const method = selectedRefund ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(refundData)
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowRefundModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save refund');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save refund');
+    }
+  };
+
+  const handleDeleteRefund = async (refundId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`/api/v1/finance/refunds/${refundId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        await loadData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete refund');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete refund');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
@@ -273,19 +472,28 @@ const FinancePage: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           {activeTab === 'discounts' && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={handleCreateDiscount}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <PlusIcon className="w-5 h-5" />
               <span>New Discount</span>
             </button>
           )}
           {activeTab === 'credits' && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={handleCreateCredit}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <PlusIcon className="w-5 h-5" />
               <span>Issue Credit</span>
             </button>
           )}
           {activeTab === 'refunds' && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={handleCreateRefund}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <PlusIcon className="w-5 h-5" />
               <span>New Refund</span>
             </button>
@@ -477,7 +685,10 @@ const FinancePage: React.FC = () => {
                             <EyeIcon className="w-4 h-4" />
                             <span>View</span>
                           </button>
-                          <button className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 flex items-center justify-center space-x-1">
+                          <button 
+                            onClick={() => handleEditDiscount(discount)}
+                            className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 flex items-center justify-center space-x-1"
+                          >
                             <PencilIcon className="w-4 h-4" />
                             <span>Edit</span>
                           </button>
@@ -552,7 +763,10 @@ const FinancePage: React.FC = () => {
                               <button className="text-blue-600 hover:text-blue-900 mr-3">
                                 <EyeIcon className="w-4 h-4" />
                               </button>
-                              <button className="text-gray-600 hover:text-gray-900">
+                              <button 
+                                onClick={() => handleEditCredit(credit)}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
                                 <PencilIcon className="w-4 h-4" />
                               </button>
                             </td>
@@ -630,7 +844,10 @@ const FinancePage: React.FC = () => {
                               <button className="text-blue-600 hover:text-blue-900 mr-3">
                                 <EyeIcon className="w-4 h-4" />
                               </button>
-                              <button className="text-gray-600 hover:text-gray-900">
+                              <button 
+                                onClick={() => handleEditRefund(refund)}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
                                 <PencilIcon className="w-4 h-4" />
                               </button>
                             </td>
@@ -736,6 +953,31 @@ const FinancePage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <DiscountModal
+        isOpen={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        discount={selectedDiscount}
+        onSave={handleSaveDiscount}
+        onDelete={handleDeleteDiscount}
+      />
+
+      <CreditModal
+        isOpen={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        credit={selectedCredit}
+        onSave={handleSaveCredit}
+        onDelete={handleDeleteCredit}
+      />
+
+      <RefundModal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        refund={selectedRefund}
+        onSave={handleSaveRefund}
+        onDelete={handleDeleteRefund}
+      />
     </div>
   );
 };
