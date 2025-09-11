@@ -45,6 +45,7 @@ import notificationsRoutes from './routes/notifications';
 import templatesRoutes from './routes/templates';
 import coursesRoutes from './routes/courses';
 import businessAccountsRoutes from './routes/business-accounts';
+import financeReportingRoutes from './routes/finance-reporting';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -342,6 +343,7 @@ app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/templates', templatesRoutes);
 app.use('/api/v1/courses', coursesRoutes);
 app.use('/api/v1/business-accounts', businessAccountsRoutes);
+app.use('/api/v1/finance', financeReportingRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));

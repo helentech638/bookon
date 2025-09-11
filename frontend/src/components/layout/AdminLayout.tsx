@@ -18,7 +18,9 @@ import {
   CreditCardIcon,
   ExclamationTriangleIcon,
   DocumentDuplicateIcon,
-  LinkIcon
+  LinkIcon,
+  ChartBarIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { authService } from '../../services/authService';
@@ -39,6 +41,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'activities', name: 'Activities', icon: CalendarDaysIcon, path: '/admin/activities' },
     { id: 'venues', name: 'Venues', icon: MapPinIcon, path: '/admin/venues' },
     { id: 'venue-setup', name: 'Venue Setup', icon: LinkIcon, path: '/admin/venue-setup' },
+    { id: 'franchise-fee-settings', name: 'Franchise Fee Settings', icon: BanknotesIcon, path: '/admin/franchise-fee-settings' },
+    { id: 'finance-reporting', name: 'Finance Reporting', icon: ChartBarIcon, path: '/admin/finance-reporting' },
     { id: 'bookings', name: 'Bookings', icon: ClipboardDocumentListIcon, path: '/admin/bookings' },
     { id: 'registers', name: 'Registers', icon: DocumentTextIcon, path: '/admin/registers' },
     { id: 'payments', name: 'Payments', icon: CurrencyPoundIcon, path: '/admin/payments' },

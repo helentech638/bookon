@@ -33,6 +33,8 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import TemplatesPage from './pages/Admin/TemplatesPage';
 import CoursesPage from './pages/Admin/CoursesPage';
 import VenueSetupPage from './pages/Admin/VenueSetupPage';
+import FranchiseFeeSettings from './pages/Admin/FranchiseFeeSettings';
+import FinanceReporting from './pages/Admin/FinanceReporting';
 import VenueForm from './pages/Admin/VenueForm';
 import ActivityForm from './pages/Admin/ActivityForm';
 import BookingManagement from './pages/Admin/BookingManagement';
@@ -217,6 +219,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <VenueSetupPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/franchise-fee-settings"
+          element={
+            <ProtectedRoute>
+              <FranchiseFeeSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/finance-reporting"
+          element={
+            <ProtectedRoute>
+              <FinanceReporting />
             </ProtectedRoute>
           }
         />

@@ -3,6 +3,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import FranchiseFeeService from '../services/franchiseFeeService';
 
 const router = Router();
 
@@ -228,7 +229,7 @@ router.patch('/:id/stripe-status', authenticateToken, asyncHandler(async (req: R
 }));
 
 // Get franchise fee configuration
-router.get('/:id/franchise-config', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -239,30 +240,9 @@ router.get('/:id/franchise-config', authenticateToken, asyncHandler(async (req: 
       userId 
     });
 
-    const businessAccount = await safePrismaQuery(async (client) => {
-      return await client.businessAccount.findFirst({
-        where: { id: id },
-        select: {
-          id: true,
-          name: true,
-          franchiseFeeType: true,
-          franchiseFeeValue: true,
-          vatMode: true,
-          adminFeeAmount: true,
-          venues: {
-            select: {
-              id: true,
-              name: true,
-              inheritFranchiseFee: true,
-              franchiseFeeType: true,
-              franchiseFeeValue: true
-            }
-          }
-        }
-      });
-    });
+    const config = await FranchiseFeeService.getFranchiseFeeConfig(id);
 
-    if (!businessAccount) {
+    if (!config) {
       throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
     }
 
@@ -272,10 +252,46 @@ router.get('/:id/franchise-config', authenticateToken, asyncHandler(async (req: 
 
     res.json({
       success: true,
-      data: businessAccount
+      data: config
     });
   } catch (error) {
     logger.error('Error fetching franchise fee configuration:', error);
+    throw error;
+  }
+}));
+
+// Update franchise fee configuration
+router.put('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const { franchiseFeeType, franchiseFeeValue, vatMode, adminFeeAmount } = req.body;
+    
+    logger.info('Updating franchise fee configuration', { 
+      user: req.user?.email,
+      businessAccountId: id,
+      franchiseFeeType,
+      franchiseFeeValue,
+      userId 
+    });
+
+    const config = await FranchiseFeeService.updateFranchiseFeeConfig(id, {
+      franchiseFeeType,
+      franchiseFeeValue,
+      vatMode,
+      adminFeeAmount
+    });
+
+    logger.info('Franchise fee configuration updated', { 
+      businessAccountId: id 
+    });
+
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error) {
+    logger.error('Error updating franchise fee configuration:', error);
     throw error;
   }
 }));
@@ -295,67 +311,25 @@ router.post('/:id/calculate-fee', authenticateToken, asyncHandler(async (req: Re
       userId 
     });
 
-    const result = await safePrismaQuery(async (client) => {
-      const businessAccount = await client.businessAccount.findFirst({
-        where: { id: id }
-      });
+    if (!venueId) {
+      throw new AppError('Venue ID is required for fee calculation', 400, 'VENUE_ID_REQUIRED');
+    }
 
-      if (!businessAccount) {
-        throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
-      }
-
-      let franchiseFee = 0;
-      let franchiseFeeType = businessAccount.franchiseFeeType;
-      let franchiseFeeValue = businessAccount.franchiseFeeValue;
-
-      // Check if venue has custom franchise fee
-      if (venueId) {
-        const venue = await client.venue.findFirst({
-          where: { 
-            id: venueId,
-            businessAccountId: id
-          }
-        });
-
-        if (venue && !venue.inheritFranchiseFee) {
-          franchiseFeeType = venue.franchiseFeeType || businessAccount.franchiseFeeType;
-          franchiseFeeValue = venue.franchiseFeeValue || businessAccount.franchiseFeeValue;
-        }
-      }
-
-      // Calculate franchise fee
-      if (franchiseFeeType === 'percent') {
-        franchiseFee = (parseFloat(amount) * parseFloat(franchiseFeeValue.toString())) / 100;
-      } else {
-        franchiseFee = parseFloat(franchiseFeeValue.toString());
-      }
-
-      // Add admin fee if applicable
-      const adminFee = businessAccount.adminFeeAmount || 0;
-      const totalFee = franchiseFee + parseFloat(adminFee.toString());
-      const netToVenue = parseFloat(amount) - totalFee;
-
-      return {
-        grossAmount: parseFloat(amount),
-        franchiseFee: franchiseFee,
-        adminFee: parseFloat(adminFee.toString()),
-        totalFee: totalFee,
-        netToVenue: netToVenue,
-        franchiseFeeType,
-        franchiseFeeValue,
-        businessAccountName: businessAccount.name
-      };
-    });
+    const result = await FranchiseFeeService.calculateEffectiveFranchiseFee(venueId, parseFloat(amount));
 
     logger.info('Franchise fee calculated', { 
       businessAccountId: id,
-      franchiseFee: result.franchiseFee,
-      netToVenue: result.netToVenue 
+      venueId,
+      franchiseFee: result.calculatedFee,
+      netAmount: result.breakdown.netAmount 
     });
 
     res.json({
       success: true,
-      data: result
+      data: {
+        ...result,
+        businessAccountId: id
+      }
     });
   } catch (error) {
     logger.error('Error calculating franchise fee:', error);
