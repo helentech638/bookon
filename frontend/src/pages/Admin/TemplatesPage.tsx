@@ -24,6 +24,9 @@ import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
 import AdminLayout from '../../components/layout/AdminLayout';
+import CreateTemplateModal from '../../components/Templates/CreateTemplateModal';
+import CreateCourseModal from '../../components/Templates/CreateCourseModal';
+import EditTemplateModal from '../../components/Templates/EditTemplateModal';
 
 interface Template {
   id: string;
@@ -502,6 +505,27 @@ const TemplatesPage: React.FC = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Modals */}
+        <CreateTemplateModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={fetchTemplates}
+        />
+
+        <CreateCourseModal
+          isOpen={showCreateCourseModal}
+          onClose={() => setShowCreateCourseModal(false)}
+          template={selectedTemplate}
+          onSuccess={fetchTemplates}
+        />
+
+        <EditTemplateModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          template={selectedTemplate}
+          onSuccess={fetchTemplates}
+        />
 
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && templateToDelete && (
