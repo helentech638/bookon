@@ -49,7 +49,8 @@ model User {
   broadcasts   Broadcast[]
   emails       Email[]
   transactions Transaction[]
-  credits      Credit[]
+  credits      Credit[] @relation("CreditParent")
+  creditsCreated Credit[] @relation("CreditCreator")
   refunds      Refund[]
   discounts    Discount[]
 
@@ -694,9 +695,9 @@ model ProviderSettings {
       usedAt          DateTime?
 
       // Relations
-      parent          User     @relation(fields: [parentId], references: [id])
+      parent          User     @relation("CreditParent", fields: [parentId], references: [id])
       booking         Booking? @relation(fields: [bookingId], references: [id])
-      creator         User?    @relation(fields: [createdBy], references: [id])
+      creator         User?    @relation("CreditCreator", fields: [createdBy], references: [id])
 
       @@map("credits")
     }
