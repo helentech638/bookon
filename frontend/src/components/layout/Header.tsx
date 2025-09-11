@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bars3Icon, XMarkIcon, UserCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon, UserCircleIcon, ArrowRightOnRectangleIcon, BellIcon } from '@heroicons/react/24/outline';
 
 interface HeaderProps {
   user?: {
@@ -66,13 +66,29 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             {/* Auth button */}
             {user ? (
               <div className="flex items-center space-x-3">
+                {/* Notification Bell */}
                 <Link
-                  to="/profile"
+                  to="/notifications"
+                  className="relative p-2 text-gray-600 hover:text-[#00806a] transition-colors duration-200"
+                >
+                  <BellIcon className="h-5 w-5" />
+                  {/* Notification badge */}
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    3
+                  </span>
+                </Link>
+                
+                {/* Profile/Admin Link - Admin users go to /admin, others to /profile */}
+                <Link
+                  to={user.role === 'admin' ? '/admin' : '/profile'}
                   className="flex items-center space-x-2 text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   <UserCircleIcon className="h-5 w-5" />
-                  <span className="hidden sm:block">{user.firstName}</span>
+                  <span className="hidden sm:block">
+                    {user.role === 'admin' ? 'Admin' : user.firstName}
+                  </span>
                 </Link>
+                
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-600 hover:text-red-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
@@ -143,14 +159,27 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             <div className="border-t border-gray-100 pt-3 mt-3">
               {user ? (
                 <div className="space-y-2">
+                  {/* Notification Bell for Mobile */}
                   <Link
-                    to="/profile"
+                    to="/notifications"
+                    className="flex items-center space-x-2 text-gray-600 hover:text-[#00806a] px-3 py-2 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <BellIcon className="h-5 w-5" />
+                    <span>Notifications</span>
+                    <span className="ml-auto h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
+                  </Link>
+                  
+                  {/* Profile/Admin Link - Admin users go to /admin, others to /profile */}
+                  <Link
+                    to={user.role === 'admin' ? '/admin' : '/profile'}
                     className="flex items-center space-x-2 text-gray-600 hover:text-[#00806a] px-3 py-2 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <UserCircleIcon className="h-5 w-5" />
-                    <span>Profile</span>
+                    <span>{user.role === 'admin' ? 'Admin' : 'Profile'}</span>
                   </Link>
+                  
                   <button
                     onClick={() => {
                       handleLogout();

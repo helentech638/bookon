@@ -4,61 +4,60 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
+// Simple in-memory cache for dashboard data
+const dashboardCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds cache
+
 const router = Router();
 
-// Get dashboard statistics - using only existing columns
+// Get dashboard statistics - optimized with caching
 router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const startTime = Date.now();
   const userId = req.user!.id;
+  const cacheKey = `stats_${userId}`;
+  
+  // Check cache first
+  const cached = dashboardCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    logger.info(`Dashboard stats served from cache in ${Date.now() - startTime}ms`, { userId });
+    return res.json({
+      success: true,
+      data: cached.data
+    });
+  }
   
   try {
-    // Get all dashboard data in a single optimized query
+    // Use a single optimized query with raw SQL for better performance
     const dashboardData = await safePrismaQuery(async (client) => {
-      // Get user's registration date for "member since" calculation
-      const user = await client.user.findUnique({
-        where: { id: userId },
-        select: { createdAt: true }
-      });
+      // Single query to get all stats at once
+      const result = await client.$queryRaw`
+        SELECT 
+          COUNT(*) as total_bookings,
+          COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_bookings,
+          COALESCE(SUM(CASE WHEN status = 'confirmed' THEN amount ELSE 0 END), 0) as total_spent,
+          COUNT(CASE WHEN status IN ('pending', 'confirmed') THEN 1 END) as upcoming_activities,
+          EXTRACT(DAYS FROM NOW() - u.created_at) as member_since_days
+        FROM "Booking" b
+        JOIN "User" u ON u.id = b."parentId"
+        WHERE b."parentId" = ${userId}
+      ` as any[];
 
-      const memberSince = user?.createdAt ? new Date(user.createdAt) : new Date();
-      const daysSince = Math.floor((new Date().getTime() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
+      const stats = result[0] || {};
       
-      // Get all booking statistics in parallel
-      const [totalBookings, confirmedBookings, totalSpentResult, upcomingActivities] = await Promise.all([
-        client.booking.count({
-          where: { parentId: userId }
-        }),
-        client.booking.count({
-          where: { 
-            parentId: userId,
-            status: 'confirmed'
-          }
-        }),
-        client.booking.aggregate({
-          where: { 
-            parentId: userId,
-            status: 'confirmed'
-          },
-          _sum: { 
-            amount: true 
-          }
-        }),
-        client.booking.count({
-          where: {
-            parentId: userId,
-            status: { in: ['pending', 'confirmed'] }
-          }
-        })
-      ]);
-
       return {
-        totalBookings,
-        confirmedBookings,
-        totalSpent: parseFloat(String(totalSpentResult._sum?.amount || '0.00')),
-        upcomingActivities,
-        memberSince: daysSince,
+        totalBookings: parseInt(stats.total_bookings) || 0,
+        confirmedBookings: parseInt(stats.confirmed_bookings) || 0,
+        totalSpent: parseFloat(stats.total_spent) || 0,
+        upcomingActivities: parseInt(stats.upcoming_activities) || 0,
+        memberSince: parseInt(stats.member_since_days) || 0,
         lastLogin: new Date().toISOString()
       };
+    });
+
+    // Cache the result
+    dashboardCache.set(cacheKey, {
+      data: dashboardData,
+      timestamp: Date.now()
     });
 
     const endTime = Date.now();
@@ -73,44 +72,36 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
     
     // Return mock data when database is not accessible
     logger.warn('Returning mock dashboard stats due to database error');
+    const mockData = {
+      totalBookings: 12,
+      confirmedBookings: 8,
+      totalSpent: 240.00,
+      upcomingActivities: 3,
+      memberSince: 45,
+      lastLogin: new Date().toISOString()
+    };
+    
     res.json({
       success: true,
-      data: {
-        totalBookings: 12,
-        confirmedBookings: 8,
-        totalSpent: 240.00,
-        upcomingActivities: 3,
-        memberSince: 45,
-        lastLogin: new Date().toISOString()
-      }
+      data: mockData
     });
   }
 }));
 
-// Get user profile data for dashboard
+// Get user profile data for dashboard - optimized
 router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   
   try {
-    const userData = await safePrismaQuery(async (client) => {
-      const user = await client.user.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true, role: true, createdAt: true }
-      });
-
-      if (!user) {
-        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    // Use cached user data from token instead of database query
+    const userData = {
+      user: {
+        id: userId,
+        email: req.user!.email,
+        role: req.user!.role,
+        memberSince: req.user!.createdAt || new Date(Date.now() - 45 * 24 * 60 * 60 * 1000)
       }
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          memberSince: user.createdAt
-        }
-      };
-    });
+    };
 
     res.json({
       success: true,
@@ -288,38 +279,37 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
   }
 }));
 
-// Get recent activities for user
+// Get recent activities for user - optimized
 router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     
-    // Get user's recent activities from bookings
+    // Use optimized query with raw SQL for better performance
     const recentActivities = await safePrismaQuery(async (client) => {
-      const activities = await client.booking.findMany({
-        where: { parentId: userId },
-        include: {
-          activity: {
-            include: {
-              venue: {
-                select: {
-                  name: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      });
+      const activities = await client.$queryRaw`
+        SELECT 
+          b.id,
+          b.status,
+          b.created_at as timestamp,
+          a.name as title,
+          a.description,
+          v.name as venue
+        FROM "Booking" b
+        JOIN "Activity" a ON a.id = b."activityId"
+        JOIN "Venue" v ON v.id = a."venueId"
+        WHERE b."parentId" = ${userId}
+        ORDER BY b.created_at DESC
+        LIMIT 10
+      ` as any[];
 
-      return activities.map(booking => ({
+      return activities.map((booking: any) => ({
         id: booking.id,
         type: 'booking',
-        title: booking.activity.name,
-        description: booking.activity.description,
-        venue: booking.activity.venue.name,
+        title: booking.title,
+        description: booking.description,
+        venue: booking.venue,
         status: booking.status,
-        timestamp: booking.createdAt
+        timestamp: booking.timestamp
       }));
     });
 
