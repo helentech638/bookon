@@ -11,7 +11,6 @@ import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
-import Layout from '../../components/layout/Layout';
 
 interface Notification {
   id: string;
@@ -164,109 +163,105 @@ const NotificationsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="min-h-screen bg-gray-50 py-8">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-20 bg-gray-200 rounded"></div>
-                ))}
-              </div>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-20 bg-gray-200 rounded"></div>
+              ))}
             </div>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <BellIcon className="h-8 w-8 text-gray-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-              {unreadCount > 0 && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                  {unreadCount} unread
-                </span>
-              )}
-            </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <BellIcon className="h-8 w-8 text-gray-600" />
+            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
             {unreadCount > 0 && (
-              <Button
-                onClick={markAllAsRead}
-                variant="outline"
-                size="sm"
-              >
-                Mark all as read
-              </Button>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                {unreadCount} unread
+              </span>
             )}
           </div>
-
-          {/* Notifications List */}
-          {notifications.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <BellIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
-                <p className="text-gray-500">You're all caught up! We'll notify you when there's something new.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {notifications.map((notification) => (
-                <Card
-                  key={notification.id}
-                  className={`border-l-4 ${getNotificationColor(notification.type)} ${
-                    !notification.read ? 'ring-2 ring-blue-100' : ''
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3 flex-1">
-                        {getNotificationIcon(notification.type)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className={`text-sm font-medium ${
-                              !notification.read ? 'text-gray-900' : 'text-gray-700'
-                            }`}>
-                              {notification.title}
-                            </h3>
-                            {!notification.read && (
-                              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDate(notification.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                      {!notification.read && (
-                        <Button
-                          onClick={() => markAsRead(notification.id)}
-                          disabled={markingAsRead === notification.id}
-                          variant="outline"
-                          size="sm"
-                        >
-                          {markingAsRead === notification.id ? 'Marking...' : 'Mark as read'}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {unreadCount > 0 && (
+            <Button
+              onClick={markAllAsRead}
+              variant="outline"
+              size="sm"
+            >
+              Mark all as read
+            </Button>
           )}
         </div>
+
+        {/* Notifications List */}
+        {notifications.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <BellIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
+              <p className="text-gray-500">You're all caught up! We'll notify you when there's something new.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {notifications.map((notification) => (
+              <Card
+                key={notification.id}
+                className={`border-l-4 ${getNotificationColor(notification.type)} ${
+                  !notification.read ? 'ring-2 ring-blue-100' : ''
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3 flex-1">
+                      {getNotificationIcon(notification.type)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className={`text-sm font-medium ${
+                            !notification.read ? 'text-gray-900' : 'text-gray-700'
+                          }`}>
+                            {notification.title}
+                          </h3>
+                          {!notification.read && (
+                            <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDate(notification.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    {!notification.read && (
+                      <Button
+                        onClick={() => markAsRead(notification.id)}
+                        disabled={markingAsRead === notification.id}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {markingAsRead === notification.id ? 'Marking...' : 'Mark as read'}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
-    </Layout>
+    </div>
   );
 };
 
