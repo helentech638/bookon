@@ -2613,46 +2613,41 @@ const AdminDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
-      <SnapshotCards />
-      
-      {/* Main Dashboard Content - Responsive Layout */}
-      <div className="px-6 pb-6">
-        {/* Desktop: Two-column grid beneath snapshots */}
-        <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6 mb-6">
-          <UpcomingActivities />
-          <FinanceSummary />
-        </div>
+    <AdminLayout title="Admin Dashboard">
+      <div className="space-y-6">
+        <SnapshotCards />
         
-        {/* Tablet: Stacked layout */}
-        <div className="hidden md:block lg:hidden space-y-6 mb-6">
-          <UpcomingActivities />
-          <FinanceSummary />
-        </div>
-        
-        {/* Mobile: Stacked layout */}
-        <div className="md:hidden space-y-6 mb-6">
-          <UpcomingActivities />
-          <FinanceSummary />
-        </div>
-        
-        {/* Notifications Feed - Full width under both */}
-        <NotificationsFeed />
-        
-        {/* New Features Section */}
-        <div className="mt-6">
+        {/* Main Dashboard Content - Responsive Layout */}
+        <div className="space-y-6">
+          {/* Desktop: Two-column grid beneath snapshots */}
+          <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6">
+            <UpcomingActivities />
+            <FinanceSummary />
+          </div>
+          
+          {/* Tablet: Stacked layout */}
+          <div className="hidden md:block lg:hidden space-y-6">
+            <UpcomingActivities />
+            <FinanceSummary />
+          </div>
+          
+          {/* Mobile: Stacked layout */}
+          <div className="md:hidden space-y-6">
+            <UpcomingActivities />
+            <FinanceSummary />
+          </div>
+          
+          {/* Notifications Feed - Full width under both */}
+          <NotificationsFeed />
+          
+          {/* New Features Section */}
           <NewFeaturesSection />
         </div>
-      </div>
-      
-      <AdminLayout title="Admin Dashboard">
-        {renderContent()}
         
         {/* Modals */}
         {showAddModal && <AddActivityModal />}
-      </AdminLayout>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 
