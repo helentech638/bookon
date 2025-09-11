@@ -4,6 +4,21 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
+// Role-based permission middleware
+const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: Function) => {
+    const userRole = req.user?.role;
+    if (!userRole || !roles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions',
+        error: 'FORBIDDEN'
+      });
+    }
+    next();
+  };
+};
+
 const router = Router();
 
 // Get all courses
@@ -150,8 +165,8 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   }
 }));
 
-// Create course (from template or manual)
-router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Create course (from template or manual) - Admin and Coordinator
+router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const {
@@ -280,8 +295,8 @@ router.post('/:id/sessions/preview', authenticateToken, asyncHandler(async (req:
   }
 }));
 
-// Publish course and create sessions
-router.post('/:id/publish', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Publish course and create sessions - Admin and Coordinator
+router.post('/:id/publish', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -342,8 +357,8 @@ router.post('/:id/publish', authenticateToken, asyncHandler(async (req: Request,
   }
 }));
 
-// Update course
-router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Update course - Admin and Coordinator
+router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -407,8 +422,8 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   }
 }));
 
-// Archive course
-router.patch('/:id/archive', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Archive course - Admin only
+router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;

@@ -61,11 +61,21 @@ const TemplatesPage: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterYears, setFilterYears] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('active');
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return localStorage.getItem('templates-search') || '';
+  });
+  const [filterType, setFilterType] = useState(() => {
+    return localStorage.getItem('templates-filter-type') || 'all';
+  });
+  const [filterYears, setFilterYears] = useState(() => {
+    return localStorage.getItem('templates-filter-years') || 'all';
+  });
+  const [filterStatus, setFilterStatus] = useState(() => {
+    return localStorage.getItem('templates-filter-status') || 'active';
+  });
+  const [showFilters, setShowFilters] = useState(() => {
+    return localStorage.getItem('templates-show-filters') === 'true';
+  });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
@@ -133,6 +143,27 @@ const TemplatesPage: React.FC = () => {
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, filterType, filterYears, filterStatus]);
+
+  // Persist filter changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('templates-search', searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    localStorage.setItem('templates-filter-type', filterType);
+  }, [filterType]);
+
+  useEffect(() => {
+    localStorage.setItem('templates-filter-years', filterYears);
+  }, [filterYears]);
+
+  useEffect(() => {
+    localStorage.setItem('templates-filter-status', filterStatus);
+  }, [filterStatus]);
+
+  useEffect(() => {
+    localStorage.setItem('templates-show-filters', showFilters.toString());
+  }, [showFilters]);
 
   const handleArchiveTemplate = async (templateId: string) => {
     try {
@@ -252,7 +283,7 @@ const TemplatesPage: React.FC = () => {
     const needsDefaults = !template.defaultPrice || !template.defaultCapacity;
     
     return (
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow" role="article" aria-labelledby={`template-${template.id}-title`}>
         <CardContent className="p-6">
           {/* Set Defaults Warning */}
           {needsDefaults && (
@@ -271,7 +302,7 @@ const TemplatesPage: React.FC = () => {
 
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h3>
+              <h3 id={`template-${template.id}-title`} className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h3>
               <div className="flex items-center space-x-2 mb-2">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
                   {getTypeLabel(template.type)}
@@ -359,6 +390,7 @@ const TemplatesPage: React.FC = () => {
             }}
             className="flex-1 mr-2"
             disabled={needsDefaults}
+            aria-label={needsDefaults ? "Create course from template (requires setting default price and capacity first)" : `Create course from template: ${template.name}`}
             title={needsDefaults ? "Set default price and capacity first" : "Create course from template"}
           >
             <CalendarDaysIcon className="h-4 w-4 mr-2" />
@@ -372,6 +404,7 @@ const TemplatesPage: React.FC = () => {
                 setSelectedTemplate(template);
                 setShowEditModal(true);
               }}
+              aria-label={`Edit template: ${template.name}`}
             >
               <PencilIcon className="h-4 w-4" />
             </Button>
@@ -380,6 +413,7 @@ const TemplatesPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleUnarchiveTemplate(template.id)}
+                aria-label={`Unarchive template: ${template.name}`}
               >
                 <ArchiveBoxIcon className="h-4 w-4" />
               </Button>
@@ -388,6 +422,7 @@ const TemplatesPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleArchiveTemplate(template.id)}
+                aria-label={`Archive template: ${template.name}`}
               >
                 <ArchiveBoxIcon className="h-4 w-4" />
               </Button>
@@ -399,6 +434,7 @@ const TemplatesPage: React.FC = () => {
                 setTemplateToDelete(template);
                 setShowDeleteConfirm(true);
               }}
+              aria-label={`Delete template: ${template.name}`}
             >
               <TrashIcon className="h-4 w-4" />
             </Button>
@@ -451,7 +487,12 @@ const TemplatesPage: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  aria-label="Search templates"
+                  aria-describedby="search-help"
                 />
+                <div id="search-help" className="sr-only">
+                  Search templates by name or description
+                </div>
               </div>
 
               {/* Filters */}
@@ -460,6 +501,9 @@ const TemplatesPage: React.FC = () => {
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
                   className="flex items-center"
+                  aria-expanded={showFilters}
+                  aria-controls="filter-options"
+                  aria-label={`${showFilters ? 'Hide' : 'Show'} filter options`}
                 >
                   <FunnelIcon className="h-4 w-4 mr-2" />
                   Filters
@@ -470,7 +514,7 @@ const TemplatesPage: React.FC = () => {
 
             {/* Filter Options */}
             {showFilters && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div id="filter-options" className="mt-4 pt-4 border-t border-gray-200" role="region" aria-label="Filter options">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
@@ -519,7 +563,7 @@ const TemplatesPage: React.FC = () => {
 
         {/* Templates Grid */}
         {templates.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="grid" aria-label="Templates grid">
             {templates.map((template) => (
               <TemplateCard key={template.id} template={template} />
             ))}

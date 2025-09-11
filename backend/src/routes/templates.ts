@@ -4,13 +4,31 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
+// Role-based permission middleware
+const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: Function) => {
+    const userRole = req.user?.role;
+    if (!userRole || !roles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions',
+        error: 'FORBIDDEN'
+      });
+    }
+    next();
+  };
+};
+
 const router = Router();
 
 // Get all templates
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { search, type, years, status = 'active' } = req.query;
+    const { search, type, years, status = 'active', page = '1', limit = '20' } = req.query;
     const userId = req.user!.id;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
     
     logger.info('Templates requested', { 
       user: req.user?.email,
@@ -18,15 +36,19 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       type,
       years,
       status,
+      page: pageNum,
+      limit: limitNum,
       userId 
     });
 
-    const templates = await safePrismaQuery(async (client) => {
+    const startTime = performance.now();
+
+    const result = await safePrismaQuery(async (client) => {
       const where: any = {
         createdBy: userId,
-        ...(status === 'active' ? { isActive: true, isArchived: false } : 
-            status === 'archived' ? { isArchived: true } : 
-            status === 'all' ? {} : { isActive: true, isArchived: false })
+        ...(status === 'active' ? { status: 'active' } : 
+            status === 'archived' ? { status: 'archived' } : 
+            status === 'all' ? {} : { status: 'active' })
       };
 
       if (search) {
@@ -44,7 +66,11 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
         where.years = years;
       }
 
-      return await client.template.findMany({
+      // Get total count for pagination
+      const totalCount = await client.template.count({ where });
+
+      // Get paginated templates
+      const templates = await client.template.findMany({
         where,
         include: {
           creator: {
@@ -60,18 +86,44 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           }
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          updatedAt: 'desc'
+        },
+        skip,
+        take: limitNum
       });
+
+      return {
+        templates,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / limitNum),
+          hasNext: pageNum < Math.ceil(totalCount / limitNum),
+          hasPrev: pageNum > 1
+        }
+      };
     });
 
+    const endTime = performance.now();
+    const loadTime = endTime - startTime;
+
     logger.info('Templates retrieved', { 
-      count: templates.length 
+      count: result.templates.length,
+      total: result.pagination.total,
+      loadTime: `${loadTime.toFixed(2)}ms`
+    });
+
+    // Set cache headers for performance
+    res.set({
+      'Cache-Control': 'private, max-age=60', // Cache for 1 minute
+      'X-Load-Time': `${loadTime.toFixed(2)}ms`
     });
 
     res.json({
       success: true,
-      data: templates
+      data: result.templates,
+      pagination: result.pagination
     });
   } catch (error) {
     logger.error('Error fetching templates:', error);
@@ -197,7 +249,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
 }));
 
 // Create new template
-router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     const {
@@ -260,8 +312,8 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
   }
 }));
 
-// Update template
-router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Update template (Admin only)
+router.put('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -317,8 +369,8 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   }
 }));
 
-// Archive template
-router.patch('/:id/archive', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Archive template (Admin only)
+router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
@@ -397,8 +449,8 @@ router.patch('/:id/unarchive', authenticateToken, asyncHandler(async (req: Reque
   }
 }));
 
-// Delete template
-router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Delete template (Admin only)
+router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user!.id;
