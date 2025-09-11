@@ -1,57 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { 
+  ClockIcon, 
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  ArrowLeftIcon,
+  ClipboardDocumentIcon
+} from '@heroicons/react/24/outline';
 import { Button } from '../components/ui/Button';
-import { ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ClipboardDocumentIcon, EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline';
-import { toast } from 'react-hot-toast';
-import TFCInstructionPanel from '../components/payment/TFCInstructionPanel';
 
-interface TFCBookingData {
+interface PendingBooking {
   id: string;
-  reference: string;
-  deadline: string;
-  instructions: string;
+  paymentReference: string;
   amount: number;
-  status: string;
-  daysRemaining: number;
-  activity: string;
-  venue: string;
-  child: string;
-  createdAt: string;
+  deadline: string;
+  status: 'pending' | 'expired' | 'confirmed';
+  activity: {
+    title: string;
+    startDate: string;
+    startTime: string;
+    venue: {
+      name: string;
+      address: string;
+    };
+  };
+  child: {
+    firstName: string;
+    lastName: string;
+  };
+  parent: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+  tfcConfig: {
+    providerName: string;
+    providerNumber: string;
+    instructionText: string;
+    bankDetails: {
+      accountName: string;
+      sortCode: string;
+      accountNumber: string;
+    };
+  };
 }
 
 const PendingPaymentPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
-  const [booking, setBooking] = useState<TFCBookingData | null>(null);
+  const [booking, setBooking] = useState<PendingBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [referenceCopied, setReferenceCopied] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      fetchBookingDetails(id);
+    if (bookingId) {
+      loadPendingBooking();
     }
-  }, [id]);
+  }, [bookingId]);
 
-  const fetchBookingDetails = async (bookingId: string) => {
+  const loadPendingBooking = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/tfc/booking/${bookingId}`, {
+      const token = localStorage.getItem('accessToken');
+      
+      const response = await fetch(`/api/v1/bookings/${bookingId}/tfc-status`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch booking details');
+      if (response.ok) {
+        const data = await response.json();
+        setBooking(data.data);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to load booking details');
       }
-
-      const result = await response.json();
-      setBooking(result.data);
-    } catch (error) {
-      console.error('Error fetching booking details:', error);
-      setError('Failed to load booking details');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load booking details');
     } finally {
       setLoading(false);
     }
@@ -59,52 +90,69 @@ const PendingPaymentPage: React.FC = () => {
 
   const handleCopyReference = () => {
     if (booking) {
-      navigator.clipboard.writeText(booking.reference);
-      toast.success('Payment reference copied to clipboard');
+      navigator.clipboard.writeText(booking.paymentReference);
+      setReferenceCopied(true);
+      setTimeout(() => setReferenceCopied(false), 2000);
     }
   };
 
-  const handleCancelBooking = async () => {
+  const handleResendInstructions = async () => {
     if (!booking) return;
 
-    const confirmed = window.confirm(
-      'Are you sure you want to cancel this booking? This action cannot be undone.'
-    );
-
-    if (!confirmed) return;
-
     try {
-      const response = await fetch(`/api/v1/bookings/${booking.id}/cancel`, {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/v1/bookings/${booking.id}/resend-tfc-instructions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+      if (response.ok) {
+        alert('Payment instructions have been resent to your email');
+      } else {
+        throw new Error('Failed to resend instructions');
       }
-
-      toast.success('Booking cancelled successfully');
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
-      toast.error('Failed to cancel booking');
+    } catch (err) {
+      alert('Failed to resend instructions. Please try again.');
     }
   };
 
-  const handleContactSupport = () => {
-    // Open email client or show contact information
-    window.location.href = 'mailto:support@bookon.com?subject=TFC Payment Support';
+  const formatDeadline = (deadline: string) => {
+    const date = new Date(deadline);
+    return date.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getTimeRemaining = (deadline: string) => {
+    const now = new Date();
+    const deadlineDate = new Date(deadline);
+    const diff = deadlineDate.getTime() - now.getTime();
+    
+    if (diff <= 0) return 'Expired';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} remaining`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} remaining`;
+    return `${minutes} minute${minutes > 1 ? 's' : ''} remaining`;
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading booking details...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading booking details...</p>
         </div>
       </div>
     );
@@ -113,195 +161,245 @@ const PendingPaymentPage: React.FC = () => {
   if (error || !booking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <XCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Booking Not Found</h2>
-              <p className="text-gray-600 mb-4">{error || 'The booking you are looking for could not be found.'}</p>
-              <Button onClick={() => navigate('/dashboard')} className="w-full">
-                Return to Dashboard
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="text-center">
+          <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Booking Not Found</h1>
+          <p className="text-gray-600 mb-4">{error || 'The requested booking could not be found.'}</p>
+          <Button onClick={() => navigate('/dashboard')}>
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
       </div>
     );
   }
 
-  const deadline = new Date(booking.deadline);
-  const isExpired = booking.daysRemaining <= 0;
-  const isUrgent = booking.daysRemaining <= 2 && !isExpired;
+  const timeRemaining = getTimeRemaining(booking.deadline);
+  const isExpired = timeRemaining === 'Expired';
+  const isUrgent = timeRemaining.includes('hour') || timeRemaining.includes('minute');
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Pending</h1>
-          <p className="text-gray-600">Complete your Tax-Free Childcare payment to confirm your booking</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                <span>Back to Dashboard</span>
+              </Button>
+            </div>
+            <div className="text-right">
+              <h1 className="text-2xl font-bold text-gray-900">Payment Pending</h1>
+              <p className="text-gray-600">Tax-Free Childcare Payment Required</p>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Status Alert */}
-        <Card className={`mb-6 ${
-          isExpired 
-            ? 'border-red-200 bg-red-50' 
-            : isUrgent 
-            ? 'border-orange-200 bg-orange-50' 
-            : 'border-blue-200 bg-blue-50'
-        }`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-                          {isExpired ? (
-              <XCircleIcon className="h-6 w-6 text-red-600" />
-            ) : isUrgent ? (
-              <ExclamationTriangleIcon className="h-6 w-6 text-orange-600" />
-            ) : (
-              <ClockIcon className="h-6 w-6 text-blue-600" />
-            )}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-6">
+          {/* Status Banner */}
+          <div className={`border rounded-lg p-4 ${
+            isExpired 
+              ? 'bg-red-50 border-red-200' 
+              : isUrgent
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-blue-50 border-blue-200'
+          }`}>
+            <div className="flex items-center space-x-3">
+              {isExpired ? (
+                <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
+              ) : isUrgent ? (
+                <ClockIcon className="w-6 h-6 text-amber-600" />
+              ) : (
+                <CheckCircleIcon className="w-6 h-6 text-blue-600" />
+              )}
               <div>
-                <h3 className={`font-semibold ${
-                  isExpired ? 'text-red-800' : isUrgent ? 'text-orange-800' : 'text-blue-800'
+                <h2 className={`font-semibold ${
+                  isExpired 
+                    ? 'text-red-900' 
+                    : isUrgent
+                    ? 'text-amber-900'
+                    : 'text-blue-900'
                 }`}>
-                  {isExpired 
-                    ? 'Payment Deadline Expired' 
-                    : isUrgent 
-                    ? 'Payment Required Soon' 
-                    : 'Payment Pending'
-                  }
-                </h3>
+                  {isExpired ? 'Payment Deadline Expired' : 'Payment Required'}
+                </h2>
                 <p className={`text-sm ${
-                  isExpired ? 'text-red-700' : isUrgent ? 'text-orange-700' : 'text-blue-700'
+                  isExpired 
+                    ? 'text-red-700' 
+                    : isUrgent
+                    ? 'text-amber-700'
+                    : 'text-blue-700'
                 }`}>
                   {isExpired 
-                    ? 'Your booking may have been cancelled due to missed payment deadline'
-                    : isUrgent 
-                    ? `Only ${booking.daysRemaining} day${booking.daysRemaining !== 1 ? 's' : ''} remaining to make payment`
-                    : `${booking.daysRemaining} days remaining to make payment`
+                    ? 'This booking will be automatically cancelled' 
+                    : `Please complete payment by ${formatDeadline(booking.deadline)} (${timeRemaining})`
                   }
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Booking Details */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircleIcon className="h-5 w-5 text-green-600" />
-                  Booking Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Child</label>
-                  <p className="text-gray-900">{booking.child}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Activity</label>
-                  <p className="text-gray-900">{booking.activity}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Venue</label>
-                  <p className="text-gray-900">{booking.venue}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Amount</label>
-                  <p className="text-gray-900 font-semibold text-lg">£{booking.amount.toFixed(2)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Booking Date</label>
-                  <p className="text-gray-900">{new Date(booking.createdAt).toLocaleDateString()}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Action Buttons */}
-            <Card className="mt-6">
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <Button 
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Activity</label>
+                <p className="text-gray-900">{booking.activity.title}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Child</label>
+                <p className="text-gray-900">{booking.child.firstName} {booking.child.lastName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Date & Time</label>
+                <p className="text-gray-900">
+                  {new Date(booking.activity.startDate).toLocaleDateString('en-GB')} at {booking.activity.startTime}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Venue</label>
+                <p className="text-gray-900">{booking.activity.venue.name}</p>
+                <p className="text-sm text-gray-600">{booking.activity.venue.address}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Amount Due</label>
+                <p className="text-lg font-semibold text-gray-900">£{booking.amount.toFixed(2)}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Payment Reference</label>
+                <div className="flex items-center space-x-2">
+                  <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
+                    {booking.paymentReference}
+                  </code>
+                  <button
                     onClick={handleCopyReference}
-                    variant="outline" 
-                    className="w-full flex items-center gap-2"
+                    className="p-1 text-gray-400 hover:text-gray-600"
                   >
-                    <ClipboardDocumentIcon className="h-4 w-4" />
-                    Copy Payment Reference
-                  </Button>
-                  
-                  <Button 
-                    onClick={handleContactSupport}
-                    variant="outline" 
-                    className="w-full flex items-center gap-2"
-                  >
-                    <EnvelopeIcon className="h-4 w-4" />
-                    Contact Support
-                  </Button>
-                  
-                  <Button 
-                    onClick={handleCancelBooking}
-                    variant="destructive" 
-                    className="w-full"
-                  >
-                    Cancel Booking
-                  </Button>
+                    <ClipboardDocumentIcon className="w-4 h-4" />
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+                {referenceCopied && (
+                  <p className="text-xs text-green-600 mt-1">Reference copied!</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Payment Instructions */}
-          <div className="lg:col-span-2">
-            <TFCInstructionPanel
-              reference={booking.reference}
-              deadline={deadline}
-              amount={booking.amount}
-              instructions={booking.instructions}
-              payeeDetails={{
-                name: 'BookOn Platform',
-                reference: 'BOOKON-TFC',
-                sortCode: '20-00-00',
-                accountNumber: '12345678'
-              }}
-              onCopyReference={handleCopyReference}
-            />
-          </div>
-        </div>
-
-        {/* Help Section */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PhoneIcon className="h-5 w-5 text-blue-600" />
-              Need Help?
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Payment Issues</h4>
-                <p className="text-sm text-gray-600 mb-2">
-                  Having trouble with your Tax-Free Childcare payment? We're here to help.
-                </p>
-                <p className="text-sm text-gray-600">
-                  Email: <a href="mailto:support@bookon.com" className="text-blue-600 hover:underline">support@bookon.com</a>
-                </p>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Instructions</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-green-600 font-semibold text-sm">1</span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-900">
+                    Log into your <strong>Tax-Free Childcare account</strong> at{' '}
+                    <a 
+                      href="https://www.gov.uk/apply-tax-free-childcare" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      gov.uk/apply-tax-free-childcare
+                    </a>
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Technical Support</h4>
-                <p className="text-sm text-gray-600 mb-2">
-                  Need assistance with the booking system or have questions about your account?
-                </p>
-                <p className="text-sm text-gray-600">
-                  Phone: <a href="tel:+441234567890" className="text-blue-600 hover:underline">0123 456 7890</a>
-                </p>
+
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-green-600 font-semibold text-sm">2</span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-900">
+                    Make a payment to <strong>{booking.tfcConfig.providerName}</strong> using reference: <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{booking.paymentReference}</code>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-green-600 font-semibold text-sm">3</span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-900">
+                    Your booking will be confirmed automatically once payment is received
+                  </p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Provider Details */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Provider Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Provider Name</label>
+                <p className="text-gray-900">{booking.tfcConfig.providerName}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Provider Number</label>
+                <p className="text-gray-900">{booking.tfcConfig.providerNumber}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Need Help?</h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <EnvelopeIcon className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-900">Email us at</p>
+                  <a href="mailto:support@bookon.com" className="text-blue-600 hover:text-blue-800">
+                    support@bookon.com
+                  </a>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <PhoneIcon className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-900">Call us on</p>
+                  <a href="tel:+441234567890" className="text-blue-600 hover:text-blue-800">
+                    01234 567890
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4">
+            <Button
+              onClick={handleResendInstructions}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <EnvelopeIcon className="w-4 h-4" />
+              <span>Resend Instructions</span>
+            </Button>
+            <Button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

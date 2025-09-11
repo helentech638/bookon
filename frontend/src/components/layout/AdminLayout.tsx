@@ -57,6 +57,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'finance', name: 'Finance', icon: CurrencyPoundIcon, path: '/admin/finance' },
     { id: 'create-activity', name: 'Create Activity', icon: PlusIcon, path: '/admin/create-activity' },
     { id: 'register-management', name: 'Register Management', icon: ClipboardDocumentListIcon, path: '/admin/register-management' },
+    { id: 'tfc-pending-queue', name: 'TFC Pending Queue', icon: ClockIcon, path: '/admin/tfc-pending-queue' },
     { id: 'audit-logs', name: 'Audit Logs', icon: ShieldCheckIcon, path: '/admin/audit-logs' },
     { id: 'data-retention', name: 'Data Retention', icon: ExclamationTriangleIcon, path: '/admin/data-retention' },
     { id: 'settings', name: 'System Settings', icon: CogIcon, path: '/admin/settings' },

@@ -48,6 +48,8 @@ import CommunicationsPage from './pages/Admin/CommunicationsPage';
 import FinancePage from './pages/Admin/FinancePage';
 import CreateActivityPage from './pages/Admin/CreateActivityPage';
 import RegisterManagementPage from './pages/Admin/RegisterManagementPage';
+import TFCPendingQueuePage from './pages/Admin/TFCPendingQueuePage';
+import PendingPaymentPage from './pages/PendingPaymentPage';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
@@ -328,6 +330,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <RegisterManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/tfc-pending-queue"
+          element={
+            <ProtectedRoute>
+              <TFCPendingQueuePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pending-payment/:bookingId"
+          element={
+            <ProtectedRoute>
+              <PendingPaymentPage />
             </ProtectedRoute>
           }
         />

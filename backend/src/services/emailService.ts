@@ -298,6 +298,167 @@ class EmailService {
   isConfigured(): boolean {
     return !!this.apiKey;
   }
+
+  /**
+   * Send TFC instructions email
+   */
+  async sendTFCInstructions(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    paymentReference: string;
+    deadline: Date;
+    amount: number;
+    tfcConfig: any;
+  }): Promise<void> {
+    try {
+      const subject = `Tax-Free Childcare Payment Required - ${data.activityName}`;
+      
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Tax-Free Childcare Payment Required</h2>
+          
+          <p>Dear ${data.parentName},</p>
+          
+          <p>Thank you for booking <strong>${data.activityName}</strong> for ${data.childName}.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">Payment Details</h3>
+            <p><strong>Payment Reference:</strong> <code style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px;">${data.paymentReference}</code></p>
+            <p><strong>Amount Due:</strong> £${data.amount.toFixed(2)}</p>
+            <p><strong>Payment Deadline:</strong> ${data.deadline.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+          
+          <h3>How to Pay:</h3>
+          <ol>
+            <li>Log into your <strong>Tax-Free Childcare account</strong> at <a href="https://www.gov.uk/apply-tax-free-childcare">gov.uk/apply-tax-free-childcare</a></li>
+            <li>Make a payment to <strong>${data.tfcConfig.providerName}</strong> using the reference above</li>
+            <li>Your booking will be confirmed automatically once payment is received</li>
+          </ol>
+          
+          <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e;"><strong>Important:</strong> Please complete payment by the deadline to secure your place. If payment is not received, your booking will be automatically cancelled.</p>
+          </div>
+          
+          <p>If you have any questions, please contact us at support@bookon.com or call 01234 567890.</p>
+          
+          <p>Best regards,<br>The BookOn Team</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject,
+        htmlContent: html
+      });
+
+      logger.info('TFC instructions email sent', { to: data.to, paymentReference: data.paymentReference });
+    } catch (error) {
+      logger.error('Failed to send TFC instructions email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send TFC cancellation email
+   */
+  async sendTFCCancellation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    paymentReference: string;
+  }): Promise<void> {
+    try {
+      const subject = `Booking Cancelled - Payment Deadline Expired - ${data.activityName}`;
+      
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">Booking Cancelled</h2>
+          
+          <p>Dear ${data.parentName},</p>
+          
+          <p>Unfortunately, your booking for <strong>${data.activityName}</strong> for ${data.childName} has been cancelled as the payment deadline has expired.</p>
+          
+          <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #991b1b;"><strong>Payment Reference:</strong> ${data.paymentReference}</p>
+            <p style="margin: 5px 0 0 0; color: #991b1b;">This booking is no longer reserved for you.</p>
+          </div>
+          
+          <p>If you would like to book this activity again, please visit our website and complete the payment process within the specified timeframe.</p>
+          
+          <p>If you have any questions, please contact us at support@bookon.com or call 01234 567890.</p>
+          
+          <p>Best regards,<br>The BookOn Team</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject,
+        htmlContent: html
+      });
+
+      logger.info('TFC cancellation email sent', { to: data.to, paymentReference: data.paymentReference });
+    } catch (error) {
+      logger.error('Failed to send TFC cancellation email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send credit issued email
+   */
+  async sendCreditIssued(data: {
+    to: string;
+    parentName: string;
+    amount: number;
+    reason: string;
+    expiryDate: Date;
+  }): Promise<void> {
+    try {
+      const subject = `Credit Issued - £${data.amount.toFixed(2)}`;
+      
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #059669;">Credit Issued</h2>
+          
+          <p>Dear ${data.parentName},</p>
+          
+          <p>We have issued a credit to your BookOn account.</p>
+          
+          <div style="background-color: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #166534; margin-top: 0;">Credit Details</h3>
+            <p><strong>Amount:</strong> £${data.amount.toFixed(2)}</p>
+            <p><strong>Reason:</strong> ${data.reason}</p>
+            <p><strong>Expires:</strong> ${data.expiryDate.toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+          
+          <p>This credit can be used towards future bookings. Simply select "Use Credit" at checkout to apply it to your next booking.</p>
+          
+          <p>If you have any questions, please contact us at support@bookon.com or call 01234 567890.</p>
+          
+          <p>Best regards,<br>The BookOn Team</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject,
+        htmlContent: html
+      });
+
+      logger.info('Credit issued email sent', { to: data.to, amount: data.amount });
+    } catch (error) {
+      logger.error('Failed to send credit issued email:', error);
+      throw error;
+    }
+  }
 }
 
 export const emailService = new EmailService();

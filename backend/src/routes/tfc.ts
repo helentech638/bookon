@@ -1,433 +1,551 @@
 import { Router, Request, Response } from 'express';
-import { body, param, query } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { authenticateToken } from '../middleware/auth';
-import { tfcService } from '../services/tfcService';
+import { authenticateToken, requireRole } from '../middleware/auth';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
-import { validationResult } from 'express-validator';
-import { prisma } from '../utils/prisma';
+import { emailService } from '../services/emailService';
 
 const router = Router();
 
-// Validation middleware
-const validateTFCBooking = [
-  body('bookingId').isUUID().withMessage('Valid booking ID is required'),
-  body('amount').isDecimal().withMessage('Valid amount is required'),
-  body('venueId').isUUID().withMessage('Valid venue ID is required'),
-  body('holdPeriod').optional().isInt({ min: 1, max: 30 }).withMessage('Hold period must be between 1-30 days')
-];
+// Get TFC configuration for a venue
+router.get('/config/:venueId', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { venueId } = req.params;
 
-const validateBookingId = [
-  param('id').isUUID().withMessage('Valid booking ID is required')
-];
+    const venue = await safePrismaQuery(async (client) => {
+      return await client.venue.findUnique({
+        where: { id: venueId },
+        include: {
+          businessAccount: true
+        }
+      });
+    });
+
+    if (!venue) {
+      throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
+    }
+
+    // Get TFC configuration (this would typically come from venue settings)
+    const tfcConfig = {
+      enabled: true,
+      providerName: venue.businessAccount?.name || venue.name,
+      providerNumber: venue.businessAccount?.providerNumber || 'TFC001',
+      holdPeriodDays: 5,
+      instructionText: `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
+      bankDetails: {
+        accountName: venue.businessAccount?.name || venue.name,
+        sortCode: venue.businessAccount?.sortCode || '20-00-00',
+        accountNumber: venue.businessAccount?.accountNumber || '12345678'
+      }
+    };
+
+    res.json({
+      success: true,
+      data: tfcConfig
+    });
+  } catch (error) {
+    logger.error('Error fetching TFC config:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to fetch TFC configuration', 500, 'TFC_CONFIG_ERROR');
+  }
+}));
 
 // Create TFC booking
-router.post('/create', authenticateToken, validateTFCBooking, asyncHandler(async (req: Request, res: Response) => {
+router.post('/create-booking', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
-    }
+    const {
+      activityId,
+      childId,
+      paymentReference,
+      deadline,
+      amount,
+      tfcConfig
+    } = req.body;
 
     const userId = req.user!.id;
-    const { bookingId, amount, venueId, holdPeriod } = req.body;
 
-    // Verify booking belongs to user
-    const booking = await prisma.booking.findFirst({
-      where: {
-        id: bookingId,
-        parentId: userId,
-        status: 'pending'
-      }
+    // Create booking with TFC status
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.create({
+        data: {
+          activityId,
+          childId,
+          parentId: userId,
+          amount: parseFloat(amount),
+          status: 'tfc_pending',
+          paymentMethod: 'tfc',
+          paymentReference,
+          tfcDeadline: new Date(deadline),
+          metadata: {
+            tfcConfig,
+            paymentReference,
+            deadline
+          }
+        },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          child: true,
+          parent: true
+        }
+      });
     });
 
-    if (!booking) {
-      throw new AppError('Booking not found or not eligible for TFC', 404, 'BOOKING_NOT_FOUND');
+    // Send TFC instructions email
+    try {
+      await emailService.sendTFCInstructions({
+        to: booking.parent.email,
+        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+        childName: `${booking.child.firstName} ${booking.child.lastName}`,
+        activityName: booking.activity.title,
+        venueName: booking.activity.venue.name,
+        paymentReference,
+        deadline: new Date(deadline),
+        amount: parseFloat(amount),
+        tfcConfig
+      });
+    } catch (emailError) {
+      logger.error('Failed to send TFC instructions email:', emailError);
+      // Don't fail the booking creation if email fails
     }
 
-    const tfcData = await tfcService.createTFCBooking({
-      bookingId,
-      amount,
-      venueId,
-      parentId: userId,
-      holdPeriod
-    });
-
-    logger.info('TFC booking created via API', {
-      userId,
-      bookingId,
-      reference: tfcData.reference
+    logger.info('TFC booking created', {
+      bookingId: booking.id,
+      paymentReference,
+      parentId: userId
     });
 
     res.status(201).json({
       success: true,
       message: 'TFC booking created successfully',
-      data: {
-        reference: tfcData.reference,
-        deadline: tfcData.deadline,
-        instructions: tfcData.instructions
-      }
+      data: booking
     });
   } catch (error) {
     logger.error('Error creating TFC booking:', error);
     if (error instanceof AppError) throw error;
-    throw new AppError('Failed to create TFC booking', 500, 'TFC_CREATE_ERROR');
+    throw new AppError('Failed to create TFC booking', 500, 'TFC_BOOKING_CREATE_ERROR');
   }
 }));
 
-// Get pending TFC bookings (admin only)
-router.get('/pending', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Get TFC booking status
+router.get('/booking/:bookingId/status', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    
-    if (!['admin', 'staff'].includes(user.role)) {
-      throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
+    const { bookingId } = req.params;
+    const userId = req.user!.id;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.findFirst({
+        where: {
+          id: bookingId,
+          parentId: userId,
+          paymentMethod: 'tfc'
+        },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          child: true,
+          parent: true
+        }
+      });
+    });
+
+    if (!booking) {
+      throw new AppError('TFC booking not found', 404, 'TFC_BOOKING_NOT_FOUND');
     }
 
-    const { venueId } = req.query;
-    const bookings = await tfcService.getPendingTFCBookings(venueId as string);
+    // Check if deadline has passed
+    const now = new Date();
+    const deadline = new Date(booking.tfcDeadline || booking.createdAt);
+    const isExpired = now > deadline;
+
+    if (isExpired && booking.status === 'tfc_pending') {
+      // Auto-cancel expired booking
+      await safePrismaQuery(async (client) => {
+        return await client.booking.update({
+          where: { id: bookingId },
+          data: { status: 'cancelled' }
+        });
+      });
+
+      // Send cancellation email
+      try {
+        await emailService.sendTFCCancellation({
+          to: booking.parent.email,
+          parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+          childName: `${booking.child.firstName} ${booking.child.lastName}`,
+          activityName: booking.activity.title,
+          paymentReference: booking.paymentReference
+        });
+      } catch (emailError) {
+        logger.error('Failed to send TFC cancellation email:', emailError);
+      }
+    }
 
     res.json({
       success: true,
-      data: bookings
+      data: {
+        ...booking,
+        status: isExpired ? 'expired' : booking.status,
+        isExpired
+      }
     });
   } catch (error) {
-    logger.error('Error getting pending TFC bookings:', error);
+    logger.error('Error fetching TFC booking status:', error);
     if (error instanceof AppError) throw error;
-    throw new AppError('Failed to get pending TFC bookings', 500, 'TFC_FETCH_ERROR');
+    throw new AppError('Failed to fetch TFC booking status', 500, 'TFC_BOOKING_STATUS_ERROR');
   }
 }));
 
-// Confirm TFC payment (admin only)
-router.post('/confirm/:id', authenticateToken, validateBookingId, asyncHandler(async (req: Request, res: Response) => {
+// Resend TFC instructions
+router.post('/booking/:bookingId/resend-instructions', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    
-    if (!['admin', 'staff'].includes(user.role)) {
-      throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
+    const { bookingId } = req.params;
+    const userId = req.user!.id;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.findFirst({
+        where: {
+          id: bookingId,
+          parentId: userId,
+          paymentMethod: 'tfc'
+        },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          child: true,
+          parent: true
+        }
+      });
+    });
+
+    if (!booking) {
+      throw new AppError('TFC booking not found', 404, 'TFC_BOOKING_NOT_FOUND');
     }
 
-    const { id } = req.params;
-    const adminId = user.id;
+    // Send TFC instructions email
+    await emailService.sendTFCInstructions({
+      to: booking.parent.email,
+      parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+      childName: `${booking.child.firstName} ${booking.child.lastName}`,
+      activityName: booking.activity.title,
+      venueName: booking.activity.venue.name,
+      paymentReference: booking.paymentReference || '',
+      deadline: new Date(booking.tfcDeadline || booking.createdAt),
+      amount: Number(booking.amount),
+      tfcConfig: booking.metadata?.tfcConfig || {}
+    });
 
-    await tfcService.confirmTFCPayment(id, adminId);
-
-    logger.info('TFC payment confirmed via API', {
-      adminId,
-      bookingId: id
+    logger.info('TFC instructions resent', {
+      bookingId,
+      parentId: userId
     });
 
     res.json({
       success: true,
-      message: 'TFC payment confirmed successfully'
+      message: 'TFC instructions resent successfully'
     });
   } catch (error) {
-    logger.error('Error confirming TFC payment:', error);
+    logger.error('Error resending TFC instructions:', error);
     if (error instanceof AppError) throw error;
-    throw new AppError('Failed to confirm TFC payment', 500, 'TFC_CONFIRM_ERROR');
+    throw new AppError('Failed to resend TFC instructions', 500, 'TFC_INSTRUCTIONS_RESEND_ERROR');
   }
 }));
 
-// Cancel unpaid TFC booking (admin only)
-router.post('/cancel/:id', authenticateToken, validateBookingId, asyncHandler(async (req: Request, res: Response) => {
+// Admin: Get TFC pending queue
+router.get('/admin/pending', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    
-    if (!['admin', 'staff'].includes(user.role)) {
-      throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
+    const { status, page = '1', limit = '50' } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {
+      paymentMethod: 'tfc',
+      status: status === 'all' ? undefined : status
+    };
+
+    const [bookings, total] = await Promise.all([
+      safePrismaQuery(async (client) => {
+        return await client.booking.findMany({
+          where,
+          include: {
+            activity: {
+              include: {
+                venue: true
+              }
+            },
+            child: true,
+            parent: true
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limitNum
+        });
+      }),
+      safePrismaQuery(async (client) => {
+        return await client.booking.count({ where });
+      })
+    ]);
+
+    // Add computed status based on deadline
+    const bookingsWithStatus = bookings.map(booking => {
+      const now = new Date();
+      const deadline = new Date(booking.tfcDeadline || booking.createdAt);
+      const isExpired = now > deadline;
+      
+      return {
+        ...booking,
+        status: isExpired ? 'expired' : booking.status,
+        isExpired
+      };
+    });
+
+    res.json({
+      success: true,
+      data: bookingsWithStatus,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching TFC pending queue:', error);
+    throw new AppError('Failed to fetch TFC pending queue', 500, 'TFC_PENDING_QUEUE_ERROR');
+  }
+}));
+
+// Admin: Mark TFC booking as paid
+router.post('/admin/pending/:bookingId/mark-paid', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.update({
+        where: { id: bookingId },
+        data: { 
+          status: 'confirmed',
+          confirmedAt: new Date()
+        },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          child: true,
+          parent: true
+        }
+      });
+    });
+
+    // Send confirmation email
+    try {
+      await emailService.sendBookingConfirmation({
+        to: booking.parent.email,
+        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+        childName: `${booking.child.firstName} ${booking.child.lastName}`,
+        activityName: booking.activity.title,
+        venueName: booking.activity.venue.name,
+        startDate: booking.activity.startDate,
+        startTime: booking.activity.startTime,
+        amount: Number(booking.amount)
+      });
+    } catch (emailError) {
+      logger.error('Failed to send booking confirmation email:', emailError);
     }
 
-    const { id } = req.params;
+    logger.info('TFC booking marked as paid', {
+      bookingId,
+      markedBy: req.user!.id
+    });
+
+    res.json({
+      success: true,
+      message: 'Booking marked as paid successfully',
+      data: booking
+    });
+  } catch (error) {
+    logger.error('Error marking TFC booking as paid:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to mark booking as paid', 500, 'TFC_MARK_PAID_ERROR');
+  }
+}));
+
+// Admin: Cancel TFC booking
+router.post('/admin/pending/:bookingId/cancel', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
     const { reason } = req.body;
-    const adminId = user.id;
 
-    await tfcService.cancelUnpaidTFCBooking(id, adminId, reason);
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.update({
+        where: { id: bookingId },
+        data: { 
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancellationReason: reason || 'Admin cancelled - TFC payment not received'
+        },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          child: true,
+          parent: true
+        }
+      });
+    });
 
-    logger.info('TFC booking cancelled via API', {
-      adminId,
-      bookingId: id,
+    // Send cancellation email
+    try {
+      await emailService.sendBookingCancellation({
+        to: booking.parent.email,
+        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+        childName: `${booking.child.firstName} ${booking.child.lastName}`,
+        activityName: booking.activity.title,
+        reason: reason || 'Payment not received within deadline'
+      });
+    } catch (emailError) {
+      logger.error('Failed to send booking cancellation email:', emailError);
+    }
+
+    logger.info('TFC booking cancelled', {
+      bookingId,
+      cancelledBy: req.user!.id,
       reason
     });
 
     res.json({
       success: true,
-      message: 'TFC booking cancelled successfully'
+      message: 'Booking cancelled successfully',
+      data: booking
     });
   } catch (error) {
     logger.error('Error cancelling TFC booking:', error);
     if (error instanceof AppError) throw error;
-    throw new AppError('Failed to cancel TFC booking', 500, 'TFC_CANCEL_ERROR');
+    throw new AppError('Failed to cancel booking', 500, 'TFC_CANCEL_ERROR');
   }
 }));
 
-// Bulk confirm TFC payments (admin only)
-router.post('/bulk-confirm', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Admin: Convert TFC booking to credit
+router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
-    const user = req.user!;
-    
-    if (!['admin', 'staff'].includes(user.role)) {
-      throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
-    }
+    const { bookingId } = req.params;
+    const { creditAmount, reason } = req.body;
 
-    const { bookingIds } = req.body;
-    
-    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
-      throw new AppError('Booking IDs array is required', 400, 'MISSING_BOOKING_IDS');
-    }
-
-    const adminId = user.id;
-    const result = await tfcService.bulkConfirmTFCPayments(bookingIds, adminId);
-
-    logger.info('Bulk TFC confirmation via API', {
-      adminId,
-      success: result.success,
-      failed: result.failed
-    });
-
-    res.json({
-      success: true,
-      message: `Bulk confirmation completed: ${result.success} successful, ${result.failed} failed`,
-      data: result
-    });
-  } catch (error) {
-    logger.error('Error bulk confirming TFC payments:', error);
-    if (error instanceof AppError) throw error;
-    throw new AppError('Failed to bulk confirm TFC payments', 500, 'TFC_BULK_CONFIRM_ERROR');
-  }
-}));
-
-// Process expired TFC bookings (admin/system only)
-router.post('/process-expired', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const user = req.user!;
-    
-    if (!['admin', 'staff'].includes(user.role)) {
-      throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
-    }
-
-    const cancelledCount = await tfcService.processExpiredTFCBookings();
-
-    logger.info('Expired TFC bookings processed via API', {
-      adminId: user.id,
-      cancelledCount
-    });
-
-    res.json({
-      success: true,
-      message: `Processed ${cancelledCount} expired TFC bookings`,
-      data: { cancelledCount }
-    });
-  } catch (error) {
-    logger.error('Error processing expired TFC bookings:', error);
-    if (error instanceof AppError) throw error;
-    throw new AppError('Failed to process expired TFC bookings', 500, 'TFC_PROCESS_EXPIRED_ERROR');
-  }
-}));
-
-// Get TFC booking details
-router.get('/booking/:id', authenticateToken, validateBookingId, asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const { id } = req.params;
-
-    const booking = await prisma.booking.findFirst({
-      where: {
-        id,
-        parentId: userId
-      },
-      include: {
-        activity: {
-          include: {
-            venue: true
-          }
+    const booking = await safePrismaQuery(async (client) => {
+      // Cancel the booking
+      const updatedBooking = await client.booking.update({
+        where: { id: bookingId },
+        data: { 
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancellationReason: reason || 'Converted to credit - TFC payment not received'
         },
-        child: true
-      }
+        include: {
+          parent: true,
+          child: true,
+          activity: true
+        }
+      });
+
+      // Create credit for the parent
+      const credit = await client.credit.create({
+        data: {
+          parentId: booking.parentId,
+          amount: parseFloat(creditAmount || booking.amount.toString()),
+          source: 'tfc_conversion',
+          description: `Credit from TFC booking conversion - ${booking.activity.title}`,
+          bookingId: bookingId,
+          createdBy: req.user!.id,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year expiry
+        }
+      });
+
+      return { booking: updatedBooking, credit };
     });
 
-    if (!booking) {
-      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    // Send credit notification email
+    try {
+      await emailService.sendCreditIssued({
+        to: booking.parent.email,
+        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+        amount: parseFloat(creditAmount || booking.amount.toString()),
+        reason: 'TFC booking converted to credit',
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      });
+    } catch (emailError) {
+      logger.error('Failed to send credit notification email:', emailError);
     }
 
-    if (booking.paymentMethod !== 'tfc') {
-      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
-    }
-
-    const daysRemaining = booking.tfcDeadline ? 
-      Math.ceil((booking.tfcDeadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
-    res.json({
-      success: true,
-      data: {
-        id: booking.id,
-        reference: booking.tfcReference,
-        deadline: booking.tfcDeadline,
-        instructions: booking.tfcInstructions,
-        amount: booking.amount,
-        status: booking.paymentStatus,
-        daysRemaining,
-        activity: booking.activity.name,
-        venue: booking.activity.venue.name,
-        child: `${booking.child.firstName} ${booking.child.lastName}`,
-        createdAt: booking.createdAt
-      }
-    });
-  } catch (error) {
-    logger.error('Error getting TFC booking details:', error);
-    if (error instanceof AppError) throw error;
-    throw new AppError('Failed to get TFC booking details', 500, 'TFC_BOOKING_DETAILS_ERROR');
-  }
-}));
-
-// Mark TFC booking as part-paid
-router.post('/part-paid/:id', authenticateToken, validateBookingId, asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
-    }
-
-    const { id } = req.params;
-    const { amountReceived } = req.body;
-    const adminId = req.user!.id;
-
-    if (!amountReceived || isNaN(parseFloat(amountReceived))) {
-      throw new AppError('Valid amount received is required', 400, 'INVALID_AMOUNT');
-    }
-
-    const booking = await prisma.booking.findUnique({
-      where: { id },
-      include: {
-        activity: true,
-        child: true,
-        parent: true
-      }
-    });
-
-    if (!booking) {
-      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
-    }
-
-    if (booking.paymentMethod !== 'tfc') {
-      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
-    }
-
-    if (booking.status !== 'pending') {
-      throw new AppError('Only pending bookings can be marked as part-paid', 400, 'INVALID_BOOKING_STATUS');
-    }
-
-    // Update booking with part-paid status
-    const updatedBooking = await prisma.booking.update({
-      where: { id },
-      data: {
-        status: 'part_paid',
-        paymentStatus: 'part_paid',
-        notes: `${booking.notes || ''}\n[${new Date().toISOString()}] Marked as part-paid: £${amountReceived} received by admin ${adminId}`
-      }
-    });
-
-    logger.info('TFC booking marked as part-paid', {
-      bookingId: id,
-      amountReceived: parseFloat(amountReceived),
-      adminId,
-      totalAmount: booking.amount
+    logger.info('TFC booking converted to credit', {
+      bookingId,
+      creditAmount: creditAmount || booking.amount,
+      convertedBy: req.user!.id
     });
 
     res.json({
       success: true,
-      message: 'Booking marked as part-paid successfully',
-      data: {
-        bookingId: id,
-        amountReceived: parseFloat(amountReceived),
-        remainingAmount: booking.amount - parseFloat(amountReceived)
-      }
-    });
-  } catch (error) {
-    logger.error('Error marking TFC booking as part-paid:', error);
-    if (error instanceof AppError) throw error;
-    throw new AppError('Failed to mark booking as part-paid', 500, 'PART_PAID_ERROR');
-  }
-}));
-
-// Convert TFC booking to wallet credit
-router.post('/convert-to-credit/:id', authenticateToken, validateBookingId, asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
-    }
-
-    const { id } = req.params;
-    const adminId = req.user!.id;
-
-    const booking = await prisma.booking.findUnique({
-      where: { id },
-      include: {
-        activity: true,
-        child: true,
-        parent: true
-      }
-    });
-
-    if (!booking) {
-      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
-    }
-
-    if (booking.paymentMethod !== 'tfc') {
-      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
-    }
-
-    if (booking.status !== 'pending') {
-      throw new AppError('Only pending bookings can be converted to credit', 400, 'INVALID_BOOKING_STATUS');
-    }
-
-    // Create wallet credit for the parent
-    const walletCredit = await prisma.walletCredit.create({
-      data: {
-        parentId: booking.parentId,
-        providerId: booking.activity.venueId,
-        amount: booking.amount,
-        type: 'refund',
-        source: 'tfc_conversion',
-        sourceId: booking.id,
-        description: `Credit from TFC booking conversion - ${booking.activity.name}`,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
-        isActive: true
-      }
-    });
-
-    // Update booking status
-    const updatedBooking = await prisma.booking.update({
-      where: { id },
-      data: {
-        status: 'cancelled',
-        paymentStatus: 'refunded',
-        notes: `${booking.notes || ''}\n[${new Date().toISOString()}] Converted to wallet credit by admin ${adminId}. Credit ID: ${walletCredit.id}`
-      }
-    });
-
-    logger.info('TFC booking converted to wallet credit', {
-      bookingId: id,
-      creditId: walletCredit.id,
-      amount: booking.amount,
-      adminId,
-      parentId: booking.parentId
-    });
-
-    res.json({
-      success: true,
-      message: 'Booking converted to wallet credit successfully',
-      data: {
-        bookingId: id,
-        creditId: walletCredit.id,
-        creditAmount: booking.amount,
-        parentId: booking.parentId
-      }
+      message: 'Booking converted to credit successfully',
+      data: booking
     });
   } catch (error) {
     logger.error('Error converting TFC booking to credit:', error);
     if (error instanceof AppError) throw error;
-    throw new AppError('Failed to convert booking to credit', 500, 'CONVERT_TO_CREDIT_ERROR');
+    throw new AppError('Failed to convert booking to credit', 500, 'TFC_CONVERT_CREDIT_ERROR');
+  }
+}));
+
+// Admin: Bulk mark as paid
+router.post('/admin/pending/bulk-mark-paid', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingIds } = req.body;
+
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+      throw new AppError('Booking IDs are required', 400, 'MISSING_BOOKING_IDS');
+    }
+
+    const result = await safePrismaQuery(async (client) => {
+      return await client.booking.updateMany({
+        where: {
+          id: { in: bookingIds },
+          paymentMethod: 'tfc',
+          status: 'tfc_pending'
+        },
+        data: {
+          status: 'confirmed',
+          confirmedAt: new Date()
+        }
+      });
+    });
+
+    logger.info('TFC bookings bulk marked as paid', {
+      count: result.count,
+      bookingIds,
+      markedBy: req.user!.id
+    });
+
+    res.json({
+      success: true,
+      message: `${result.count} bookings marked as paid successfully`,
+      data: { count: result.count }
+    });
+  } catch (error) {
+    logger.error('Error bulk marking TFC bookings as paid:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to mark bookings as paid', 500, 'TFC_BULK_MARK_PAID_ERROR');
   }
 }));
 
