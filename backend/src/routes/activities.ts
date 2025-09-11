@@ -3,6 +3,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { activityService } from '../services/activityService';
 
 const router = Router();
 
@@ -181,41 +182,39 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
     }
 
-    // Create activity
-    const activity = await safePrismaQuery(async (client) => {
-      return await client.activity.create({
-        data: {
-          title,
-          type,
-          venueId,
-          description,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          startTime,
-          endTime,
-          capacity: capacity ? parseInt(capacity) : null,
-          price: price ? parseFloat(price) : 0,
-          earlyDropoff: earlyDropoff || false,
-          earlyDropoffPrice: earlyDropoffPrice ? parseFloat(earlyDropoffPrice) : null,
-          latePickup: latePickup || false,
-          latePickupPrice: latePickupPrice ? parseFloat(latePickupPrice) : null,
-          createdBy: req.user!.id
-        },
-        include: {
-          venue: {
-            select: { name: true, city: true, address: true }
-          },
-          createdBy: {
-            select: { firstName: true, lastName: true, email: true }
-          }
-        }
-      });
-    });
+    // Create activity with sessions using the service
+    const activityData = {
+      title,
+      type,
+      venueId,
+      description,
+      capacity: capacity ? parseInt(capacity) : null,
+      price: price ? parseFloat(price) : 0,
+      createdBy: req.user!.id
+    };
 
-    // Generate sessions if requested
-    if (generateSessions && type === 'afterschool') {
-      await generateWeeklySessions(activity.id, startDate, endDate, startTime, endTime, excludeDates);
-    }
+    const sessionOptions = {
+      activityId: '', // Will be set by service
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      startTime,
+      endTime,
+      excludeDates: excludeDates || [],
+      generateSessions: generateSessions || false
+    };
+
+    const holidayOptions = type === 'holiday' ? {
+      earlyDropoff: earlyDropoff || false,
+      earlyDropoffPrice: earlyDropoffPrice ? parseFloat(earlyDropoffPrice) : 0,
+      latePickup: latePickup || false,
+      latePickupPrice: latePickupPrice ? parseFloat(latePickupPrice) : 0
+    } : undefined;
+
+    const activity = await activityService.createActivityWithSessions(
+      activityData,
+      sessionOptions,
+      holidayOptions
+    );
 
     logger.info('Activity created', {
       activityId: activity.id,

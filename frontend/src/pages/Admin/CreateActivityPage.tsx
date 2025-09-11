@@ -7,8 +7,15 @@ import {
   CurrencyPoundIcon,
   PlusIcon,
   XMarkIcon,
-  CheckIcon
+  CheckIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
+import AdminLayout from '../../components/layout/AdminLayout';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/Select';
 
 interface Venue {
   id: string;
@@ -43,6 +50,7 @@ const CreateActivityPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<ActivityFormData>({
     title: '',
     type: 'afterschool',
@@ -132,18 +140,56 @@ const CreateActivityPage: React.FC = () => {
   };
 
   const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {};
+    
     switch (step) {
       case 1:
-        return !!(formData.title && formData.type && formData.venueId);
+        if (!formData.title.trim()) errors.title = 'Activity title is required';
+        if (!formData.type) errors.type = 'Activity type is required';
+        if (!formData.venueId) errors.venueId = 'Venue is required';
+        break;
       case 2:
-        return !!(formData.startDate && formData.endDate && formData.startTime && formData.endTime);
+        if (!formData.startDate) errors.startDate = 'Start date is required';
+        if (!formData.endDate) errors.endDate = 'End date is required';
+        if (!formData.startTime) errors.startTime = 'Start time is required';
+        if (!formData.endTime) errors.endTime = 'End time is required';
+        
+        if (formData.startDate && formData.endDate) {
+          const start = new Date(formData.startDate);
+          const end = new Date(formData.endDate);
+          if (end <= start) {
+            errors.endDate = 'End date must be after start date';
+          }
+        }
+        
+        if (formData.startTime && formData.endTime) {
+          if (formData.endTime <= formData.startTime) {
+            errors.endTime = 'End time must be after start time';
+          }
+        }
+        break;
       case 3:
-        return formData.capacity > 0;
+        if (formData.capacity <= 0) errors.capacity = 'Capacity must be greater than 0';
+        if (formData.price < 0) errors.price = 'Price cannot be negative';
+        
+        if (formData.type === 'holiday') {
+          if (formData.earlyDropoff && formData.earlyDropoffPrice < 0) {
+            errors.earlyDropoffPrice = 'Early drop-off price cannot be negative';
+          }
+          if (formData.latePickup && formData.latePickupPrice < 0) {
+            errors.latePickupPrice = 'Late pick-up price cannot be negative';
+          }
+        }
+        break;
       case 4:
-        return true;
+        // Review step - no validation needed
+        break;
       default:
         return false;
     }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleNext = () => {
@@ -157,6 +203,8 @@ const CreateActivityPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!validateStep(currentStep)) return;
+    
     setLoading(true);
     setError(null);
 
@@ -164,40 +212,63 @@ const CreateActivityPage: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token');
 
+      // Prepare activity data
+      const activityData = {
+        title: formData.title,
+        type: formData.type,
+        venueId: formData.venueId,
+        description: formData.description,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        capacity: formData.capacity,
+        price: formData.price,
+        earlyDropoff: formData.earlyDropoff,
+        earlyDropoffPrice: formData.earlyDropoffPrice,
+        latePickup: formData.latePickup,
+        latePickupPrice: formData.latePickupPrice,
+        generateSessions: formData.generateSessions,
+        excludeDates: formData.excludeDates
+      };
+
       const response = await fetch('/api/v1/activities', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...formData,
-          excludeDates: formData.excludeDates
-        })
+        body: JSON.stringify(activityData)
       });
 
       if (response.ok) {
+        const result = await response.json();
         setSuccess(true);
-        // Reset form
-        setFormData({
-          title: '',
-          type: 'afterschool',
-          venueId: '',
-          description: '',
-          startDate: '',
-          endDate: '',
-          startTime: '',
-          endTime: '',
-          capacity: 20,
-          price: 0,
-          earlyDropoff: false,
-          earlyDropoffPrice: 0,
-          latePickup: false,
-          latePickupPrice: 0,
-          generateSessions: true,
-          excludeDates: []
-        });
-        setCurrentStep(1);
+        
+        // Reset form after successful creation
+        setTimeout(() => {
+          setFormData({
+            title: '',
+            type: 'afterschool',
+            venueId: '',
+            description: '',
+            startDate: '',
+            endDate: '',
+            startTime: '',
+            endTime: '',
+            capacity: 20,
+            price: 0,
+            earlyDropoff: false,
+            earlyDropoffPrice: 0,
+            latePickup: false,
+            latePickupPrice: 0,
+            generateSessions: true,
+            excludeDates: []
+          });
+          setCurrentStep(1);
+          setSuccess(false);
+          setValidationErrors({});
+        }, 3000);
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create activity');
@@ -311,9 +382,14 @@ const CreateActivityPage: React.FC = () => {
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    validationErrors.title ? 'border-red-300' : 'border-gray-300'
+                  }`}
                   placeholder="e.g., Year 1 & 2 Football Club"
                 />
+                {validationErrors.title && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.title}</p>
+                )}
               </div>
 
               <div>
@@ -340,7 +416,9 @@ const CreateActivityPage: React.FC = () => {
                 <select
                   value={formData.venueId}
                   onChange={(e) => handleInputChange('venueId', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    validationErrors.venueId ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 >
                   <option value="">Select a venue</option>
                   {venues.map((venue) => (
@@ -349,6 +427,9 @@ const CreateActivityPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                {validationErrors.venueId && (
+                  <p className="mt-1 text-sm text-red-600">{validationErrors.venueId}</p>
+                )}
               </div>
 
               <div>
