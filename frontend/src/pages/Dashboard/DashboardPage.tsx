@@ -1000,6 +1000,76 @@ const DashboardPage: React.FC = () => {
             </Card>
           </div>
         )}
+
+        {/* New Features Section for Users */}
+        <div className="mt-8">
+          <Card>
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">New Features</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Course Browsing */}
+                <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex items-center mb-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <CalendarDaysIcon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <h4 className="ml-3 font-medium text-gray-900">Browse Courses</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Explore structured courses created from templates with consistent scheduling
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => navigate('/activities')}
+                    className="w-full"
+                  >
+                    Browse Courses
+                  </Button>
+                </div>
+
+                {/* Enhanced Booking */}
+                <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex items-center mb-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <ClipboardDocumentListIcon className="h-5 w-5 text-green-600" />
+                    </div>
+                    <h4 className="ml-3 font-medium text-gray-900">Enhanced Booking</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Improved booking experience with better course information and scheduling
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => navigate('/bookings/flow')}
+                    className="w-full"
+                  >
+                    Book Activity
+                  </Button>
+                </div>
+
+                {/* Wallet & Credits */}
+                <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex items-center mb-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <CreditCardIcon className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <h4 className="ml-3 font-medium text-gray-900">Wallet & Credits</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Manage your wallet credits and view transaction history
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => navigate('/wallet')}
+                    className="w-full"
+                  >
+                    View Wallet
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Quick Booking Modal */}
