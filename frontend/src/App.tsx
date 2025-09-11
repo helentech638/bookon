@@ -43,6 +43,7 @@ import FinancialDashboard from './pages/Admin/FinancialDashboard';
 import EmailTemplates from './pages/Admin/EmailTemplates';
 import BroadcastMessaging from './pages/Admin/BroadcastMessaging';
 import NotificationCenter from './pages/Admin/NotificationCenter';
+import NotificationsPage from './pages/Notifications/NotificationsPage';
 import AdvancedAdminTools from './pages/Admin/AdvancedAdminTools';
 import RegisterManagement from './pages/Admin/RegisterManagement';
 import WidgetManagement from './pages/Admin/WidgetManagement';
@@ -185,6 +186,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
             </ProtectedRoute>
           }
         />
