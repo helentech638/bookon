@@ -115,26 +115,7 @@ router.get('/summary', authenticateToken, asyncHandler(async (req: Request, res:
     });
   } catch (error) {
     logger.error('Error fetching finance summary:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock finance summary due to database error');
-    res.json({
-      success: true,
-      data: {
-        income: 1250.00,
-        refunds: 75.00,
-        credits: 0.00,
-        timeseries: [
-          { date: '2024-01-01', value: 1200.00 },
-          { date: '2024-01-02', value: 1350.00 },
-          { date: '2024-01-03', value: 1100.00 },
-          { date: '2024-01-04', value: 1400.00 },
-          { date: '2024-01-05', value: 1300.00 },
-          { date: '2024-01-06', value: 1250.00 },
-          { date: '2024-01-07', value: 1250.00 }
-        ]
-      }
-    });
+    throw new AppError('Failed to fetch finance summary', 500, 'FINANCE_SUMMARY_ERROR');
   }
 }));
 

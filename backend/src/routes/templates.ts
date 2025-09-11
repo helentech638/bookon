@@ -127,66 +127,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     });
   } catch (error) {
     logger.error('Error fetching templates:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock templates due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          name: 'Year 1-2 Football',
-          type: 'after-school',
-          years: 'Y1-Y2',
-          description: 'Basic football skills and team play for young children',
-          defaultPrice: 6.00,
-          defaultCapacity: 20,
-          flags: {
-            photo_consent_required: true,
-            medical_reminder: true
-          },
-          tags: ['sports', 'team', 'outdoor'],
-          imageUrl: null,
-          status: 'active',
-          createdBy: 'user-1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          creator: {
-            firstName: 'John',
-            lastName: 'Doe'
-          },
-          _count: {
-            activities: 3
-          }
-        },
-        {
-          id: '2',
-          name: 'Swimming Lessons',
-          type: 'after-school',
-          years: 'Y3-Y6',
-          description: 'Swimming technique and water safety',
-          defaultPrice: 8.00,
-          defaultCapacity: 15,
-          flags: {
-            photo_consent_required: false,
-            medical_reminder: true
-          },
-          tags: ['swimming', 'safety', 'indoor'],
-          imageUrl: null,
-          status: 'active',
-          createdBy: 'user-1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          creator: {
-            firstName: 'John',
-            lastName: 'Doe'
-          },
-          _count: {
-            activities: 5
-          }
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch templates', 500, 'TEMPLATES_FETCH_ERROR');
   }
 }));
 

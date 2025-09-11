@@ -70,22 +70,7 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
       role: _req.user?.role,
       stack: error instanceof Error ? error.stack : undefined
     });
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock admin stats due to database error');
-    res.json({
-      success: true,
-      data: {
-        totalUsers: 1250,
-        totalVenues: 45,
-        totalActivities: 180,
-        totalBookings: 3420,
-        confirmedBookings: 2980,
-        pendingBookings: 320,
-        cancelledBookings: 120,
-        totalRevenue: 45680.50
-      }
-    });
+    throw new AppError('Failed to fetch admin stats', 500, 'ADMIN_STATS_ERROR');
   }
 }));
 
@@ -425,52 +410,7 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
     });
   } catch (error) {
     logger.error('Error fetching admin recent bookings:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock admin recent bookings due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          status: 'confirmed',
-          totalAmount: 45.00,
-          bookingDate: '2024-01-15',
-          createdAt: '2024-01-15T10:00:00Z',
-          user: {
-            id: 'user_1',
-            name: 'John Smith'
-          },
-          activity: {
-            id: 'activity_1',
-            name: 'Swimming Lesson'
-          },
-          venue: {
-            id: 'venue_1',
-            name: 'Swimming Pool Complex'
-          }
-        },
-        {
-          id: '2',
-          status: 'pending',
-          totalAmount: 60.00,
-          bookingDate: '2024-01-16',
-          createdAt: '2024-01-15T14:30:00Z',
-          user: {
-            id: 'user_2',
-            name: 'Sarah Johnson'
-          },
-          activity: {
-            id: 'activity_2',
-            name: 'Tennis Coaching'
-          },
-          venue: {
-            id: 'venue_2',
-            name: 'Tennis Academy'
-          }
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch recent bookings', 500, 'RECENT_BOOKINGS_ERROR');
   }
 }));
 
@@ -957,56 +897,36 @@ router.get('/notifications', authenticateToken, requireAdminOrStaff, asyncHandle
   try {
     const { page = '1', limit = '20', type, status } = req.query;
 
-    // For now, return mock notification data
-    // In production, this would come from a notifications table
-    const notifications = [
-      {
-        id: '1',
-        type: 'system',
-        title: 'System Maintenance',
-        message: 'Scheduled maintenance on Sunday at 2 AM',
-        status: 'unread',
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        priority: 'medium'
-      },
-      {
-        id: '2',
-        type: 'booking',
-        title: 'New High-Value Booking',
-        message: '£150 booking received for premium activity',
-        status: 'read',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        priority: 'high'
-      },
-      {
-        id: '3',
-        type: 'user',
-        title: 'New Venue Owner Registration',
-        message: 'Sports Complex Ltd has registered as venue owner',
-        status: 'unread',
-        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-        priority: 'medium'
-      }
-    ];
+    // Get real notifications from database
+    const whereClause: any = {
+      userId: req.user!.id
+    };
 
-    // Apply filters
-    let filteredNotifications = notifications;
     if (type) {
-      filteredNotifications = filteredNotifications.filter(n => n.type === type);
+      whereClause.type = type;
     }
     if (status) {
-      filteredNotifications = filteredNotifications.filter(n => n.status === status);
+      whereClause.read = status === 'read';
     }
 
-    // Apply pagination
-    const total = filteredNotifications.length;
-    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
-    const paginatedNotifications = filteredNotifications.slice(offset, offset + parseInt(limit as string));
+    const [notifications, total] = await Promise.all([
+      safePrismaQuery(async (client) => {
+        return await client.notification.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          take: parseInt(limit as string),
+          skip: (parseInt(page as string) - 1) * parseInt(limit as string)
+        });
+      }),
+      safePrismaQuery(async (client) => {
+        return await client.notification.count({ where: whereClause });
+      })
+    ]);
 
     res.json({
       success: true,
       data: {
-        notifications: paginatedNotifications,
+        notifications,
         pagination: {
           page: parseInt(page as string),
           limit: parseInt(limit as string),
@@ -1054,18 +974,36 @@ router.post('/generate-invoice', authenticateToken, requireAdminOrStaff, asyncHa
       throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
     }
 
-    // For now, return mock invoice data
-    // In production, this would generate actual PDF invoices
-    const invoice = {
-      id: `INV_${Date.now()}`,
-      bookingId,
-      invoiceNumber: `INV-${Date.now()}`,
-      amount: customAmount || 0,
-      status: 'generated',
-      generatedAt: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      notes: notes || ''
-    };
+    // Generate real invoice using database
+    const invoice = await safePrismaQuery(async (client) => {
+      // Get booking details
+      const booking = await client.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          activity: {
+            select: { title: true, price: true }
+          },
+          parent: {
+            select: { firstName: true, lastName: true, email: true }
+          }
+        }
+      });
+
+      if (!booking) {
+        throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+      }
+
+      // Create invoice record
+      return await client.invoice.create({
+        data: {
+          bookingId,
+          amount: customAmount || booking.activity.price,
+          status: 'generated',
+          notes: notes || '',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        }
+      });
+    });
 
     logger.info('Admin generated invoice', {
       adminUserId: req.user!.id,

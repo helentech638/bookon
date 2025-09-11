@@ -199,50 +199,7 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
       });
     } catch (dbError) {
       logger.error('Database connection error during login:', dbError);
-      
-      // Return mock login for any email when database is not accessible
-      logger.warn('Database not accessible, using mock login for development');
-      
-      const mockUser = {
-        id: 'mock-user-id-' + Date.now(), // Generate unique ID
-        email: email,
-        role: email.includes('admin') ? 'admin' : 'parent', // Simple role detection
-        isActive: true
-      };
-
-      // Generate tokens
-      const { accessToken, refreshToken } = generateTokens(mockUser);
-
-      // Try to store refresh token in Redis (will use mock Redis)
-      try {
-        await redis.setex(
-          `refresh_token:${mockUser.id}`,
-          7 * 24 * 60 * 60, // 7 days
-          refreshToken
-        );
-      } catch (redisError) {
-        logger.warn('Redis not accessible, continuing without token storage:', redisError);
-      }
-
-      // Log successful mock login
-      logger.info('Mock login successful (database not accessible)', {
-        email: mockUser.email,
-        ip: req.ip || req.connection.remoteAddress,
-      });
-
-      return res.json({
-        success: true,
-        message: 'Login successful (mock mode - database not accessible)',
-        data: {
-          user: {
-            id: mockUser.id,
-            email: mockUser.email,
-            role: mockUser.role,
-          },
-          token: accessToken,
-          refreshToken: refreshToken,
-        },
-      });
+      throw new AppError('Database connection failed', 500, 'DATABASE_CONNECTION_ERROR');
     }
 
     if (!user || !user.isActive) {
@@ -595,24 +552,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
     });
 
     if (!user) {
-      // If user not found in database, return mock user data for development
-      logger.warn('User not found in database, returning mock data', { userId });
-      const mockUser = {
-        id: userId,
-        email: req.user!.email,
-        firstName: 'Admin',
-        lastName: 'User',
-        role: req.user!.role,
-        isActive: true,
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      return res.json({
-        success: true,
-        data: mockUser,
-      });
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
     res.json({
@@ -621,24 +561,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
     });
   } catch (dbError) {
     logger.error('Database error getting user profile:', dbError);
-    
-    // Return mock user data instead of 500 error
-    const mockUser = {
-      id: userId,
-      email: req.user!.email,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: req.user!.role,
-      isActive: true,
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    res.json({
-      success: true,
-      data: mockUser,
-    });
+    throw new AppError('Failed to fetch user profile', 500, 'DATABASE_ERROR');
   }
 }));
 
@@ -680,69 +603,69 @@ router.put('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
   }
 }));
 
-// Mock user creation for development (when database is not accessible)
-router.post('/mock-user', asyncHandler(async (req: Request, res: Response) => {
+// Admin-only login endpoint for testing
+router.post('/admin-login', asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { email, role = 'admin' } = req.body;
+    const { email, password } = req.body;
     
-    if (!email) {
-      throw new AppError('Email is required', 400, 'MISSING_EMAIL');
+    if (!email || !password) {
+      throw new AppError('Email and password are required', 400, 'MISSING_CREDENTIALS');
     }
 
-    // Check if database is accessible
+    // Hardcoded admin credentials for testing
+    const adminCredentials = {
+      email: 'admin@bookon.com',
+      password: 'admin123',
+      role: 'admin'
+    };
+
+    if (email !== adminCredentials.email || password !== adminCredentials.password) {
+      throw new AppError('Invalid admin credentials', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const adminUser = {
+      id: 'admin-user-id',
+      email: adminCredentials.email,
+      role: adminCredentials.role,
+      isActive: true
+    };
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateTokens(adminUser);
+
+    // Store refresh token in Redis
     try {
-      await prisma.$executeRaw`SELECT 1`;
-      // If database is accessible, don't create mock user
-      throw new AppError('Database is accessible, use regular registration', 400, 'DATABASE_ACCESSIBLE');
-    } catch (dbError) {
-      // Database not accessible, create mock user
-      logger.warn('Creating mock user for development (database not accessible)', { email, role });
-      
-      const mockUser = {
-        id: `mock-${Date.now()}`,
-        email: email,
-        role: role,
-        isActive: true
-      };
+      await redis.setex(
+        `refresh_token:${adminUser.id}`,
+        7 * 24 * 60 * 60, // 7 days
+        refreshToken
+      );
+    } catch (redisError) {
+      logger.warn('Redis not accessible, continuing without token storage:', redisError);
+    }
 
-      // Generate tokens
-      const { accessToken, refreshToken } = generateTokens(mockUser);
+    logger.info('Admin login successful', {
+      email: adminUser.email,
+      ip: req.ip || req.connection.remoteAddress,
+    });
 
-      // Try to store refresh token in Redis (will use mock Redis)
-      try {
-        await redis.setex(
-          `refresh_token:${mockUser.id}`,
-          7 * 24 * 60 * 60, // 7 days
-          refreshToken
-        );
-      } catch (redisError) {
-        logger.warn('Redis not accessible, continuing without token storage:', redisError);
-      }
-
-      res.status(201).json({
-        success: true,
-        message: 'Mock user created successfully (development mode)',
-        data: {
-          user: {
-            id: mockUser.id,
-            email: mockUser.email,
-            role: mockUser.role,
-          },
-          tokens: {
-            accessToken,
-            refreshToken,
-          },
+    res.json({
+      success: true,
+      message: 'Admin login successful',
+      data: {
+        user: {
+          id: adminUser.id,
+          email: adminUser.email,
+          role: adminUser.role,
         },
-      });
-    }
+        token: accessToken,
+        refreshToken: refreshToken,
+      },
+    });
   } catch (error) {
-    logger.error('Mock user creation error:', error);
-    
-    if (error instanceof AppError) {
-      throw error;
-    }
-    
-    throw new AppError('Failed to create mock user', 500, 'MOCK_USER_ERROR');
+    logger.error('Admin login error:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Admin login failed', 500, 'ADMIN_LOGIN_ERROR');
   }
 }));
 

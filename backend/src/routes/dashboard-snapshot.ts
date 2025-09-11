@@ -123,20 +123,7 @@ router.get('/snapshot', authenticateToken, asyncHandler(async (req: Request, res
     });
   } catch (error) {
     logger.error('Error fetching dashboard snapshot:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock dashboard snapshot due to database error');
-    res.json({
-      success: true,
-      data: {
-        activities_running: 3,
-        attendees_today: 60,
-        parents_registered: 45,
-        payments_total: 1250.00,
-        refunds_total: 75.00,
-        credits_total: 0.00
-      }
-    });
+    throw new AppError('Failed to fetch dashboard snapshot', 500, 'DASHBOARD_SNAPSHOT_ERROR');
   }
 }));
 

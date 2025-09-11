@@ -52,46 +52,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     });
   } catch (error) {
     logger.error('Error fetching notifications:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock notifications due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          type: 'booking',
-          title: 'New booking for Football Training',
-          created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-          action_url: '/admin/bookings/1',
-          read: false
-        },
-        {
-          id: '2',
-          type: 'cancellation',
-          title: 'Booking cancelled for Swimming Lessons',
-          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-          action_url: '/admin/bookings/2',
-          read: false
-        },
-        {
-          id: '3',
-          type: 'waitlist',
-          title: 'Waitlist space created for Art Workshop',
-          created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
-          action_url: '/admin/activities/3',
-          read: true
-        },
-        {
-          id: '4',
-          type: 'refund',
-          title: 'Refund processed for cancelled booking',
-          created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
-          action_url: '/admin/payments/4',
-          read: true
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch notifications', 500, 'NOTIFICATIONS_FETCH_ERROR');
   }
 }));
 

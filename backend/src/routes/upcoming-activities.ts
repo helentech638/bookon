@@ -72,44 +72,7 @@ router.get('/upcoming', authenticateToken, asyncHandler(async (req: Request, res
     });
   } catch (error) {
     logger.error('Error fetching upcoming activities:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock upcoming activities due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          name: 'Football Training',
-          start_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-          end_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), // 3 hours from now
-          venue_name: 'Community Sports Center',
-          capacity: 20,
-          booked: 18,
-          waitlist_count: 0
-        },
-        {
-          id: '2',
-          name: 'Swimming Lessons',
-          start_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
-          end_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(), // 5 hours from now
-          venue_name: 'Local Pool',
-          capacity: 15,
-          booked: 15,
-          waitlist_count: 3
-        },
-        {
-          id: '3',
-          name: 'Art & Craft Workshop',
-          start_time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours from now
-          end_time: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(), // 7 hours from now
-          venue_name: 'Community Center',
-          capacity: 12,
-          booked: 8,
-          waitlist_count: 0
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
   }
 }));
 

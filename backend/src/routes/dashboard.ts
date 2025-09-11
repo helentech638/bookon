@@ -69,22 +69,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
     });
   } catch (error) {
     logger.error('Error fetching dashboard stats:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock dashboard stats due to database error');
-    const mockData = {
-      totalBookings: 12,
-      confirmedBookings: 8,
-      totalSpent: 240.00,
-      upcomingActivities: 3,
-      memberSince: 45,
-      lastLogin: new Date().toISOString()
-    };
-    
-    res.json({
-      success: true,
-      data: mockData
-    });
+    throw new AppError('Failed to fetch dashboard stats', 500, 'DASHBOARD_STATS_ERROR');
   }
 }));
 
@@ -109,20 +94,7 @@ router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res:
     });
   } catch (error) {
     logger.error('Error fetching user profile:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock user profile due to database error');
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: userId,
-          email: req.user!.email,
-          role: req.user!.role,
-          memberSince: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      }
-    });
+    throw new AppError('Failed to fetch user profile', 500, 'USER_PROFILE_ERROR');
   }
 }));
 
@@ -165,30 +137,7 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
     });
   } catch (error) {
     logger.error('Error fetching user activities:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock user activities due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          status: 'confirmed',
-          created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          name: 'Swimming Class',
-          description: 'Learn to swim with professional instructors',
-          venue_name: 'Community Pool'
-        },
-        {
-          id: '2',
-          status: 'pending',
-          created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          name: 'Art Workshop',
-          description: 'Creative art session for children',
-          venue_name: 'Art Studio'
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch user activities', 500, 'USER_ACTIVITIES_ERROR');
   }
 }));
 
@@ -319,41 +268,7 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
     });
   } catch (error) {
     logger.error('Error fetching recent activities:', error);
-    
-    // Return mock data when database is not accessible
-    logger.warn('Returning mock recent activities due to database error');
-    res.json({
-      success: true,
-      data: [
-        {
-          id: '1',
-          type: 'booking',
-          title: 'Swimming Class',
-          description: 'Learn to swim with professional instructors',
-          venue: 'Community Pool',
-          status: 'confirmed',
-          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '2',
-          type: 'booking',
-          title: 'Art Workshop',
-          description: 'Creative art session for children',
-          venue: 'Art Studio',
-          status: 'pending',
-          timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          type: 'booking',
-          title: 'Football Training',
-          description: 'Professional football coaching for kids',
-          venue: 'Sports Complex',
-          status: 'confirmed',
-          timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ]
-    });
+    throw new AppError('Failed to fetch recent activities', 500, 'RECENT_ACTIVITIES_ERROR');
   }
 }));
 
