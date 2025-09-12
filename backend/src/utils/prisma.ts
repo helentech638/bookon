@@ -17,6 +17,14 @@ const createPrismaClient = () => {
     },
     // Add error handling for connection issues
     errorFormat: 'minimal',
+    // Add connection pool configuration for better reliability
+    __internal: {
+      engine: {
+        connectTimeout: 60000, // 60 seconds
+        poolTimeout: 60000,    // 60 seconds
+        connectionLimit: 20,   // Increase connection limit
+      },
+    },
   });
 };
 

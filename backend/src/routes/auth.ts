@@ -189,17 +189,31 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
       throw new AppError('Valid email is required', 400, 'INVALID_EMAIL');
     }
 
-    // Try to connect to database first using direct connection
+    // Try to connect to database with retry logic
     let user;
-    try {
-      // Find user using direct connection
-      user = await prismaDirect.user.findUnique({
-        where: { email: email.trim() },
-        select: { id: true, email: true, password_hash: true, role: true, isActive: true }
-      });
-    } catch (dbError) {
-      logger.error('Database connection error during login:', dbError);
-      throw new AppError('Database connection failed', 500, 'DATABASE_CONNECTION_ERROR');
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        // Find user using regular prisma client
+        user = await prisma.user.findUnique({
+          where: { email: email.trim() },
+          select: { id: true, email: true, password_hash: true, role: true, isActive: true }
+        });
+        break; // Success, exit retry loop
+      } catch (dbError: any) {
+        retryCount++;
+        logger.error(`Database connection error during login (attempt ${retryCount}/${maxRetries}):`, dbError);
+        
+        if (retryCount >= maxRetries) {
+          logger.error('Max retries reached for database connection');
+          throw new AppError('Database connection failed after multiple attempts', 500, 'DATABASE_CONNECTION_ERROR');
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
     }
 
     if (!user || !user.isActive) {
@@ -894,10 +908,30 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
   try {
     const { email = 'admin@bookon.com', password = 'admin123', firstName = 'Admin', lastName = 'User' } = req.body;
     
-    // Check if admin user already exists
-    const existingUser = await prismaDirect.user.findUnique({
-      where: { email }
-    });
+    // Check if admin user already exists with retry logic
+    let existingUser;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        existingUser = await prisma.user.findUnique({
+          where: { email }
+        });
+        break; // Success, exit retry loop
+      } catch (dbError: any) {
+        retryCount++;
+        logger.error(`Database connection error during admin check (attempt ${retryCount}/${maxRetries}):`, dbError);
+        
+        if (retryCount >= maxRetries) {
+          logger.error('Max retries reached for database connection');
+          throw new AppError('Database connection failed after multiple attempts', 500, 'DATABASE_CONNECTION_ERROR');
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
     
     if (existingUser) {
       return res.json({
@@ -914,18 +948,37 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
-    // Create admin user
-    const adminUser = await prismaDirect.user.create({
-      data: {
-        email,
-        password_hash: passwordHash,
-        firstName,
-        lastName,
-        role: 'admin',
-        isActive: true,
-        emailVerified: true
+    // Create admin user with retry logic
+    let adminUser;
+    retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        adminUser = await prisma.user.create({
+          data: {
+            email,
+            password_hash: passwordHash,
+            firstName,
+            lastName,
+            role: 'admin',
+            isActive: true,
+            emailVerified: true
+          }
+        });
+        break; // Success, exit retry loop
+      } catch (dbError: any) {
+        retryCount++;
+        logger.error(`Database connection error during admin creation (attempt ${retryCount}/${maxRetries}):`, dbError);
+        
+        if (retryCount >= maxRetries) {
+          logger.error('Max retries reached for database connection');
+          throw new AppError('Database connection failed after multiple attempts', 500, 'DATABASE_CONNECTION_ERROR');
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
-    });
+    }
     
     logger.info('✅ Admin user created', {
       email: adminUser.email,
