@@ -987,6 +987,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
     const activity = await prisma.activity.create({
       data: {
         name: 'Football Training',
+        title: 'Football Training',
         description: 'Learn basic football skills and teamwork',
         duration: 90,
         maxCapacity: 20,
