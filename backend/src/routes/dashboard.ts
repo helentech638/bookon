@@ -29,7 +29,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   try {
     // Use a single optimized query with raw SQL for better performance
     const dashboardData = await safePrismaQuery(async (client) => {
-      // Single query to get all stats at once
+      // Single query to get all stats at once - updated for Course schema
       const result = await client.$queryRaw`
         SELECT 
           COUNT(*) as total_bookings,
@@ -107,10 +107,10 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
       return await client.booking.findMany({
         where: { parentId: userId },
         include: {
-          activity: {
+          course: {
             select: {
-              title: true,
-              description: true,
+              name: true,
+              type: true,
               venue: {
                 select: {
                   name: true
@@ -130,9 +130,9 @@ router.get('/activities', authenticateToken, asyncHandler(async (req: Request, r
         id: booking.id,
         status: booking.status,
         created_at: booking.createdAt,
-        name: booking.activity.title,
-        description: booking.activity.description,
-        venue_name: booking.activity.venue.name
+        name: booking.course.name,
+        type: booking.course.type,
+        venue_name: booking.course.venue.name
       }))
     });
   } catch (error) {
@@ -174,7 +174,7 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
   const userId = req.user!.id;
   
   try {
-    // Get recent bookings with activity and venue info
+    // Get recent bookings with course and venue info
     const recentBookings = await prisma.booking.findMany({
       where: { parentId: userId },
       select: {
@@ -183,7 +183,7 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
         createdAt: true,
         amount: true,
         paymentStatus: true,
-        activity: {
+        course: {
           select: {
             name: true,
             venue: {
@@ -203,15 +203,15 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
       {
         type: 'booking',
         id: booking.id,
-        title: `Booked: ${booking.activity.name}`,
-        subtitle: `at ${booking.activity.venue.name}`,
+        title: `Booked: ${booking.course.name}`,
+        subtitle: `at ${booking.course.venue.name}`,
         status: booking.status,
         date: booking.createdAt
       },
       {
         type: 'payment',
         id: booking.id,
-        title: `Payment: ${booking.activity.name}`,
+        title: `Payment: ${booking.course.name}`,
         subtitle: `£${parseFloat(String(booking.amount || '0')).toFixed(2)}`,
         status: booking.paymentStatus,
         date: booking.createdAt
@@ -240,12 +240,12 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
           b.id,
           b.status,
           b.created_at as timestamp,
-          a.name as title,
-          a.description,
+          c.name as title,
+          c.type,
           v.name as venue
         FROM "Booking" b
-        JOIN "Activity" a ON a.id = b."activityId"
-        JOIN "Venue" v ON v.id = a."venueId"
+        JOIN "Course" c ON c.id = b."courseId"
+        JOIN "Venue" v ON v.id = c."venueId"
         WHERE b."parentId" = ${userId}
         ORDER BY b.created_at DESC
         LIMIT 10
@@ -255,7 +255,7 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
         id: booking.id,
         type: 'booking',
         title: booking.title,
-        description: booking.description,
+        description: `${booking.type} course`,
         venue: booking.venue,
         status: booking.status,
         timestamp: booking.timestamp
