@@ -983,17 +983,21 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
       },
     });
 
-    // Create a simple activity
-    const activity = await prisma.activity.create({
+    // Create a simple course (replacing activity)
+    const course = await prisma.course.create({
       data: {
         name: 'Football Training',
-        title: 'Football Training',
-        description: 'Learn basic football skills and teamwork',
-        duration: 90,
-        maxCapacity: 20,
+        type: 'after_school',
+        years: 'Y1-Y2',
+        price: 15.00,
+        capacity: 20,
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        weekday: 'Monday',
+        time: '15:30-16:30',
+        status: 'published',
         venueId: venue.id,
-        ownerId: adminUser.id,
-        isActive: true,
+        createdBy: adminUser.id,
       },
     });
 
@@ -1023,7 +1027,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
     // Create a booking
     const booking = await prisma.booking.create({
       data: {
-        activityId: activity.id,
+        courseId: course.id,
         childId: child.id,
         parentId: parentUser.id,
         status: 'confirmed',
@@ -1034,7 +1038,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
         currency: 'GBP',
         bookingDate: new Date(),
         activityDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        activityTime: '10:00',
+        activityTime: '15:30',
       },
     });
 
@@ -1045,7 +1049,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
       message: 'Simple database seeding completed successfully!',
       data: {
         venue: venue.name,
-        activity: activity.name,
+        course: course.name,
         parent: parentUser.email,
         child: `${child.firstName} ${child.lastName}`,
         booking: booking.id,
