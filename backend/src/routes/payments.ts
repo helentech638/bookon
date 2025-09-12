@@ -20,14 +20,13 @@ const validatePaymentIntent = [
 // Create payment intent for a booking
 router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
     }
 
     const { bookingId, amount, currency = 'gbp', venueId } = req.body;
+    const userId = req.user!.id;
 
     // Get booking details
     const booking = await prisma.booking.findFirst({

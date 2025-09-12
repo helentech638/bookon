@@ -71,6 +71,7 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showQuickBooking, setShowQuickBooking] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   useEffect(() => {
     fetchDashboardData();
@@ -111,10 +112,11 @@ const DashboardPage: React.FC = () => {
 
       // Make all API calls in parallel for better performance
       const apiStartTime = performance.now();
-      const [statsResponse, profileResponse, activitiesResponse] = await Promise.allSettled([
+      const [statsResponse, profileResponse, activitiesResponse, walletResponse] = await Promise.allSettled([
         fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { headers }),
         fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { headers }),
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { headers })
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { headers }),
+        fetch(buildApiUrl('/wallet/balance'), { headers })
       ]);
       const apiEndTime = performance.now();
       console.log(`Dashboard API calls completed in ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
@@ -141,6 +143,14 @@ const DashboardPage: React.FC = () => {
         setRecentActivities(activitiesData.data || []);
       } else {
         console.warn('Failed to fetch recent activities:', activitiesResponse.status === 'rejected' ? activitiesResponse.reason : 'Response not ok');
+      }
+
+      // Process wallet response
+      if (walletResponse.status === 'fulfilled' && walletResponse.value.ok) {
+        const walletData = await walletResponse.value.json();
+        setWalletBalance(walletData.data?.availableCredits || 0);
+      } else {
+        console.warn('Failed to fetch wallet balance:', walletResponse.status === 'rejected' ? walletResponse.reason : 'Response not ok');
       }
 
     } catch (err) {
@@ -426,6 +436,7 @@ const DashboardPage: React.FC = () => {
                 { id: 'profile', name: 'Profile', icon: UserIcon },
                 { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
                 { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
+                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
                 { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
                 // Admin-specific tabs
                 ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
@@ -747,6 +758,163 @@ const DashboardPage: React.FC = () => {
                 <Link to="/venues" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
                   Manage Venues
                 </Link>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'wallet' && (
+          <div className="space-y-8">
+            {/* Wallet Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Wallet & Credits</h2>
+                  <p className="text-green-100 text-lg">Manage your credits, view balance, and track transactions</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                    <div className="text-2xl font-bold">£{walletBalance.toFixed(2)}</div>
+                    <div className="text-green-100 text-sm">Available Credits</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Wallet Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Credit Balance Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <CreditCardIcon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Credit Balance</h3>
+                      <p className="text-sm text-gray-600">Available credits</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Available</span>
+                      <span className="text-lg font-bold text-green-600">£{walletBalance.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Used This Month</span>
+                      <span className="text-sm font-medium text-gray-900">£0.00</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Expiring Soon</span>
+                      <span className="text-sm font-medium text-gray-900">£0.00</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs text-green-600 text-center">💳 Credits can be used for any booking</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Recent Transactions Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <DocumentTextIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                      <p className="text-sm text-gray-600">Credit activity</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="text-center py-4 text-gray-500">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <DocumentTextIcon className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm">No recent transactions</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-600 text-center">📊 View detailed transaction history</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* TFC Payment Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <ClockIcon className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Tax-Free Childcare</h3>
+                      <p className="text-sm text-gray-600">TFC payment options</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">TFC Available</span>
+                      <span className="text-sm font-medium text-gray-900">Yes</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Pending Payments</span>
+                      <span className="text-sm font-medium text-gray-900">0</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Last TFC Payment</span>
+                      <span className="text-sm font-medium text-gray-900">-</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                    <p className="text-xs text-purple-600 text-center">🏛️ Use TFC for eligible activities</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Wallet Actions */}
+            <Card>
+              <div className="p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Wallet Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Link
+                    to="/wallet"
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                  >
+                    <CreditCardIcon className="w-8 h-8 mx-auto mb-2" />
+                    <h4 className="font-semibold">View Wallet</h4>
+                    <p className="text-xs opacity-90">Manage credits</p>
+                  </Link>
+                  
+                  <Link
+                    to="/bookings/flow"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                  >
+                    <CalendarDaysIcon className="w-8 h-8 mx-auto mb-2" />
+                    <h4 className="font-semibold">Book Activity</h4>
+                    <p className="text-xs opacity-90">Use credits</p>
+                  </Link>
+                  
+                  <Link
+                    to="/my-bookings"
+                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                  >
+                    <DocumentTextIcon className="w-8 h-8 mx-auto mb-2" />
+                    <h4 className="font-semibold">My Bookings</h4>
+                    <p className="text-xs opacity-90">View history</p>
+                  </Link>
+                  
+                  <Link
+                    to="/activities"
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                  >
+                    <AcademicCapIcon className="w-8 h-8 mx-auto mb-2" />
+                    <h4 className="font-semibold">Browse Activities</h4>
+                    <p className="text-xs opacity-90">Find activities</p>
+                  </Link>
+                </div>
               </div>
             </Card>
           </div>

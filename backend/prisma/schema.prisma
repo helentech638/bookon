@@ -90,6 +90,7 @@ model Venue {
   capacity              Int?
   ownerId               String
   businessAccountId     String?  // Linked business account for Stripe Connect
+  stripeAccountId       String?  // Direct Stripe Connect account ID for this venue
   inheritFranchiseFee   Boolean  @default(true) // Inherit from business account
   franchiseFeeType      String?  // percent, fixed (if override)
   franchiseFeeValue     Decimal? @db.Decimal(10, 2) // Custom fee value (if override)

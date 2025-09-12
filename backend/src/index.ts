@@ -48,9 +48,6 @@ import businessAccountsRoutes from './routes/business-accounts';
 import financeReportingRoutes from './routes/finance-reporting';
 import communicationsRoutes from './routes/communications';
 import financeRoutes from './routes/finance';
-import webhookRoutes from './routes/webhooks';
-import registersRoutes from './routes/registers';
-import tfcRoutes from './routes/tfc';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
