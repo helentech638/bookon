@@ -133,7 +133,8 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           franchiseFeeType,
           franchiseFeeValue: parseFloat(franchiseFeeValue),
           vatMode,
-          adminFeeAmount: adminFeeAmount ? parseFloat(adminFeeAmount) : null
+          adminFeeAmount: adminFeeAmount ? parseFloat(adminFeeAmount) : null,
+          status: 'active' // Add required status field
         }
       });
     });

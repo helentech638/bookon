@@ -461,6 +461,69 @@ router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHan
   }
 }));
 
+// Delete course - Admin only
+router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    
+    logger.info('Deleting course', { 
+      user: req.user?.email,
+      courseId: id,
+      userId 
+    });
+
+    // Check if course exists and belongs to user
+    const existingCourse = await safePrismaQuery(async (client) => {
+      return await client.course.findFirst({
+        where: {
+          id: id,
+          createdBy: userId
+        }
+      });
+    });
+
+    if (!existingCourse) {
+      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+    }
+
+    // Check if course has active sessions
+    const activeSessions = await safePrismaQuery(async (client) => {
+      return await client.session.findFirst({
+        where: {
+          courseId: id,
+          status: 'active'
+        }
+      });
+    });
+
+    if (activeSessions) {
+      throw new AppError('Cannot delete course with active sessions', 400, 'COURSE_HAS_SESSIONS');
+    }
+
+    // Delete the course
+    await safePrismaQuery(async (client) => {
+      return await client.course.delete({
+        where: {
+          id: id
+        }
+      });
+    });
+
+    logger.info('Course deleted', { 
+      courseId: id 
+    });
+
+    res.json({
+      success: true,
+      message: 'Course deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting course:', error);
+    throw error;
+  }
+}));
+
 // Helper function to generate session dates
 function generateSessionDates(course: any, excludeBankHolidays: boolean, excludeDates: string[]) {
   const sessions = [];
