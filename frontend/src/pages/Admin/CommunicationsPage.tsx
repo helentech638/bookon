@@ -14,6 +14,9 @@ import {
 } from '@heroicons/react/24/outline';
 import TemplateModal from '../../components/Communications/TemplateModal';
 import BroadcastModal from '../../components/Communications/BroadcastModal';
+import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface EmailTemplate {
   id: string;
@@ -104,13 +107,13 @@ const CommunicationsPage: React.FC = () => {
     setError(null);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       let response;
       switch (activeTab) {
         case 'templates':
-          response = await fetch('/api/v1/communications/templates', {
+          response = await fetch(buildApiUrl('/communications/templates'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -119,7 +122,7 @@ const CommunicationsPage: React.FC = () => {
           }
           break;
         case 'broadcasts':
-          response = await fetch('/api/v1/communications/broadcasts', {
+          response = await fetch(buildApiUrl('/communications/broadcasts'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -128,7 +131,7 @@ const CommunicationsPage: React.FC = () => {
           }
           break;
         case 'emails':
-          response = await fetch('/api/v1/communications/emails', {
+          response = await fetch(buildApiUrl('/communications/emails'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -202,7 +205,7 @@ const CommunicationsPage: React.FC = () => {
 
   const handleSaveTemplate = async (templateData: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const url = selectedTemplate 
@@ -234,10 +237,10 @@ const CommunicationsPage: React.FC = () => {
 
   const handleDeleteTemplate = async (templateId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/communications/templates/${templateId}`, {
+      const response = await fetch(buildApiUrl(`/communications/templates/${templateId}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -265,7 +268,7 @@ const CommunicationsPage: React.FC = () => {
 
   const handleSaveBroadcast = async (broadcastData: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const url = selectedBroadcast 
@@ -296,7 +299,8 @@ const CommunicationsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <AdminLayout title="Communications">
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -599,7 +603,8 @@ const CommunicationsPage: React.FC = () => {
         broadcast={selectedBroadcast}
         onSave={handleSaveBroadcast}
       />
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 
