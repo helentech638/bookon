@@ -73,8 +73,12 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
   try {
     return await queryFn(prisma);
   } catch (error: any) {
-    // Check if it's a prepared statement error
-    if (error.message && error.message.includes('prepared statement') && error.message.includes('does not exist')) {
+    // Check if it's a prepared statement error (both "does not exist" and "already exists")
+    if (error.message && (
+      (error.message.includes('prepared statement') && error.message.includes('does not exist')) ||
+      (error.message.includes('prepared statement') && error.message.includes('already exists')) ||
+      error.code === '42P05'
+    )) {
       console.warn('Prepared statement error detected, retrying with fresh connection...');
       
       // Create a fresh Prisma client instance

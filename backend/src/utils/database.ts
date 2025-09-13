@@ -125,7 +125,7 @@ export const connectDatabase = async (): Promise<void> => {
     // Test with direct pg connection first
     const { Client } = require('pg');
     const client = new Client({
-      connectionString: process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'],
+      connectionString: process.env['DATABASE_URL'] || process.env['DATABASE_DIRECT_URL'],
       ssl: { rejectUnauthorized: false }
     });
     
