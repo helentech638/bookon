@@ -26,6 +26,18 @@ const createPrismaClient = () => {
         connectionLimit: 5,    // Reduce connection limit to prevent pool exhaustion
       },
     },
+    // Disable prepared statements for serverless environments to avoid caching issues
+    ...(process.env['NODE_ENV'] === 'production' && {
+      __internal: {
+        engine: {
+          connectTimeout: 30000,
+          poolTimeout: 30000,
+          connectionLimit: 5,
+          // Disable prepared statements in production/serverless
+          preparedStatements: false,
+        },
+      },
+    }),
   });
 };
 
@@ -73,13 +85,19 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
   try {
     return await queryFn(prisma);
   } catch (error: any) {
-    // Check if it's a prepared statement error (both "does not exist" and "already exists")
-    if (error.message && (
-      (error.message.includes('prepared statement') && error.message.includes('does not exist')) ||
-      (error.message.includes('prepared statement') && error.message.includes('already exists')) ||
-      error.code === '42P05'
-    )) {
-      console.warn('Prepared statement error detected, retrying with fresh connection...');
+    // Check if it's any type of prepared statement error
+    const isPreparedStatementError = error.message && (
+      error.message.includes('prepared statement') ||
+      error.code === '42P05' || // prepared statement already exists
+      error.code === '26000' || // prepared statement does not exist
+      error.code === '08P01'    // bind message parameter mismatch
+    );
+    
+    if (isPreparedStatementError) {
+      console.warn('Prepared statement error detected, retrying with fresh connection...', {
+        errorCode: error.code,
+        errorMessage: error.message?.substring(0, 100)
+      });
       
       // Create a fresh Prisma client instance
       const freshClient = createPrismaClient();
