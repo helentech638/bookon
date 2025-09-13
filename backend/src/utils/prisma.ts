@@ -7,8 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 
 // Connection retry configuration
 const createPrismaClient = () => {
+  const isProduction = process.env['NODE_ENV'] === 'production';
+  
   return new PrismaClient({
-    log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
+    log: isProduction ? ['error'] : ['error', 'warn'],
     datasources: {
       db: {
         // Always use pooled connection URL for regular operations
@@ -24,20 +26,10 @@ const createPrismaClient = () => {
         connectTimeout: 30000, // 30 seconds
         poolTimeout: 30000,    // 30 seconds
         connectionLimit: 5,    // Reduce connection limit to prevent pool exhaustion
+        // Disable prepared statements in production/serverless to avoid caching issues
+        ...(isProduction && { preparedStatements: false }),
       },
     },
-    // Disable prepared statements for serverless environments to avoid caching issues
-    ...(process.env['NODE_ENV'] === 'production' && {
-      __internal: {
-        engine: {
-          connectTimeout: 30000,
-          poolTimeout: 30000,
-          connectionLimit: 5,
-          // Disable prepared statements in production/serverless
-          preparedStatements: false,
-        },
-      },
-    }),
   });
 };
 

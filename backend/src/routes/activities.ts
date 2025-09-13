@@ -14,7 +14,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       page = '1',
       limit = '20',
       search,
-      type,
+      // type, // Field doesn't exist in Activity model
       venueId,
       status,
       dateFrom,
@@ -33,7 +33,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       ];
     }
     
-    if (type) where.type = type;
+    // Note: type field doesn't exist in Activity model
     if (venueId) where.venueId = venueId;
     if (status) where.status = status;
     
@@ -50,9 +50,6 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           include: {
             venue: {
               select: { name: true, city: true, address: true }
-            },
-            createdBy: {
-              select: { firstName: true, lastName: true, email: true }
             },
             _count: {
               select: { bookings: true }
@@ -89,6 +86,10 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   try {
     const { id } = req.params;
 
+    if (!id) {
+      throw new AppError('Activity ID is required', 400, 'MISSING_ACTIVITY_ID');
+    }
+
     const activity = await safePrismaQuery(async (client) => {
       return await client.activity.findUnique({
         where: { id },
@@ -103,9 +104,6 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
               email: true
             }
           },
-          createdBy: {
-            select: { firstName: true, lastName: true, email: true }
-          },
           bookings: {
             include: {
               child: {
@@ -118,11 +116,6 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
             orderBy: { createdAt: 'desc' }
           },
           registers: {
-            include: {
-              child: {
-                select: { firstName: true, lastName: true, yearGroup: true }
-              }
-            },
             orderBy: { createdAt: 'desc' }
           }
         }
@@ -219,7 +212,6 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
     logger.info('Activity created', {
       activityId: activity.id,
       title: activity.title,
-      type: activity.type,
       createdBy: req.user!.id
     });
 
@@ -257,6 +249,10 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
       status
     } = req.body;
 
+    if (!id) {
+      throw new AppError('Activity ID is required', 400, 'MISSING_ACTIVITY_ID');
+    }
+
     const activity = await safePrismaQuery(async (client) => {
       return await client.activity.update({
         where: { id },
@@ -280,9 +276,6 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
         include: {
           venue: {
             select: { name: true, city: true, address: true }
-          },
-          createdBy: {
-            select: { firstName: true, lastName: true, email: true }
           }
         }
       });
@@ -299,7 +292,7 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
       message: 'Activity updated successfully',
       data: activity
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error updating activity:', error);
     if (error.code === 'P2025') {
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
@@ -312,6 +305,10 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
 router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!id) {
+      throw new AppError('Activity ID is required', 400, 'MISSING_ACTIVITY_ID');
+    }
 
     await safePrismaQuery(async (client) => {
       return await client.activity.delete({
@@ -328,7 +325,7 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
       success: true,
       message: 'Activity deleted successfully'
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error deleting activity:', error);
     if (error.code === 'P2025') {
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
@@ -338,105 +335,71 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
 }));
 
 // Get upcoming activities
-router.get('/upcoming', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { limit = '5' } = req.query;
+    const userId = req.user!.id;
+    
+    logger.info('Upcoming activities requested', { 
+      user: req.user?.email,
+      limit,
+      userId 
+    });
 
-    const activities = await safePrismaQuery(async (client) => {
-      return await client.activity.findMany({
+    const upcomingActivities = await safePrismaQuery(async () => {
+      const now = new Date();
+      
+      const activities = await prisma.activity.findMany({
         where: {
-          isActive: true,
-          startDate: {
-            gte: new Date() // Only future activities
-          }
+          startDate: { gte: now },
+          status: 'active'
         },
         include: {
           venue: {
             select: {
+              id: true,
               name: true,
-              city: true
+              address: true
+            }
+          },
+          bookings: {
+            select: {
+              id: true,
+              status: true
             }
           }
         },
-        orderBy: { startDate: 'asc' },
-        take: parseInt(limit as string)
+        orderBy: {
+          startDate: 'asc'
+        },
+        take: parseInt(limit as string) || 5
       });
+
+      return activities.map(activity => ({
+        id: activity.id,
+        name: activity.title,
+        description: activity.description,
+        startTime: activity.startDate,
+        endTime: activity.endDate,
+        capacity: activity.capacity,
+        currentBookings: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
+        venue: activity.venue,
+        status: activity.status
+      }));
+    });
+
+    logger.info('Upcoming activities data retrieved', { 
+      count: upcomingActivities.length
     });
 
     res.json({
       success: true,
-      data: activities.map(activity => ({
-        id: activity.id,
-        name: activity.title,
-        startDate: activity.startDate,
-        endDate: activity.endDate,
-        startTime: activity.startTime,
-        endTime: activity.endTime,
-        venue: activity.venue.name,
-        capacity: activity.capacity,
-        price: parseFloat(activity.price.toString()),
-        status: activity.status
-      }))
+      data: upcomingActivities
     });
   } catch (error) {
     logger.error('Error fetching upcoming activities:', error);
     throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
   }
 }));
-
-// Generate sessions for recurring activities
-async function generateWeeklySessions(
-  activityId: string,
-  startDate: string,
-  endDate: string,
-  startTime: string,
-  endTime: string,
-  excludeDates?: string[]
-): Promise<void> {
-  try {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const sessions = [];
-
-    // Get the day of week from start date
-    const dayOfWeek = start.getDay();
-    const excludeDatesSet = new Set(excludeDates || []);
-
-    // Generate sessions for each week
-    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 7)) {
-      const sessionDate = new Date(date);
-      const dateString = sessionDate.toISOString().split('T')[0];
-
-      // Skip if date is in exclude list
-      if (excludeDatesSet.has(dateString)) {
-        continue;
-      }
-
-      sessions.push({
-        activityId,
-        date: sessionDate,
-        startTime,
-        endTime,
-        status: 'scheduled'
-      });
-    }
-
-    if (sessions.length > 0) {
-      await safePrismaQuery(async (client) => {
-        return await client.session.createMany({
-          data: sessions
-        });
-      });
-
-      logger.info('Generated sessions for activity', {
-        activityId,
-        sessionCount: sessions.length
-      });
-    }
-  } catch (error) {
-    logger.error('Error generating sessions:', error);
-    throw error;
-  }
-}
 
 export default router;
