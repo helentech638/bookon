@@ -564,6 +564,178 @@ router.get('/reports', authenticateToken, requireRole(['admin']), asyncHandler(a
   }
 }));
 
+// Finance reporting route (moved from finance-reporting.ts)
+router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { 
+      range = 'month',
+      startDate,
+      endDate,
+      venueId,
+      businessAccountId
+    } = req.query;
+    
+    logger.info('Finance reporting requested', { 
+      user: req.user?.email,
+      range,
+      venueId,
+      businessAccountId,
+      userId 
+    });
+
+    // Calculate date range
+    let dateFilter: any = {};
+    const now = new Date();
+    
+    switch (range) {
+      case 'today':
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dateFilter = {
+          gte: today,
+          lt: tomorrow
+        };
+        break;
+      case 'week':
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        dateFilter = {
+          gte: weekStart
+        };
+        break;
+      case 'month':
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateFilter = {
+          gte: monthStart
+        };
+        break;
+      case 'custom':
+        if (startDate && endDate) {
+          dateFilter = {
+            gte: new Date(startDate as string),
+            lte: new Date(endDate as string)
+          };
+        }
+        break;
+    }
+
+    // Build where clause
+    const whereClause: any = {
+      createdAt: dateFilter
+    };
+
+    if (venueId) {
+      whereClause.activity = {
+        venueId: venueId
+      };
+    }
+
+    if (businessAccountId) {
+      whereClause.activity = {
+        ...whereClause.activity,
+        venue: {
+          businessAccountId: businessAccountId
+        }
+      };
+    }
+
+    // Get transactions
+    const transactions = await safePrismaQuery(async (client) => {
+      return await client.transaction.findMany({
+        where: whereClause,
+        include: {
+          booking: {
+            include: {
+              activity: {
+                include: {
+                  venue: {
+                    select: {
+                      name: true,
+                      businessAccount: {
+                        select: {
+                          name: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+    });
+
+    // Calculate summary
+    const totalRevenue = transactions.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+    const totalTransactions = transactions.length;
+    const averageTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
+    // Group by venue
+    const revenueByVenue = transactions.reduce((acc, t) => {
+      const venueName = t.booking?.activity?.venue?.name || 'Unknown';
+      acc[venueName] = (acc[venueName] || 0) + parseFloat(t.amount.toString());
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Group by business account
+    const revenueByBusinessAccount = transactions.reduce((acc, t) => {
+      const businessAccountName = t.booking?.activity?.venue?.businessAccount?.name || 'Unknown';
+      acc[businessAccountName] = (acc[businessAccountName] || 0) + parseFloat(t.amount.toString());
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Daily revenue (last 30 days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const recentTransactions = transactions.filter(t => 
+      new Date(t.createdAt) >= thirtyDaysAgo
+    );
+
+    const dailyRevenue = recentTransactions.reduce((acc, t) => {
+      const date = new Date(t.createdAt).toISOString().split('T')[0];
+      acc[date] = (acc[date] || 0) + parseFloat(t.amount.toString());
+      return acc;
+    }, {} as Record<string, number>);
+
+    const summary = {
+      totalRevenue,
+      totalTransactions,
+      averageTransactionValue,
+      revenueByVenue,
+      revenueByBusinessAccount,
+      dailyRevenue
+    };
+
+    const transactionBreakdown = transactions.map(t => ({
+      id: t.id,
+      amount: parseFloat(t.amount.toString()),
+      status: t.status,
+      method: t.method,
+      createdAt: t.createdAt,
+      venue: t.booking?.activity?.venue?.name || 'Unknown',
+      businessAccount: t.booking?.activity?.venue?.businessAccount?.name || 'Unknown',
+      activity: t.booking?.activity?.title || 'Unknown'
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        summary,
+        transactions: transactionBreakdown
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching finance reporting:', error);
+    throw new AppError('Failed to fetch finance reporting', 500, 'FINANCE_REPORTING_FETCH_ERROR');
+  }
+}));
+
 // Export data
 router.get('/export/:type', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
@@ -669,5 +841,96 @@ function convertToCSV(data: any[]): string {
   
   return csvRows.join('\n');
 }
+
+// Get finance summary
+router.get('/summary', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { range = 'today' } = req.query;
+    const userId = req.user!.id;
+    
+    logger.info('Finance summary requested', { 
+      user: req.user?.email,
+      range,
+      userId 
+    });
+
+    // Calculate date range
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (range) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      default: // today
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+    }
+
+    const financeData = await safePrismaQuery(async () => {
+      // Get financial data
+      const [income, refunds, credits] = await Promise.all([
+        prisma.booking.aggregate({
+          where: {
+            createdAt: { gte: startDate, lte: endDate },
+            status: 'confirmed'
+          },
+          _sum: { totalAmount: true },
+          _count: true
+        }),
+        prisma.booking.aggregate({
+          where: {
+            createdAt: { gte: startDate, lte: endDate },
+            status: 'cancelled'
+          },
+          _sum: { totalAmount: true },
+          _count: true
+        }),
+        prisma.booking.aggregate({
+          where: {
+            createdAt: { gte: startDate, lte: endDate },
+            status: 'refunded'
+          },
+          _sum: { totalAmount: true },
+          _count: true
+        })
+      ]);
+
+      return {
+        income: {
+          amount: income._sum.totalAmount || 0,
+          count: income._count
+        },
+        refunds: {
+          amount: refunds._sum.totalAmount || 0,
+          count: refunds._count
+        },
+        credits: {
+          amount: credits._sum.totalAmount || 0,
+          count: credits._count
+        },
+        dateRange: { startDate, endDate }
+      };
+    });
+
+    logger.info('Finance summary data retrieved', { 
+      income: financeData.income,
+      refunds: financeData.refunds,
+      credits: financeData.credits
+    });
+
+    res.json({
+      success: true,
+      data: financeData
+    });
+  } catch (error) {
+    logger.error('Error fetching finance summary:', error);
+    throw new AppError('Failed to fetch finance summary', 500, 'FINANCE_SUMMARY_ERROR');
+  }
+}));
 
 export default router;

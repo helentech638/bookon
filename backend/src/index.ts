@@ -38,10 +38,7 @@ import providerSettingsRoutes from './routes/provider-settings';
 import auditRoutes from './routes/audit';
 import edgeCaseRoutes from './routes/edge-cases';
 import dataRetentionRoutes from './routes/data-retention';
-import dashboardSnapshotRoutes from './routes/dashboard-snapshot';
-import upcomingActivitiesRoutes from './routes/upcoming-activities';
-import financeSummaryRoutes from './routes/finance-summary';
-import notificationsRoutes from './routes/notifications';
+// These routes are now integrated into their respective main route modules
 import templatesRoutes from './routes/templates';
 import coursesRoutes from './routes/courses';
 import businessAccountsRoutes from './routes/business-accounts';
@@ -89,15 +86,44 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: [
-    'http://localhost:3001',
-    'https://bookon-frontend.vercel.app',
-    process.env['FRONTEND_URL'] || 'http://localhost:3001'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'https://bookon-frontend.vercel.app',
+      'https://bookon.app',
+      process.env['FRONTEND_URL'] || 'http://localhost:3001'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // For development, allow any localhost origin
+    if (process.env['NODE_ENV'] === 'development' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
 }));
+
+// Handle preflight requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -180,6 +206,30 @@ app.get('/api/test', (_req, res) => {
   });
 });
 
+// Database health check endpoint
+app.get('/api/health', async (_req, res) => {
+  try {
+    const { checkDatabaseConnection, getDatabaseInfo } = await import('./utils/prisma');
+    const isConnected = await checkDatabaseConnection();
+    const dbInfo = getDatabaseInfo();
+    
+    res.status(200).json({
+      message: 'Health check',
+      timestamp: new Date().toISOString(),
+      database: isConnected ? 'connected' : 'disconnected',
+      environment: process.env['NODE_ENV'] || 'development',
+      databaseInfo: dbInfo
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Health check failed',
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+      environment: process.env['NODE_ENV'] || 'development'
+    });
+  }
+});
+
 // Simple token verification endpoint
 app.get('/api/verify-token', (req, res) => {
   try {
@@ -207,7 +257,7 @@ app.get('/api/verify-token', (req, res) => {
       });
     }
   } catch (error) {
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false, 
       message: 'Token verification error' 
     });
@@ -215,7 +265,7 @@ app.get('/api/verify-token', (req, res) => {
 });
 
 // Simple database test endpoint
-app.get('/api/test-db', async (req, res) => {
+app.get('/api/test-db', async (_req, res) => {
   try {
     const { prisma } = await import('./utils/prisma');
     
@@ -338,19 +388,13 @@ app.use('/api/v1/provider-settings', providerSettingsRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/edge-cases', edgeCaseRoutes);
 app.use('/api/v1/data-retention', dataRetentionRoutes);
-app.use('/api/v1/dashboard', dashboardSnapshotRoutes);
-app.use('/api/v1/activities', upcomingActivitiesRoutes);
-app.use('/api/v1/finance', financeSummaryRoutes);
-app.use('/api/v1/notifications', notificationsRoutes);
+// These routes are now integrated into their respective main route modules
 app.use('/api/v1/templates', templatesRoutes);
 app.use('/api/v1/courses', coursesRoutes);
 app.use('/api/v1/business-accounts', businessAccountsRoutes);
 app.use('/api/v1/finance', financeReportingRoutes);
 app.use('/api/v1/communications', communicationsRoutes);
 app.use('/api/v1/finance', financeRoutes);
-app.use('/api/v1/webhooks', webhookRoutes);
-app.use('/api/v1/registers', registersRoutes);
-app.use('/api/v1/tfc', tfcRoutes);
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
