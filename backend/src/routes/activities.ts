@@ -81,6 +81,74 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
+// Get upcoming activities
+router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { limit = '5' } = req.query;
+    const userId = req.user!.id;
+    
+    logger.info('Upcoming activities requested', { 
+      user: req.user?.email,
+      limit,
+      userId 
+    });
+
+    const upcomingActivities = await safePrismaQuery(async () => {
+      const now = new Date();
+      
+      const activities = await prisma.activity.findMany({
+        where: {
+          startDate: { gte: now },
+          status: 'active'
+        },
+        include: {
+          venue: {
+            select: {
+              id: true,
+              name: true,
+              address: true
+            }
+          },
+          bookings: {
+            select: {
+              id: true,
+              status: true
+            }
+          }
+        },
+        orderBy: {
+          startDate: 'asc'
+        },
+        take: parseInt(limit as string) || 5
+      });
+
+      return activities.map(activity => ({
+        id: activity.id,
+        name: activity.title,
+        description: activity.description,
+        startTime: activity.startDate,
+        endTime: activity.endDate,
+        capacity: activity.capacity,
+        currentBookings: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
+        venue: activity.venue,
+        status: activity.status
+      }));
+    });
+
+    logger.info('Upcoming activities data retrieved', { 
+      count: upcomingActivities.length
+    });
+
+    res.json({
+      success: true,
+      data: upcomingActivities
+    });
+  } catch (error) {
+    logger.error('Error fetching upcoming activities:', error);
+    throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
+  }
+}));
+
 // Get single activity
 router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
@@ -331,74 +399,6 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
     }
     throw new AppError('Failed to delete activity', 500, 'ACTIVITY_DELETE_ERROR');
-  }
-}));
-
-// Get upcoming activities
-router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const { limit = '5' } = req.query;
-    const userId = req.user!.id;
-    
-    logger.info('Upcoming activities requested', { 
-      user: req.user?.email,
-      limit,
-      userId 
-    });
-
-    const upcomingActivities = await safePrismaQuery(async () => {
-      const now = new Date();
-      
-      const activities = await prisma.activity.findMany({
-        where: {
-          startDate: { gte: now },
-          status: 'active'
-        },
-        include: {
-          venue: {
-            select: {
-              id: true,
-              name: true,
-              address: true
-            }
-          },
-          bookings: {
-            select: {
-              id: true,
-              status: true
-            }
-          }
-        },
-        orderBy: {
-          startDate: 'asc'
-        },
-        take: parseInt(limit as string) || 5
-      });
-
-      return activities.map(activity => ({
-        id: activity.id,
-        name: activity.title,
-        description: activity.description,
-        startTime: activity.startDate,
-        endTime: activity.endDate,
-        capacity: activity.capacity,
-        currentBookings: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
-        venue: activity.venue,
-        status: activity.status
-      }));
-    });
-
-    logger.info('Upcoming activities data retrieved', { 
-      count: upcomingActivities.length
-    });
-
-    res.json({
-      success: true,
-      data: upcomingActivities
-    });
-  } catch (error) {
-    logger.error('Error fetching upcoming activities:', error);
-    throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
   }
 }));
 

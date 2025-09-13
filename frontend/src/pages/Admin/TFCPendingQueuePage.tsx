@@ -66,7 +66,7 @@ const TFCPendingQueuePage: React.FC = () => {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       
-      const response = await fetch(`/api/v1/admin/tfc-pending?${params.toString()}`, {
+      const response = await fetch(`/api/v1/admin/tfc/pending?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
