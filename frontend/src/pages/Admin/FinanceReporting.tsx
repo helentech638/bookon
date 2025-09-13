@@ -123,12 +123,12 @@ const FinanceReporting: React.FC = () => {
       transaction.paymentIntentId,
       transaction.venueName,
       transaction.businessAccountName,
-      `£${transaction.grossAmount.toFixed(2)}`,
-      `£${transaction.franchiseFee.toFixed(2)}`,
-      `£${transaction.vatAmount.toFixed(2)}`,
-      `£${transaction.adminFee.toFixed(2)}`,
-      `£${transaction.stripeFee.toFixed(2)}`,
-      `£${transaction.netToVenue.toFixed(2)}`,
+      `£${(transaction.grossAmount || 0).toFixed(2)}`,
+      `£${(transaction.franchiseFee || 0).toFixed(2)}`,
+      `£${(transaction.vatAmount || 0).toFixed(2)}`,
+      `£${(transaction.adminFee || 0).toFixed(2)}`,
+      `£${(transaction.stripeFee || 0).toFixed(2)}`,
+      `£${(transaction.netToVenue || 0).toFixed(2)}`,
       transaction.status
     ]);
 
@@ -266,7 +266,7 @@ const FinanceReporting: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Gross</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      £{summary.totalGross.toFixed(2)}
+                      £{(summary.totalGross || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ const FinanceReporting: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Franchise Fees</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      £{summary.totalFranchiseFees.toFixed(2)}
+                      £{(summary.totalFranchiseFees || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ const FinanceReporting: React.FC = () => {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Net to Venues</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      £{summary.totalNetToVenues.toFixed(2)}
+                      £{(summary.totalNetToVenues || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -386,22 +386,22 @@ const FinanceReporting: React.FC = () => {
                           {transaction.businessAccountName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          £{transaction.grossAmount.toFixed(2)}
+                          £{(transaction.grossAmount || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          £{transaction.franchiseFee.toFixed(2)}
+                          £{(transaction.franchiseFee || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          £{transaction.vatAmount.toFixed(2)}
+                          £{(transaction.vatAmount || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          £{transaction.adminFee.toFixed(2)}
+                          £{(transaction.adminFee || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          £{transaction.stripeFee.toFixed(2)}
+                          £{(transaction.stripeFee || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          £{transaction.netToVenue.toFixed(2)}
+                          £{(transaction.netToVenue || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
