@@ -12,10 +12,12 @@ const createPrismaClient = () => {
   // Modify database URL to disable prepared statements in production
   let databaseUrl = process.env['DATABASE_URL'] || '';
   if (isProduction && databaseUrl) {
-    // Add parameters to disable prepared statements
+    // Add parameters to disable prepared statements (matching your working second project)
     const url = new URL(databaseUrl);
-    url.searchParams.set('prepared_statements', 'false');
-    url.searchParams.set('statement_timeout', '0');
+    url.searchParams.set('prepared', 'false');  // Use 'prepared' instead of 'prepared_statements'
+    url.searchParams.set('pgbouncer', 'true'); // Enable pgbouncer
+    url.searchParams.set('connection_limit', '20'); // Set connection limit
+    url.searchParams.set('pool_timeout', '20'); // Set pool timeout
     databaseUrl = url.toString();
   }
   
