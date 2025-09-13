@@ -1,8 +1,9 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { prisma } from '../utils/prisma';
-import { asyncHandler } from '../middleware/errorHandler';
+import { prisma, safePrismaQuery } from '../utils/prisma';
+import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole } from '../middleware/auth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -217,37 +218,72 @@ router.patch('/:id/toggle', [
 // Delete widget configuration (soft delete)
 router.delete('/:id', [
   param('id').isUUID().withMessage('Invalid widget ID')
-], asyncHandler(async (req: any, res: any) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: { message: 'Validation failed', details: errors.array() }
-    });
-  }
-
-  const { id } = req.params;
-  const deletedWidget = await prisma.widgetConfig.update({
-    where: { id, isActive: true },
-    data: {
-      isActive: false,
-      deletedBy: req.user!.id,
-      deletedAt: new Date(),
-      updatedBy: req.user!.id
+], asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Validation failed', details: errors.array() }
+      });
     }
-  });
 
-  if (!deletedWidget) {
-    return res.status(404).json({
-      success: false,
-      error: { message: 'Widget configuration not found' }
+    const id = req.params['id'];
+    
+    if (!id) {
+      throw new AppError('Widget ID is required', 400, 'MISSING_WIDGET_ID');
+    }
+    
+    logger.info('Deleting widget configuration', { 
+      widgetId: id, 
+      userId: req.user?.id,
+      userEmail: req.user?.email 
     });
-  }
 
-  res.json({
-    success: true,
-    message: 'Widget configuration deleted successfully'
-  });
+    // Check if widget exists and is active
+    const existingWidget = await safePrismaQuery(async (client) => {
+      return await client.widgetConfig.findFirst({
+        where: { id: id, isActive: true }
+      });
+    });
+
+    if (!existingWidget) {
+      throw new AppError('Widget configuration not found or already deleted', 404, 'WIDGET_NOT_FOUND');
+    }
+
+    const deletedWidget = await safePrismaQuery(async (client) => {
+      return await client.widgetConfig.update({
+        where: { id: id },
+        data: {
+          isActive: false,
+          deletedBy: req.user!.id,
+          deletedAt: new Date(),
+          updatedBy: req.user!.id
+        }
+      });
+    });
+
+    logger.info('Widget configuration deleted successfully', { 
+      widgetId: id, 
+      userId: req.user?.id 
+    });
+
+    res.json({
+      success: true,
+      message: 'Widget configuration deleted successfully',
+      data: transformWidgetData(deletedWidget)
+    });
+  } catch (error) {
+    logger.error('Error deleting widget configuration:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      widgetId: req.params['id'],
+      userId: req.user?.id
+    });
+    
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to delete widget configuration', 500, 'WIDGET_DELETE_ERROR');
+  }
 }));
 
 export default router;
