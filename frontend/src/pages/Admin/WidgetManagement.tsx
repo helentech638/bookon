@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 import { 
   AcademicCapIcon, 
   CodeBracketIcon, 
@@ -70,7 +71,11 @@ const WidgetManagement: React.FC = () => {
   const fetchWidgets = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/widget-config');
+      const response = await fetch(buildApiUrl('/widget-config'), {
+        headers: {
+          'Authorization': `Bearer ${authService.getToken()}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setWidgets(data.data || []);
@@ -88,7 +93,11 @@ const WidgetManagement: React.FC = () => {
   const fetchWidgetAnalytics = async (widgetId: string) => {
     try {
       setAnalyticsLoading(true);
-      const response = await fetch(`/api/v1/widget/performance?widgetId=${widgetId}&days=30`);
+      const response = await fetch(buildApiUrl(`/widget/performance?widgetId=${widgetId}&days=30`), {
+        headers: {
+          'Authorization': `Bearer ${authService.getToken()}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setWidgetAnalytics(data.data);
@@ -105,7 +114,7 @@ const WidgetManagement: React.FC = () => {
 
   const handleCreateWidget = async () => {
     try {
-      const response = await fetch('/api/v1/widget-config', {
+      const response = await fetch(buildApiUrl('/widget-config'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +141,7 @@ const WidgetManagement: React.FC = () => {
 
   const handleUpdateWidget = async (widget: WidgetConfig) => {
     try {
-      const response = await fetch(`/api/v1/widget-config/${widget.id}`, {
+      const response = await fetch(buildApiUrl(`/widget-config/${widget.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -160,7 +169,7 @@ const WidgetManagement: React.FC = () => {
 
   const handleToggleWidgetStatus = async (widgetId: string) => {
     try {
-      const response = await fetch(`/api/v1/widget-config/${widgetId}/toggle`, {
+      const response = await fetch(buildApiUrl(`/widget-config/${widgetId}/toggle`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`
@@ -187,7 +196,7 @@ const WidgetManagement: React.FC = () => {
     if (!confirm('Are you sure you want to delete this widget?')) return;
 
     try {
-      const response = await fetch(`/api/v1/widget-config/${widgetId}`, {
+      const response = await fetch(buildApiUrl(`/widget-config/${widgetId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`
