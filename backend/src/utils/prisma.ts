@@ -9,13 +9,23 @@ const globalForPrisma = globalThis as unknown as {
 const createPrismaClient = () => {
   const isProduction = process.env['NODE_ENV'] === 'production';
   
+  // Modify database URL to disable prepared statements in production
+  let databaseUrl = process.env['DATABASE_URL'] || '';
+  if (isProduction && databaseUrl) {
+    // Add parameters to disable prepared statements
+    const url = new URL(databaseUrl);
+    url.searchParams.set('prepared_statements', 'false');
+    url.searchParams.set('statement_timeout', '0');
+    databaseUrl = url.toString();
+  }
+  
   return new PrismaClient({
     log: isProduction ? ['error'] : ['error', 'warn'],
     datasources: {
       db: {
         // Always use pooled connection URL for regular operations
         // DATABASE_DIRECT_URL should only be used for migrations and seeding
-        url: process.env['DATABASE_URL'] || '',
+        url: databaseUrl,
       },
     },
     // Add error handling for connection issues
