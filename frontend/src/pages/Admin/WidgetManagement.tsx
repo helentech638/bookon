@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { authService } from '../../services/authService';
 import { 
   AcademicCapIcon, 
   CodeBracketIcon, 
@@ -108,7 +109,7 @@ const WidgetManagement: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         },
         body: JSON.stringify(formData)
       });
@@ -135,7 +136,7 @@ const WidgetManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         },
         body: JSON.stringify(widget)
       });
@@ -162,7 +163,7 @@ const WidgetManagement: React.FC = () => {
       const response = await fetch(`/api/v1/widget-config/${widgetId}/toggle`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -189,7 +190,7 @@ const WidgetManagement: React.FC = () => {
       const response = await fetch(`/api/v1/widget-config/${widgetId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 

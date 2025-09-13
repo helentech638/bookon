@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { authService } from '../../services/authService';
 import { 
   Card, 
   CardContent, 
@@ -72,7 +73,7 @@ const WebhookManagement: React.FC = () => {
 
       const response = await fetch(`/api/v1/webhooks/events?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -94,7 +95,7 @@ const WebhookManagement: React.FC = () => {
     try {
       const response = await fetch('/api/v1/webhooks/stats', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -115,7 +116,7 @@ const WebhookManagement: React.FC = () => {
       const response = await fetch(`/api/v1/webhooks/events/${eventId}/retry`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
