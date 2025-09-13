@@ -32,20 +32,42 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
       role: _req.user?.role 
     });
 
+    // Test database connection first
+    let dbConnected = false;
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      logger.info('Database connection test successful');
+      dbConnected = true;
+    } catch (dbError) {
+      logger.error('Database connection test failed:', {
+        error: dbError instanceof Error ? dbError.message : String(dbError),
+        errorCode: (dbError as any)?.code
+      });
+      logger.warn('Using fallback data due to database connection failure');
+    }
+
     // Get total counts using Prisma for better reliability
-    const [totalUsers, totalVenues, totalActivities, totalBookings] = await Promise.all([
-      safePrismaQuery(async (client) => await client.user.count()),
-      safePrismaQuery(async (client) => await client.venue.count()),
-      safePrismaQuery(async (client) => await client.activity.count()),
-      safePrismaQuery(async (client) => await client.booking.count())
-    ]);
-    
-    // Get booking status counts using Prisma
-    const [confirmedBookingsCount, pendingBookingsCount, cancelledBookingsCount] = await Promise.all([
-      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'confirmed' } })),
-      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'pending' } })),
-      safePrismaQuery(async (client) => await client.booking.count({ where: { status: 'cancelled' } }))
-    ]);
+    const statsData = await safePrismaQuery(async (client) => {
+      const [totalUsers, totalVenues, totalActivities, totalBookings, confirmedBookingsCount, pendingBookingsCount, cancelledBookingsCount] = await Promise.all([
+        client.user.count(),
+        client.venue.count(),
+        client.activity.count(),
+        client.booking.count(),
+        client.booking.count({ where: { status: 'confirmed' } }),
+        client.booking.count({ where: { status: 'pending' } }),
+        client.booking.count({ where: { status: 'cancelled' } })
+      ]);
+
+      return {
+        totalUsers,
+        totalVenues,
+        totalActivities,
+        totalBookings,
+        confirmedBookingsCount,
+        pendingBookingsCount,
+        cancelledBookingsCount
+      };
+    });
     
     // Get total revenue - using mock value since amount field doesn't exist yet
     const totalRevenue = 45680.50; // Mock revenue value
@@ -53,13 +75,13 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
     res.json({
       success: true,
       data: {
-        totalUsers,
-        totalVenues,
-        totalActivities,
-        totalBookings,
-        confirmedBookings: confirmedBookingsCount,
-        pendingBookings: pendingBookingsCount,
-        cancelledBookings: cancelledBookingsCount,
+        totalUsers: statsData.totalUsers,
+        totalVenues: statsData.totalVenues,
+        totalActivities: statsData.totalActivities,
+        totalBookings: statsData.totalBookings,
+        confirmedBookings: statsData.confirmedBookingsCount,
+        pendingBookings: statsData.pendingBookingsCount,
+        cancelledBookings: statsData.cancelledBookingsCount,
         totalRevenue: Number(totalRevenue)
       }
     });
@@ -108,14 +130,21 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       user: _req.user?.email,
-      role: _req.user?.role
+      role: _req.user?.role,
+      errorType: error?.constructor?.name,
+      errorCode: (error as any)?.code
     });
     
-    // Return proper error response instead of mock data
+    // Return proper error response with more details in development
     res.status(500).json({
       success: false,
       message: 'Failed to fetch venues',
-      error: process.env['NODE_ENV'] === 'development' ? (error instanceof Error ? error.message : String(error)) : 'Internal server error'
+      error: process.env['NODE_ENV'] === 'development' ? (error instanceof Error ? error.message : String(error)) : 'Internal server error',
+      ...(process.env['NODE_ENV'] === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+        errorType: error?.constructor?.name,
+        errorCode: (error as any)?.code
+      })
     });
   }
 }));

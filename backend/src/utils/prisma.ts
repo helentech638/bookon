@@ -11,8 +11,9 @@ const createPrismaClient = () => {
     log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
-        // Use pool URL for regular operations, direct URL only for migrations/seeding
-        url: process.env['DATABASE_URL'],
+        // Use pooled connection URL for regular operations
+        // DATABASE_URL should be the pooled URL, DATABASE_DIRECT_URL is for migrations only
+        url: process.env['DATABASE_URL'] || '',
       },
     },
     // Add error handling for connection issues
@@ -20,9 +21,9 @@ const createPrismaClient = () => {
     // Add connection pool configuration for better reliability
     __internal: {
       engine: {
-        connectTimeout: 60000, // 60 seconds
-        poolTimeout: 60000,    // 60 seconds
-        connectionLimit: 20,   // Increase connection limit
+        connectTimeout: 30000, // 30 seconds
+        poolTimeout: 30000,    // 30 seconds
+        connectionLimit: 5,    // Reduce connection limit to prevent pool exhaustion
       },
     },
   });
@@ -31,9 +32,9 @@ const createPrismaClient = () => {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 // Add connection error handling
-prisma.$on('error', (e) => {
-  console.error('Prisma error:', e);
-});
+// prisma.$on('error', (e) => {
+//   console.error('Prisma error:', e);
+// });
 
 // Graceful shutdown
 if (process.env['NODE_ENV'] !== 'production') {
@@ -49,6 +50,22 @@ export const checkDatabaseConnection = async (): Promise<boolean> => {
     console.error('Database connection check failed:', error);
     return false;
   }
+};
+
+// Debug function to check which database URL is being used
+export const getDatabaseInfo = () => {
+  const dbUrl = process.env['DATABASE_URL'];
+  const directUrl = process.env['DATABASE_DIRECT_URL'];
+  
+  return {
+    hasPooledUrl: !!dbUrl,
+    hasDirectUrl: !!directUrl,
+    pooledUrlType: dbUrl?.includes('pooler') ? 'pooled' : 'direct',
+    directUrlType: directUrl?.includes('pooler') ? 'pooled' : 'direct',
+    // Don't log full URLs for security
+    pooledUrlPreview: dbUrl ? `${dbUrl.substring(0, 20)}...` : 'NOT_SET',
+    directUrlPreview: directUrl ? `${directUrl.substring(0, 20)}...` : 'NOT_SET'
+  };
 };
 
 // Wrapper function to handle prepared statement errors
