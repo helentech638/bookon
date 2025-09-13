@@ -39,6 +39,7 @@ import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { formatPrice } from '../../utils/formatting';
 
 interface AdminStats {
   totalVenues: number;
@@ -393,10 +394,25 @@ const AdminDashboard: React.FC = () => {
       })
     ]);
 
-      // Process stats
+      // Process stats with better error handling
       if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-        const statsData = await statsResponse.value.json();
-        setStats(statsData.data);
+        try {
+          const statsData = await statsResponse.value.json();
+          setStats(statsData.data);
+        } catch (parseError) {
+          console.warn('Failed to parse stats data, using defaults');
+          setStats({
+            totalUsers: 0,
+            totalVenues: 0,
+            totalActivities: 0,
+            totalBookings: 0,
+            totalRevenue: 0,
+            pendingBookings: 0,
+            activeVenues: 0,
+            upcomingActivities: 0,
+            monthlyGrowth: 0
+          });
+        }
       } else {
         console.warn('Failed to fetch stats, using defaults');
         setStats({
@@ -412,10 +428,15 @@ const AdminDashboard: React.FC = () => {
         });
       }
 
-      // Process venues
+      // Process venues with better error handling
       if (venuesResponse.status === 'fulfilled' && venuesResponse.value.ok) {
-        const venuesData = await venuesResponse.value.json();
-        setVenues(venuesData.data || []);
+        try {
+          const venuesData = await venuesResponse.value.json();
+          setVenues(venuesData.data || []);
+        } catch (parseError) {
+          console.warn('Failed to parse venues data');
+          setVenues([]);
+        }
       } else {
         console.warn('Failed to fetch venues');
         setVenues([]);
@@ -2251,7 +2272,7 @@ const AdminDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Payments Collected Today</p>
               <p className="text-2xl font-bold text-gray-900">
-                £{dashboardSnapshot?.payments_total?.toFixed(2) || '0.00'}
+                {formatPrice(dashboardSnapshot?.payments_total)}
               </p>
               <p className="text-xs text-gray-500">Settled today</p>
             </div>
@@ -2269,7 +2290,7 @@ const AdminDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Refunds / Credits Issued</p>
               <p className="text-2xl font-bold text-gray-900">
-                £{((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0)).toFixed(2)}
+                {formatPrice((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0))}
               </p>
               <p className="text-xs text-gray-500">Today</p>
             </div>
@@ -2376,7 +2397,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Income</p>
-                  <p className="text-lg font-bold text-green-600">£{financeSummary.income.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-600">{formatPrice(financeSummary.income)}</p>
                 </div>
               </div>
             </div>
@@ -2388,7 +2409,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Refunds</p>
-                  <p className="text-lg font-bold text-red-600">£{financeSummary.refunds.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-red-600">{formatPrice(financeSummary.refunds)}</p>
                 </div>
               </div>
             </div>
@@ -2400,7 +2421,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Credits</p>
-                  <p className="text-lg font-bold text-blue-600">£{financeSummary.credits.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-blue-600">{formatPrice(financeSummary.credits)}</p>
                 </div>
               </div>
             </div>
