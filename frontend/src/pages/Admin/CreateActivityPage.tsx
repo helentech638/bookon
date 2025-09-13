@@ -288,37 +288,40 @@ const CreateActivityPage: React.FC = () => {
 
   if (success) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <CheckIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Activity Created Successfully!</h2>
-          <p className="text-gray-600 mb-6">Your activity has been created and is ready for bookings.</p>
-          <div className="flex space-x-4 justify-center">
-            <button
-              onClick={() => setSuccess(false)}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Create Another Activity
-            </button>
-            <button
-              onClick={() => window.location.href = '/admin/activities'}
-              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-            >
-              View All Activities
-            </button>
+      <AdminLayout title="Activity Created">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <CheckIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Activity Created Successfully!</h2>
+            <p className="text-gray-600 mb-6">Your activity has been created and is ready for bookings.</p>
+            <div className="flex space-x-4 justify-center">
+              <button
+                onClick={() => setSuccess(false)}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              >
+                Create Another Activity
+              </button>
+              <button
+                onClick={() => window.location.href = '/admin/activities'}
+                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+              >
+                View All Activities
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Create New Activity</h1>
-        <p className="text-gray-600">Set up a new activity for bookings</p>
-      </div>
+    <AdminLayout title="Create New Activity">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Create New Activity</h1>
+          <p className="text-gray-600">Set up a new activity for bookings</p>
+        </div>
 
       {/* Progress Steps */}
       <div className="mb-8">
@@ -740,6 +743,7 @@ const CreateActivityPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </AdminLayout>
   );
 };
 
