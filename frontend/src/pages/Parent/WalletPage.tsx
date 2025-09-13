@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { CurrencyPoundIcon, ClockIcon, CheckCircleIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface WalletCredit {
   id: string;
@@ -46,7 +47,7 @@ const WalletPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/v1/wallet/balance', {
+      const response = await fetch(buildApiUrl('/wallet/balance'), {
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
