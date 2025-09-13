@@ -17,6 +17,9 @@ import {
 import DiscountModal from '../../components/Finance/DiscountModal';
 import CreditModal from '../../components/Finance/CreditModal';
 import RefundModal from '../../components/Finance/RefundModal';
+import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface Transaction {
   id: string;
@@ -145,13 +148,13 @@ const FinancePage: React.FC = () => {
     setError(null);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       let response;
       switch (activeTab) {
         case 'transactions':
-          response = await fetch('/api/v1/finance/transactions', {
+          response = await fetch(buildApiUrl('/finance/transactions'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -160,7 +163,7 @@ const FinancePage: React.FC = () => {
           }
           break;
         case 'discounts':
-          response = await fetch('/api/v1/finance/discounts', {
+          response = await fetch(buildApiUrl('/finance/discounts'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -169,7 +172,7 @@ const FinancePage: React.FC = () => {
           }
           break;
         case 'credits':
-          response = await fetch('/api/v1/finance/credits', {
+          response = await fetch(buildApiUrl('/finance/credits'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -178,7 +181,7 @@ const FinancePage: React.FC = () => {
           }
           break;
         case 'refunds':
-          response = await fetch('/api/v1/finance/refunds', {
+          response = await fetch(buildApiUrl('/finance/refunds'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -187,7 +190,7 @@ const FinancePage: React.FC = () => {
           }
           break;
         case 'reports':
-          response = await fetch('/api/v1/finance/reports', {
+          response = await fetch(buildApiUrl('/finance/reports'), {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
@@ -257,7 +260,7 @@ const FinancePage: React.FC = () => {
 
   const handleSaveDiscount = async (discountData: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const url = selectedDiscount 
@@ -289,10 +292,10 @@ const FinancePage: React.FC = () => {
 
   const handleDeleteDiscount = async (discountId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/finance/discounts/${discountId}`, {
+      const response = await fetch(buildApiUrl(`/finance/discounts/${discountId}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -320,7 +323,7 @@ const FinancePage: React.FC = () => {
 
   const handleSaveCredit = async (creditData: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const url = selectedCredit 
@@ -352,10 +355,10 @@ const FinancePage: React.FC = () => {
 
   const handleDeleteCredit = async (creditId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/finance/credits/${creditId}`, {
+      const response = await fetch(buildApiUrl(`/finance/credits/${creditId}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -383,7 +386,7 @@ const FinancePage: React.FC = () => {
 
   const handleSaveRefund = async (refundData: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const url = selectedRefund 
@@ -415,10 +418,10 @@ const FinancePage: React.FC = () => {
 
   const handleDeleteRefund = async (refundId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/finance/refunds/${refundId}`, {
+      const response = await fetch(buildApiUrl(`/finance/refunds/${refundId}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -446,10 +449,10 @@ const FinancePage: React.FC = () => {
 
   const exportData = async (type: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/finance/export/${type}?format=csv`, {
+      const response = await fetch(buildApiUrl(`/finance/export/${type}?format=csv`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -470,7 +473,8 @@ const FinancePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <AdminLayout title="Finance">
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -985,7 +989,8 @@ const FinancePage: React.FC = () => {
         onSave={handleSaveRefund}
         onDelete={handleDeleteRefund}
       />
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 
