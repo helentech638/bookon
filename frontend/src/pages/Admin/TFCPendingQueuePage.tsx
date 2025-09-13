@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { authService } from '../../services/authService';
 import { 
   ClockIcon, 
   ExclamationTriangleIcon,
@@ -62,7 +63,7 @@ const TFCPendingQueuePage: React.FC = () => {
   const loadPendingBookings = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       
@@ -86,7 +87,7 @@ const TFCPendingQueuePage: React.FC = () => {
 
   const handleMarkAsPaid = async (bookingId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/mark-paid`, {
         method: 'POST',
         headers: {
@@ -111,7 +112,7 @@ const TFCPendingQueuePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to cancel this booking?')) return;
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/cancel`, {
         method: 'POST',
         headers: {
@@ -134,7 +135,7 @@ const TFCPendingQueuePage: React.FC = () => {
 
   const handleConvertToCredit = async (bookingId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/convert-credit`, {
         method: 'POST',
         headers: {
@@ -159,7 +160,7 @@ const TFCPendingQueuePage: React.FC = () => {
     if (selectedBookings.length === 0) return;
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = authService.getToken();
       const response = await fetch('/api/v1/admin/tfc-pending/bulk-mark-paid', {
         method: 'POST',
         headers: {

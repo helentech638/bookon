@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { authService } from '../../services/authService';
 import { 
   CalendarDaysIcon, 
   UserGroupIcon, 
@@ -85,7 +86,7 @@ const RegisterManagementPage: React.FC = () => {
 
   const loadActivities = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) return;
 
       const response = await fetch('/api/v1/activities?status=active', {
@@ -104,7 +105,7 @@ const RegisterManagementPage: React.FC = () => {
   const loadRegisters = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       let url = '/api/v1/registers';
@@ -141,7 +142,7 @@ const RegisterManagementPage: React.FC = () => {
 
   const handleUpdateAttendance = async (registerId: string, attendanceRecords: any[]) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch(`/api/v1/registers/${registerId}/attendance`, {
@@ -172,7 +173,7 @@ const RegisterManagementPage: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/registers/auto-create', {

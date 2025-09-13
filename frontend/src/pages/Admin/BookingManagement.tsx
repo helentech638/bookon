@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { authService } from '../../services/authService';
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
@@ -74,7 +75,7 @@ const BookingManagement: React.FC = () => {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const queryParams = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
@@ -138,7 +139,7 @@ const BookingManagement: React.FC = () => {
 
   const fetchVenues = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const response = await fetch(buildApiUrl('/admin/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -157,7 +158,7 @@ const BookingManagement: React.FC = () => {
 
   const fetchActivities = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const response = await fetch(buildApiUrl('/admin/activities'), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -176,7 +177,7 @@ const BookingManagement: React.FC = () => {
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const response = await fetch(buildApiUrl(`/admin/bookings/${bookingId}/status`), {
         method: 'PATCH',
         headers: {
