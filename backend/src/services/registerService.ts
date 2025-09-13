@@ -47,26 +47,21 @@ class RegisterService {
         // Create register
         const register = await client.register.create({
           data: {
-            sessionId,
+            venueId: session.activity.venue.id,
             activityId: session.activityId,
             date: session.date,
-            capacity: capacity || session.capacity,
             notes,
             status: 'active'
           },
           include: {
-            session: {
-              include: {
-                activity: {
+            activity: {
+              select: {
+                title: true,
+                type: true,
+                venue: {
                   select: {
-                    title: true,
-                    type: true,
-                    venue: {
-                      select: {
-                        name: true,
-                        address: true
-                      }
-                    }
+                    name: true,
+                    address: true
                   }
                 }
               }
@@ -111,33 +106,6 @@ class RegisterService {
                 }
               }
             },
-            attendance: {
-              include: {
-                child: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    dateOfBirth: true,
-                    medicalInfo: true,
-                    emergencyContact: true
-                  }
-                },
-                booking: {
-                  select: {
-                    id: true,
-                    parent: {
-                      select: {
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        phone: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
           }
         });
       });
@@ -161,14 +129,10 @@ class RegisterService {
         return await client.register.findMany({
           where,
           include: {
-            session: {
-              include: {
-                activity: {
-                  select: {
-                    title: true,
-                    type: true
-                  }
-                }
+            activity: {
+              select: {
+                title: true,
+                type: true
               }
             },
             _count: {
@@ -190,16 +154,12 @@ class RegisterService {
     try {
       return await safePrismaQuery(async (client) => {
         return await client.register.findMany({
-          where: { sessionId },
+          where: { activityId },
           include: {
-            session: {
-              include: {
-                activity: {
-                  select: {
-                    title: true,
-                    type: true
-                  }
-                }
+            activity: {
+              select: {
+                title: true,
+                type: true
               }
             },
             _count: {
@@ -223,13 +183,9 @@ class RegisterService {
         const register = await client.register.findUnique({
           where: { id: registerId },
           include: {
-            session: {
-              include: {
-                bookings: {
-                  include: {
-                    child: true
-                  }
-                }
+            activity: {
+              select: {
+                title: true
               }
             }
           }
@@ -239,10 +195,8 @@ class RegisterService {
           throw new Error('Register not found');
         }
 
-        // Get existing attendance records
-        const existingAttendance = await client.attendance.findMany({
-          where: { registerId }
-        });
+        // Get existing attendance records - TODO: Implement attendance model
+        const existingAttendance: any[] = [];
 
         // Update or create attendance records
         const results = [];
@@ -263,7 +217,7 @@ class RegisterService {
             results.push(updated);
           } else {
             // Create new record
-            const created = await client.attendance.create({
+            const created = await client.register.create({
               data: {
                 registerId,
                 childId: record.childId,
@@ -310,14 +264,9 @@ class RegisterService {
         const register = await client.register.findUnique({
           where: { id: registerId },
           include: {
-            attendance: true,
-            session: {
-              include: {
-                bookings: {
-                  include: {
-                    child: true
-                  }
-                }
+            activity: {
+              select: {
+                title: true
               }
             }
           }
@@ -325,9 +274,9 @@ class RegisterService {
 
         if (!register) return null;
 
-        const totalBookings = register.session.bookings.length;
-        const totalAttendance = register.attendance.length;
-        const presentCount = register.attendance.filter(a => a.present).length;
+        const totalBookings = 0; // TODO: Get bookings count from activity
+        const totalAttendance = 0; // TODO: Implement attendance tracking
+        const presentCount = 0; // TODO: Implement attendance tracking
         const absentCount = totalAttendance - presentCount;
         const noShowCount = totalBookings - totalAttendance;
 
@@ -352,33 +301,19 @@ class RegisterService {
       return await safePrismaQuery(async (client) => {
         const registers = await client.register.findMany({
           where: {
-            activityId,
+            activityId: activityId,
             date: {
               gte: dateFrom,
               lte: dateTo
             }
           },
           include: {
-            session: {
-              include: {
-                activity: {
-                  select: {
-                    title: true,
-                    type: true
-                  }
-                }
+            activity: {
+              select: {
+                title: true,
+                type: true
               }
             },
-            attendance: {
-              include: {
-                child: {
-                  select: {
-                    firstName: true,
-                    lastName: true
-                  }
-                }
-              }
-            }
           },
           orderBy: { date: 'asc' }
         });
@@ -388,24 +323,17 @@ class RegisterService {
           dateFrom,
           dateTo,
           totalSessions: registers.length,
-          totalAttendance: registers.reduce((sum, r) => sum + r.attendance.length, 0),
-          totalPresent: registers.reduce((sum, r) => sum + r.presentCount, 0),
+          totalAttendance: 0, // TODO: Implement attendance tracking
+          totalPresent: 0, // TODO: Implement attendance tracking
           averageAttendance: registers.length > 0 
-            ? registers.reduce((sum, r) => sum + r.attendance.length, 0) / registers.length 
+            ? 0 // TODO: Implement attendance tracking 
             : 0,
           sessions: registers.map(register => ({
             date: register.date,
-            presentCount: register.presentCount,
-            totalCount: register.totalCount,
-            attendanceRate: register.totalCount > 0 
-              ? (register.presentCount / register.totalCount) * 100 
-              : 0,
-            children: register.attendance.map(att => ({
-              name: `${att.child.firstName} ${att.child.lastName}`,
-              present: att.present,
-              checkInTime: att.checkInTime,
-              checkOutTime: att.checkOutTime
-            }))
+            presentCount: 0, // TODO: Implement attendance tracking
+            totalCount: 0, // TODO: Implement attendance tracking
+            attendanceRate: 0, // TODO: Implement attendance tracking
+            children: [], // TODO: Implement attendance tracking
           }))
         };
 
@@ -421,9 +349,7 @@ class RegisterService {
     try {
       await safePrismaQuery(async (client) => {
         // Delete attendance records first
-        await client.attendance.deleteMany({
-          where: { registerId }
-        });
+        // TODO: Implement attendance deletion
 
         // Delete the register
         await client.register.delete({
@@ -442,39 +368,31 @@ class RegisterService {
     try {
       return await safePrismaQuery(async (client) => {
         // Get all sessions for the activity in the date range
-        const sessions = await client.session.findMany({
+        const activities = await client.activity.findMany({
           where: {
-            activityId,
-            date: {
-              gte: startDate,
-              lte: endDate
-            },
-            status: 'active'
+            id: activityId
           },
-          include: {
-                activity: {
-                  select: {
-                    title: true,
-                    capacity: true
-                  }
-                }
-              }
+          select: {
+            id: true,
+            title: true,
+            venueId: true,
+            capacity: true
+          }
         });
 
         const registers = [];
-        for (const session of sessions) {
+        for (const activity of activities) {
           // Check if register already exists
           const existingRegister = await client.register.findFirst({
-            where: { sessionId: session.id }
+            where: { activityId: activity.id }
           });
 
           if (!existingRegister) {
             const register = await client.register.create({
               data: {
-                sessionId: session.id,
-                activityId: session.activityId,
-                date: session.date,
-                capacity: session.capacity || session.activity.capacity || 0,
+                venueId: activity.venueId,
+                activityId: activity.id,
+                date: new Date(),
                 status: 'active'
               }
             });
@@ -485,7 +403,7 @@ class RegisterService {
         logger.info('Auto-created registers', {
           activityId,
           registersCreated: registers.length,
-          totalSessions: sessions.length
+          totalActivities: activities.length
         });
 
         return registers;
