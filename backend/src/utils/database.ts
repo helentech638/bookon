@@ -3,12 +3,13 @@ import { logger } from './logger';
 
 // Database configuration with Supabase support
 const getDbConfig = () => {
-  // If DATABASE_DIRECT_URL is provided (Supabase), use it directly
-  if (process.env['DATABASE_DIRECT_URL']) {
-    logger.info('🔌 Using DATABASE_DIRECT_URL for Supabase connection');
+  // Always use DATABASE_URL (pooled connection) for regular operations
+  // DATABASE_DIRECT_URL should only be used for migrations and seeding
+  if (process.env['DATABASE_URL']) {
+    logger.info('🔌 Using DATABASE_URL (pooled connection) for regular operations');
     
-    // Log the DATABASE_DIRECT_URL (without password for security)
-    const dbUrl = process.env['DATABASE_DIRECT_URL'];
+    // Log the DATABASE_URL (without password for security)
+    const dbUrl = process.env['DATABASE_URL'];
     const urlParts = dbUrl.split('@');
     if (urlParts.length > 1) {
       const hostPart = urlParts[1];
@@ -18,7 +19,7 @@ const getDbConfig = () => {
     return {
       client: 'pg',
       connection: {
-        connectionString: process.env['DATABASE_DIRECT_URL'],
+        connectionString: process.env['DATABASE_URL'],
         ssl: { rejectUnauthorized: false }, // Required for Supabase
       },
       pool: {
@@ -58,7 +59,8 @@ const getDbConfig = () => {
     };
   }
 
-  // Fallback to individual environment variables
+  // Fallback to individual environment variables (only if DATABASE_URL is not set)
+  logger.warn('⚠️ DATABASE_URL not found, using individual environment variables');
   return {
     client: 'postgresql',
     connection: {

@@ -11,8 +11,8 @@ const createPrismaClient = () => {
     log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
-        // Use pooled connection URL for regular operations
-        // DATABASE_URL should be the pooled URL, DATABASE_DIRECT_URL is for migrations only
+        // Always use pooled connection URL for regular operations
+        // DATABASE_DIRECT_URL should only be used for migrations and seeding
         url: process.env['DATABASE_URL'] || '',
       },
     },
