@@ -10,6 +10,12 @@ export class WebSocketService {
   private connectedUsers: Map<string, string> = new Map(); // userId -> socketId
 
   constructor(server: HTTPServer) {
+    // Skip WebSocket initialization on Vercel/serverless environments
+    if (process.env['VERCEL'] || process.env['NODE_ENV'] === 'production') {
+      logger.info('WebSocket disabled in serverless environment');
+      return;
+    }
+
     this.io = new SocketIOServer(server, {
       cors: {
         origin: process.env['FRONTEND_URL'] || "http://localhost:5173",

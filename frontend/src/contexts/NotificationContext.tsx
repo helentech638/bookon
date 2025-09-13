@@ -18,11 +18,13 @@ interface NotificationContextType {
   unreadCount: number;
   isConnected: boolean;
   socket: Socket | null;
+  isPollingDisabled: boolean;
   markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
   clearNotifications: () => void;
   connect: () => void;
   disconnect: () => void;
+  retryPolling: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -45,6 +47,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const [isConnected, setIsConnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [pollingErrors, setPollingErrors] = useState(0);
+  const [isPollingDisabled, setIsPollingDisabled] = useState(false);
   const [isVercelProduction] = useState(() => window.location.hostname.includes('vercel.app'));
 
   // Connect to WebSocket
@@ -55,6 +59,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (isVercelProduction) {
       console.log('Running on Vercel - WebSocket disabled, using HTTP polling for notifications');
       setIsConnected(false);
+      setIsPollingDisabled(false); // Enable polling instead
       return;
     }
 
@@ -226,6 +231,15 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     setUnreadCount(0);
   };
 
+  // Retry polling after CORS issues are resolved
+  const retryPolling = () => {
+    if (isVercelProduction) {
+      setPollingErrors(0);
+      setIsPollingDisabled(false);
+      console.log('Retrying notification polling...');
+    }
+  };
+
   // Fetch notifications on mount
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -257,7 +271,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   // HTTP polling fallback for Vercel
   useEffect(() => {
-    if (!isVercelProduction) return;
+    if (!isVercelProduction || isPollingDisabled) return;
 
     const pollNotifications = async () => {
       try {
@@ -276,22 +290,40 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           if (data.success) {
             setNotifications(data.data.notifications || []);
             setUnreadCount(data.data.unreadCount || 0);
+            // Reset error count on successful request
+            setPollingErrors(0);
           }
+        } else if (response.status === 401) {
+          // Token expired, stop polling
+          console.warn('Authentication failed, stopping notification polling');
+          setIsPollingDisabled(true);
         }
       } catch (error) {
-        // Silently handle errors to avoid console spam
-        console.warn('Notification polling error (non-critical):', error);
+        const newErrorCount = pollingErrors + 1;
+        setPollingErrors(newErrorCount);
+        
+        // If we get too many consecutive errors, disable polling
+        if (newErrorCount >= 5) {
+          console.warn('Too many notification polling errors, disabling polling');
+          setIsPollingDisabled(true);
+          return;
+        }
+        
+        // Only log every 5th error to reduce console spam
+        if (newErrorCount % 5 === 0) {
+          console.warn(`Notification polling error ${newErrorCount}/5 (non-critical):`, error);
+        }
       }
     };
 
-    // Poll every 60 seconds on Vercel (reduced frequency for better performance)
-    const interval = setInterval(pollNotifications, 60000);
+    // Poll every 5 minutes on Vercel (reduced frequency to prevent database overload)
+    const interval = setInterval(pollNotifications, 300000);
     
     // Initial poll
     pollNotifications();
 
     return () => clearInterval(interval);
-  }, [isVercelProduction]);
+  }, [isVercelProduction, isPollingDisabled, pollingErrors]);
 
   // Connect to WebSocket when user is authenticated (non-Vercel)
   useEffect(() => {
@@ -319,11 +351,13 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     unreadCount,
     isConnected,
     socket,
+    isPollingDisabled,
     markAsRead,
     markAllAsRead,
     clearNotifications,
     connect,
     disconnect,
+    retryPolling,
   };
 
   return (
