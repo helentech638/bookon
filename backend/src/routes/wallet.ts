@@ -24,7 +24,17 @@ const validateCreditTransfer = [
 // Get wallet balance
 router.get('/balance', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    logger.info('Wallet balance request', { 
+      userId: req.user?.id, 
+      email: req.user?.email,
+      providerId: req.query.providerId 
+    });
+
+    if (!req.user) {
+      throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    }
+
+    const userId = req.user.id;
     const { providerId } = req.query;
 
     const balance = await walletService.getWalletBalance(userId, providerId as string);
@@ -34,7 +44,13 @@ router.get('/balance', authenticateToken, asyncHandler(async (req: Request, res:
       data: balance
     });
   } catch (error) {
-    logger.error('Error getting wallet balance:', error);
+    logger.error('Error getting wallet balance:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: req.user?.id,
+      providerId: req.query.providerId
+    });
+    
     if (error instanceof AppError) throw error;
     throw new AppError('Failed to get wallet balance', 500, 'WALLET_BALANCE_ERROR');
   }
