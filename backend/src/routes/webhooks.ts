@@ -248,6 +248,106 @@ function processMailgunEvent(event: any): any {
   };
 }
 
+// Get webhook events
+router.get('/events', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { page = '1', limit = '50', eventType, source, processed } = req.query;
+    
+    const whereClause: any = {};
+    if (eventType) whereClause.eventType = eventType;
+    if (source) whereClause.source = source;
+    if (processed !== undefined) whereClause.processed = processed === 'true';
+
+    const events = await safePrismaQuery(async (client) => {
+      return await client.webhookEvent.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+        take: parseInt(limit as string)
+      });
+    });
+
+    const totalCount = await safePrismaQuery(async (client) => {
+      return await client.webhookEvent.count({ where: whereClause });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        events,
+        pagination: {
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          total: totalCount,
+          pages: Math.ceil(totalCount / parseInt(limit as string))
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching webhook events:', error);
+    throw new AppError('Failed to fetch webhook events', 500, 'WEBHOOK_EVENTS_ERROR');
+  }
+}));
+
+// Get webhook stats
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const stats = await safePrismaQuery(async (client) => {
+      const [
+        totalEvents,
+        processedEvents,
+        failedEvents,
+        eventsByType,
+        eventsBySource,
+        recentEvents
+      ] = await Promise.all([
+        client.webhookEvent.count(),
+        client.webhookEvent.count({ where: { processed: true } }),
+        client.webhookEvent.count({ where: { processed: false } }),
+        client.webhookEvent.groupBy({
+          by: ['eventType'],
+          _count: { eventType: true }
+        }),
+        client.webhookEvent.groupBy({
+          by: ['source'],
+          _count: { source: true }
+        }),
+        client.webhookEvent.count({
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+            }
+          }
+        })
+      ]);
+
+      return {
+        totalEvents,
+        processedEvents,
+        failedEvents,
+        successRate: totalEvents > 0 ? (processedEvents / totalEvents) * 100 : 0,
+        eventsByType: eventsByType.reduce((acc, item) => {
+          acc[item.eventType] = item._count.eventType;
+          return acc;
+        }, {} as Record<string, number>),
+        eventsBySource: eventsBySource.reduce((acc, item) => {
+          acc[item.source] = item._count.source;
+          return acc;
+        }, {} as Record<string, number>),
+        recentEvents
+      };
+    });
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error fetching webhook stats:', error);
+    throw new AppError('Failed to fetch webhook stats', 500, 'WEBHOOK_STATS_ERROR');
+  }
+}));
+
 // Test webhook endpoint
 router.get('/test', asyncHandler(async (req: Request, res: Response) => {
   res.json({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 import { 
   Card, 
   CardContent, 
@@ -71,7 +72,7 @@ const WebhookManagement: React.FC = () => {
         if (value) params.append(key, value);
       });
 
-      const response = await fetch(`/api/v1/webhooks/events?${params}`, {
+      const response = await fetch(buildApiUrl(`/webhooks/events?${params}`), {
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`
         }
@@ -93,7 +94,7 @@ const WebhookManagement: React.FC = () => {
 
   const fetchWebhookStats = async () => {
     try {
-      const response = await fetch('/api/v1/webhooks/stats', {
+      const response = await fetch(buildApiUrl('/webhooks/stats'), {
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`
         }
