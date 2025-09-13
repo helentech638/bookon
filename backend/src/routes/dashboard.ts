@@ -350,7 +350,7 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
             createdAt: { gte: startDate, lte: endDate },
             status: 'confirmed'
           },
-          _sum: { totalAmount: true }
+          _sum: { amount: true }
         }),
         prisma.activity.count({
           where: {
@@ -362,7 +362,7 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
 
       return {
         totalBookings,
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
+        totalRevenue: totalRevenue._sum.amount || 0,
         totalActivities,
         totalVenues,
         dateRange: { startDate, endDate }

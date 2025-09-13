@@ -396,23 +396,25 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
   try {
     const { limit = '10' } = req.query;
     
-    const bookings = await prisma.booking.findMany({
-      take: parseInt(limit as string),
-      orderBy: { createdAt: 'desc' },
-      include: {
-        activity: {
-          include: {
-            venue: true
-          }
-        },
-        parent: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
+    const bookings = await safePrismaQuery(async (client) => {
+      return await client.booking.findMany({
+        take: parseInt(limit as string),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          activity: {
+            include: {
+              venue: true
+            }
+          },
+          parent: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
           }
         }
-      }
+      });
     });
 
     res.json({
@@ -420,7 +422,7 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
       data: bookings.map((booking: any) => ({
         id: booking.id,
         status: booking.status,
-        totalAmount: booking.amount,
+        amount: booking.amount,
         bookingDate: booking.activityDate,
         createdAt: booking.createdAt,
         user: {
