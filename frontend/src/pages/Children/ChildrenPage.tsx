@@ -7,13 +7,16 @@ import {
   UserIcon,
   CalendarIcon,
   ExclamationTriangleIcon,
-  HeartIcon
+  HeartIcon,
+  ShieldCheckIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import ChildForm from '../../components/children/ChildForm';
 import { authService } from '../../services/authService';
+import { useNavigate } from 'react-router-dom';
 
 interface Child {
   id: string;
@@ -23,13 +26,20 @@ interface Child {
   yearGroup?: string;
   allergies?: string;
   medicalInfo?: string;
-  emergencyContacts?: string;
-  notes?: string;
+  school?: string;
+  class?: string;
+  permissions?: {
+    consentToWalkHome: boolean;
+    consentToPhotography: boolean;
+    consentToFirstAid: boolean;
+    consentToEmergencyContact: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
 
 const ChildrenPage: React.FC = () => {
+  const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,17 +199,39 @@ const ChildrenPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Children</h1>
-          <p className="text-gray-600 mt-2">Manage your children's information and preferences</p>
-        </div>
-        <Button onClick={() => setShowAddModal(true)}>
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Add Child
-        </Button>
+    <div className="min-h-screen bg-white">
+      {/* Mobile Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 md:hidden">
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 -ml-2"
+        >
+          <ArrowLeftIcon className="h-6 w-6 text-gray-600" />
+        </button>
+        <h1 className="text-lg font-semibold text-gray-900">My Children</h1>
+        <button
+          onClick={() => navigate('/children/new')}
+          className="p-2 -mr-2"
+        >
+          <PlusIcon className="h-6 w-6 text-[#00806a]" />
+        </button>
       </div>
+
+      {/* Desktop Header */}
+      <div className="hidden md:block container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Children</h1>
+            <p className="text-gray-600 mt-2">Manage your children's information and preferences</p>
+          </div>
+          <Button onClick={() => navigate('/children/new')}>
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Add Child
+          </Button>
+        </div>
+      </div>
+
+      <div className="px-4 py-6 md:px-0 md:py-0 md:container md:mx-auto">
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
@@ -216,7 +248,7 @@ const ChildrenPage: React.FC = () => {
             <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No children added yet</h3>
             <p className="text-gray-600 mb-6">Add your children to start booking activities for them.</p>
-            <Button onClick={() => setShowAddModal(true)}>
+            <Button onClick={() => navigate('/children/new')}>
               <PlusIcon className="w-5 h-5 mr-2" />
               Add Your First Child
             </Button>
@@ -246,6 +278,14 @@ const ChildrenPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => navigate(`/children/${child.id}/permissions`)}
+                      title="Manage Permissions"
+                    >
+                      <ShieldCheckIcon className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEditModal(child)}
                     >
                       <PencilIcon className="w-4 h-4" />
@@ -267,6 +307,16 @@ const ChildrenPage: React.FC = () => {
                       <span className="font-medium">Year Group:</span> {child.yearGroup}
                     </p>
                   )}
+                  {child.school && (
+                    <p className="text-sm">
+                      <span className="font-medium">School:</span> {child.school}
+                    </p>
+                  )}
+                  {child.class && (
+                    <p className="text-sm">
+                      <span className="font-medium">Class:</span> {child.class}
+                    </p>
+                  )}
                   {child.allergies && (
                     <p className="text-sm">
                       <span className="font-medium">Allergies:</span> {child.allergies}
@@ -277,17 +327,30 @@ const ChildrenPage: React.FC = () => {
                       <span className="font-medium">Medical Info:</span> {child.medicalInfo}
                     </p>
                   )}
-                                     {child.emergencyContacts && (
-                     <p className="text-sm">
-                       <span className="font-medium">Emergency Contacts:</span> {child.emergencyContacts}
-                     </p>
-                   )}
-                  {child.notes && (
-                    <p className="text-sm">
-                      <span className="font-medium">Notes:</span> {child.notes}
-                    </p>
-                  )}
                 </div>
+                
+                {/* Permissions Summary */}
+                {child.permissions && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Permissions</span>
+                      <div className="flex space-x-1">
+                        {child.permissions.consentToWalkHome && (
+                          <div className="w-2 h-2 bg-green-500 rounded-full" title="Walk Home"></div>
+                        )}
+                        {child.permissions.consentToPhotography && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" title="Photography"></div>
+                        )}
+                        {child.permissions.consentToFirstAid && (
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full" title="First Aid"></div>
+                        )}
+                        {child.permissions.consentToEmergencyContact && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full" title="Emergency Contact"></div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -351,6 +414,7 @@ const ChildrenPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+      </div>
     </div>
   );
 };

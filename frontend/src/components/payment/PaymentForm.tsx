@@ -5,11 +5,13 @@ import { toast } from 'react-hot-toast';
 import StripePayment from './StripePayment';
 import TFCPaymentOption from './TFCPaymentOption';
 import { CreditCardIcon, BuildingOfficeIcon, ClockIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { formatPrice } from '../../utils/formatting';
 
 interface PaymentFormProps {
   amount: number;
   currency: string;
   bookingId: string;
+  childId?: string;
   venueId?: string;
   activityName?: string;
   venueName?: string;
@@ -42,6 +44,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   amount,
   currency,
   bookingId,
+  childId,
   venueId,
   activityName,
   venueName,
@@ -121,10 +124,39 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     onCancel();
   };
 
-  const handleTFCSelected = (data: any) => {
-    setTfcData(data);
-    // Redirect to pending payment page
-    window.location.href = `/pending-payment/${bookingId}`;
+  const handleTFCSelected = async (data: any) => {
+    try {
+      setTfcData(data);
+      
+      // Create TFC booking
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('/api/v1/tfc/create-booking', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          activityId: bookingId, // This is the activity ID
+          childId: childId, // This is passed from parent
+          paymentReference: data.paymentReference,
+          deadline: data.deadline.toISOString(),
+          amount: data.amount,
+          tfcConfig: tfcConfig
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Redirect to pending payment page with actual booking ID
+        window.location.href = `/pending-payment/${result.data.id}`;
+      } else {
+        throw new Error('Failed to create TFC booking');
+      }
+    } catch (error) {
+      console.error('Error creating TFC booking:', error);
+      toast.error('Failed to create TFC booking. Please try again.');
+    }
   };
 
   const handleWalletCreditChange = (useCredit: boolean, amount: number) => {
@@ -194,7 +226,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium text-green-900">Wallet Credits Available</h3>
               <span className="text-lg font-bold text-green-700">
-                £{walletBalance.availableCredits.toFixed(2)}
+                {formatPrice(walletBalance.availableCredits)}
               </span>
             </div>
             <div className="flex items-center space-x-3">
@@ -212,7 +244,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             {useWalletCredit && (
               <div className="mt-3">
                 <label htmlFor="creditAmount" className="block text-sm font-medium text-green-800 mb-1">
-                  Amount to use (£{Math.min(creditAmount, walletBalance.availableCredits, amount).toFixed(2)})
+                  Amount to use ({formatPrice(Math.min(creditAmount, walletBalance.availableCredits, amount))})
                 </label>
                 <input
                   type="range"
@@ -226,7 +258,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                 />
                 <div className="flex justify-between text-xs text-green-600 mt-1">
                   <span>£0</span>
-                  <span>£{Math.min(walletBalance.availableCredits, amount).toFixed(2)}</span>
+                  <span>{formatPrice(Math.min(walletBalance.availableCredits, amount))}</span>
                 </div>
               </div>
             )}
@@ -256,13 +288,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <div className="text-sm text-gray-500">Visa, Mastercard, American Express</div>
                   {finalAmount < amount && (
                     <div className="text-sm text-green-600 mt-1">
-                      Final amount: £{finalAmount.toFixed(2)} (after credits)
+                      Final amount: {formatPrice(finalAmount)} (after credits)
                     </div>
                   )}
                 </div>
                 <div className="text-right">
                   <div className="font-medium text-gray-900">
-                    £{finalAmount.toFixed(2)}
+                    {formatPrice(finalAmount)}
                   </div>
                 </div>
               </div>
@@ -312,7 +344,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               className="flex-1"
               disabled={loading}
             >
-              {loading ? 'Loading...' : `Pay £${finalAmount.toFixed(2)}`}
+              {loading ? 'Loading...' : `Pay ${formatPrice(finalAmount)}`}
             </Button>
           )}
           {selectedPaymentMethod === 'tfc' && (
@@ -322,7 +354,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               className="flex-1 bg-green-600 hover:bg-green-700"
               disabled={loading}
             >
-              {loading ? 'Creating TFC Booking...' : `Create TFC Booking (£${finalAmount.toFixed(2)})`}
+              {loading ? 'Creating TFC Booking...' : `Create TFC Booking (${formatPrice(finalAmount)})`}
             </Button>
           )}
           {!selectedPaymentMethod && (

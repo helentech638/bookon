@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, {
+  apiVersion: '2023-10-16',
 });
 
 const prisma = new PrismaClient();
@@ -37,7 +37,7 @@ export class StripeConnectService {
         business_type: params.businessType,
         business_profile: {
           name: params.companyName || `${params.firstName} ${params.lastName}`,
-          url: undefined, // Can be added later
+          url: '', // Can be added later
         },
         capabilities: {
           card_payments: { requested: true },
@@ -129,7 +129,7 @@ export class StripeConnectService {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: params.amount,
         currency: params.currency,
-        customer: params.customerId,
+        customer: params.customerId || undefined,
         application_fee_amount: params.applicationFeeAmount,
         transfer_data: {
           destination: params.connectedAccountId,
@@ -158,9 +158,9 @@ export class StripeConnectService {
     try {
       const refund = await stripe.refunds.create({
         payment_intent: params.paymentIntentId,
-        amount: params.amount,
+        amount: params.amount || undefined,
         refund_application_fee: params.refundApplicationFee ?? true,
-        reason: params.reason as any,
+        reason: params.reason || undefined,
       });
 
       return refund;

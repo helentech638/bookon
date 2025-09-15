@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { formatPrice, formatInteger } from '../../utils/formatting';
 
 interface Course {
   id: string;
@@ -119,7 +120,13 @@ const CoursesPage: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setCourses(data.data);
+        // Validate and sanitize course data
+        const validatedCourses = Array.isArray(data.data) ? data.data.map((course: any) => ({
+          ...course,
+          price: typeof course.price === 'string' ? parseFloat(course.price) || 0 : course.price || 0,
+          capacity: typeof course.capacity === 'string' ? parseInt(course.capacity) || 0 : course.capacity || 0,
+        })) : [];
+        setCourses(validatedCourses);
         
         const endTime = performance.now();
         const loadTime = endTime - startTime;
@@ -290,11 +297,11 @@ const CoursesPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="flex items-center text-sm text-gray-600">
             <CurrencyPoundIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>£{course.price.toFixed(2)} per session</span>
+            <span>£{formatPrice(course.price)} per session</span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <UserGroupIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{course.capacity} capacity</span>
+            <span>{formatInteger(course.capacity)} capacity</span>
           </div>
         </div>
 

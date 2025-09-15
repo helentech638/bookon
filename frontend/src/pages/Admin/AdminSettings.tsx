@@ -21,6 +21,7 @@ import {
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface SystemSettings {
   // General Settings
@@ -140,7 +141,7 @@ const AdminSettings: React.FC = () => {
       setLoading(true);
       const token = authService.getToken();
       
-      const response = await fetch('/api/v1/admin/settings', {
+      const response = await fetch(buildApiUrl('/admin/settings'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -164,7 +165,7 @@ const AdminSettings: React.FC = () => {
       setSaving(true);
       const token = authService.getToken();
       
-      const response = await fetch('/api/v1/admin/settings', {
+      const response = await fetch(buildApiUrl('/admin/settings'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -731,16 +732,16 @@ const AdminSettings: React.FC = () => {
     <AdminLayout title="Admin Settings">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
-            <p className="text-gray-600">Configure platform-wide settings and preferences</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">System Settings</h1>
+            <p className="text-sm sm:text-base text-gray-600">Configure platform-wide settings and preferences</p>
           </div>
-          <div className="flex space-x-3">
-            <Button variant="outline" onClick={fetchSettings}>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+            <Button variant="outline" onClick={fetchSettings} className="w-full sm:w-auto">
               Reset
             </Button>
-            <Button onClick={saveSettings} disabled={saving}>
+            <Button onClick={saveSettings} disabled={saving} className="w-full sm:w-auto">
               {saving ? 'Saving...' : 'Save Settings'}
             </Button>
           </div>
@@ -748,21 +749,22 @@ const AdminSettings: React.FC = () => {
 
         {/* Tabs */}
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="h-4 w-4 mr-2" />
-                  {tab.name}
+                  <Icon className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">{tab.name}</span>
+                  <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                 </button>
               );
             })}

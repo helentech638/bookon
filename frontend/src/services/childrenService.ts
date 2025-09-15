@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { buildApiUrl } from '../config/api';
 
 export interface Child {
   id: string;
@@ -8,6 +9,8 @@ export interface Child {
   yearGroup: string;
   allergies: string | null;
   medicalInfo: string | null;
+  school: string;
+  class?: string;
   emergencyContact: {
     name: string;
     phone: string;
@@ -22,6 +25,8 @@ export interface CreateChildRequest {
   lastName: string;
   dateOfBirth: string;
   yearGroup: string;
+  school: string;
+  class?: string;
   allergies?: string | null;
   medicalInfo?: string | null;
   emergencyContact?: {
@@ -34,7 +39,7 @@ export interface CreateChildRequest {
 export interface UpdateChildRequest extends Partial<CreateChildRequest> {}
 
 class ChildrenService {
-  private baseUrl = 'https://bookon55.vercel.app/api/v1/children';
+  private baseUrl = buildApiUrl('/children');
 
   private async request<T>(
     endpoint: string,

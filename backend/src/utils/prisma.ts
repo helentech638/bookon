@@ -16,8 +16,11 @@ const createPrismaClient = () => {
     const url = new URL(databaseUrl);
     url.searchParams.set('prepared', 'false');  // Use 'prepared' instead of 'prepared_statements'
     url.searchParams.set('pgbouncer', 'true'); // Enable pgbouncer
-    url.searchParams.set('connection_limit', '20'); // Set connection limit
-    url.searchParams.set('pool_timeout', '20'); // Set pool timeout
+    url.searchParams.set('connection_limit', '5'); // Reduce connection limit for serverless
+    url.searchParams.set('pool_timeout', '10'); // Reduce pool timeout
+    url.searchParams.set('sslmode', 'disable'); // Disable SSL for serverless environments
+    url.searchParams.set('connect_timeout', '10'); // Add connection timeout
+    url.searchParams.set('statement_timeout', '30000'); // Add statement timeout
     databaseUrl = url.toString();
   }
   
@@ -35,9 +38,9 @@ const createPrismaClient = () => {
     // Add connection pool configuration for better reliability
     __internal: {
       engine: {
-        connectTimeout: 30000, // 30 seconds
-        poolTimeout: 30000,    // 30 seconds
-        connectionLimit: 5,    // Reduce connection limit to prevent pool exhaustion
+        connectTimeout: 10000, // 10 seconds - reduced for serverless
+        poolTimeout: 10000,    // 10 seconds - reduced for serverless
+        connectionLimit: 3,    // Further reduce connection limit for serverless
         // Disable prepared statements in production/serverless to avoid caching issues
         ...(isProduction && { preparedStatements: false }),
       },
@@ -84,7 +87,7 @@ export const getDatabaseInfo = () => {
   };
 };
 
-// Wrapper function to handle prepared statement errors
+// Wrapper function to handle prepared statement errors and SSL issues
 export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Promise<T>): Promise<T> => {
   try {
     return await queryFn(prisma);
@@ -97,10 +100,28 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
       error.code === '08P01'    // bind message parameter mismatch
     );
     
-    if (isPreparedStatementError) {
-      console.warn('Prepared statement error detected, retrying with fresh connection...', {
+    // Check if it's an SSL certificate error
+    const isSSLError = error.message && (
+      error.message.includes('SELF_SIGNED_CERT_IN_CHAIN') ||
+      error.message.includes('certificate') ||
+      error.message.includes('SSL') ||
+      error.code === 'SELF_SIGNED_CERT_IN_CHAIN'
+    );
+    
+    // Check if it's a connection pool error
+    const isConnectionPoolError = error.message && (
+      error.message.includes('connection pool') ||
+      error.message.includes('Timed out fetching a new connection') ||
+      error.message.includes('connection_limit') ||
+      error.message.includes('pool_timeout')
+    );
+    
+    if (isPreparedStatementError || isSSLError || isConnectionPoolError) {
+      console.warn('Database connection error detected, retrying with fresh connection...', {
         errorCode: error.code,
-        errorMessage: error.message?.substring(0, 100)
+        errorMessage: error.message?.substring(0, 100),
+        errorType: isPreparedStatementError ? 'prepared_statement' : 
+                   isSSLError ? 'ssl_certificate' : 'connection_pool'
       });
       
       // Create a fresh Prisma client instance
@@ -120,5 +141,22 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
     throw error;
   }
 };
+
+// Connection cleanup function for serverless environments
+export const cleanupConnections = async () => {
+  try {
+    await prisma.$disconnect();
+    console.log('Database connections cleaned up successfully');
+  } catch (error) {
+    console.error('Error cleaning up database connections:', error);
+  }
+};
+
+// Add process cleanup handlers for serverless environments
+if (process.env['NODE_ENV'] === 'production') {
+  process.on('SIGTERM', cleanupConnections);
+  process.on('SIGINT', cleanupConnections);
+  process.on('beforeExit', cleanupConnections);
+}
 
 export default prisma;

@@ -1,14 +1,15 @@
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export interface WalletCredit {
   id: string;
   parentId: string;
-  providerId?: string;
-  bookingId?: string;
-  amount: number;
-  usedAmount: number;
+  providerId: string | null;
+  bookingId: string | null;
+  amount: number | Decimal;
+  usedAmount: number | Decimal;
   expiryDate: Date;
   source: string;
   status: string;
@@ -50,9 +51,11 @@ class WalletService {
         whereClause.providerId = providerId;
       }
 
-      const credits = await prisma.walletCredit.findMany({
-        where: whereClause,
-        orderBy: { expiryDate: 'asc' }
+      const credits = await safePrismaQuery(async (client) => {
+        return await client.walletCredit.findMany({
+          where: whereClause,
+          orderBy: { expiryDate: 'asc' }
+        });
       });
 
       const now = new Date();
@@ -173,8 +176,8 @@ class WalletService {
       const credit = await prisma.walletCredit.create({
         data: {
           parentId,
-          providerId,
-          bookingId,
+          providerId: providerId || null,
+          bookingId: bookingId || null,
           amount,
           usedAmount: 0,
           expiryDate,
@@ -200,54 +203,6 @@ class WalletService {
     }
   }
 
-  /**
-   * Get credits expiring within specified days
-   */
-  async getExpiringCredits(days: number = 30): Promise<WalletCredit[]> {
-    try {
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + days);
-
-      const credits = await prisma.walletCredit.findMany({
-        where: {
-          status: 'active',
-          expiryDate: {
-            lte: expiryDate,
-            gte: new Date() // Not yet expired
-          }
-        },
-        include: {
-          parent: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          },
-          booking: {
-            include: {
-              activity: {
-                include: {
-                  venue: {
-                    select: {
-                      name: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        orderBy: { expiryDate: 'asc' }
-      });
-
-      return credits;
-    } catch (error) {
-      logger.error('Error getting expiring credits:', error);
-      throw error;
-    }
-  }
 
   /**
    * Send expiry reminders for credits
@@ -269,7 +224,7 @@ class WalletService {
           
           logger.info('Credit expiry reminder would be sent', {
             creditId: credit.id,
-            parentEmail: credit.parent.email,
+            parentEmail: 'Unknown', // TODO: Get parent email from parentId
             amount: credit.amount,
             expiryDate: credit.expiryDate,
             daysUntilExpiry: Math.ceil((credit.expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -298,77 +253,6 @@ class WalletService {
     }
   }
 
-  /**
-   * Process expired credits (scheduled job)
-   */
-  async processExpiredCredits(): Promise<{ expired: number; errors: number }> {
-    try {
-      const now = new Date();
-      
-      const expiredCredits = await safePrismaQuery(async (client) => {
-        return await client.walletCredit.findMany({
-          where: {
-            status: 'active',
-            expiryDate: {
-              lt: now
-            }
-          },
-          include: {
-            parent: {
-              select: {
-                id: true,
-                email: true
-              }
-            }
-          }
-        });
-      });
-
-      let expired = 0;
-      let errors = 0;
-
-      for (const credit of expiredCredits) {
-        try {
-          await safePrismaQuery(async (client) => {
-            return await client.walletCredit.update({
-              where: { id: credit.id },
-              data: {
-                status: 'expired',
-                updatedAt: new Date()
-              }
-            });
-          });
-
-          // TODO: Send expiry notification email
-          logger.info('Credit expired', {
-            creditId: credit.id,
-            parentEmail: credit.parent.email,
-            amount: credit.amount,
-            expiryDate: credit.expiryDate
-          });
-
-          expired++;
-        } catch (error) {
-          errors++;
-          logger.error('Error processing expired credit:', {
-            creditId: credit.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-        }
-      }
-
-      logger.info('Expired credits processing completed', {
-        totalExpired: expiredCredits.length,
-        processed: expired,
-        errors
-      });
-
-      return { expired, errors };
-    } catch (error) {
-      logger.error('Error processing expired credits:', error);
-      throw error;
-    }
-  }
 
   /**
    * Get wallet analytics for admin dashboard
@@ -463,7 +347,7 @@ class WalletService {
       );
 
       const fromCredit = await prisma.walletCredit.findUnique({
-        where: { id: usage[0].creditId }
+        where: { id: usage[0]?.creditId || '' }
       });
 
       logger.info('Credits transferred successfully', {

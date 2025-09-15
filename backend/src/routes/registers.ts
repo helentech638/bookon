@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole } from '../middleware/auth';
-import { prisma, safePrismaQuery } from '../utils/prisma';
+import { safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { registerService } from '../services/registerService';
 
@@ -24,13 +24,19 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
 
     const where: any = {};
     
-    if (activityId) where.activityId = activityId as string;
     if (sessionId) where.sessionId = sessionId as string;
     
     if (dateFrom || dateTo) {
       where.date = {};
       if (dateFrom) where.date.gte = new Date(dateFrom as string);
       if (dateTo) where.date.lte = new Date(dateTo as string);
+    }
+
+    // If activityId is provided, filter by session's activity
+    if (activityId) {
+      where.session = {
+        activityId: activityId as string
+      };
     }
 
     const [registers, total] = await Promise.all([
@@ -45,7 +51,9 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
                 activity: {
                   select: {
                     title: true,
-                    type: true,
+                    description: true,
+                    capacity: true,
+                    price: true,
                     venue: {
                       select: {
                         name: true,
@@ -81,16 +89,60 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
             }
           },
           orderBy: { date: 'desc' }
-        });
+        } as any);
       }),
       safePrismaQuery(async (client) => {
         return await client.register.count({ where });
       })
     ]);
 
+    // Transform the data to match the expected frontend format
+    const transformedRegisters = registers.map((register: any) => ({
+      id: register.id,
+      date: register.date,
+      status: register.status,
+      notes: register.notes,
+      capacity: register.session?.activity?.capacity || 0,
+      presentCount: register.attendance?.filter((a: any) => a.present).length || 0,
+      totalCount: register.attendance?.length || 0,
+      session: {
+        id: register.session?.id,
+        startTime: register.session?.startTime,
+        endTime: register.session?.endTime,
+        activity: {
+          title: register.session?.activity?.title,
+          type: register.session?.activity?.type || 'Other',
+          venue: {
+            name: register.session?.activity?.venue?.name,
+            address: register.session?.activity?.venue?.address
+          }
+        }
+      },
+      attendance: register.attendance?.map((att: any) => ({
+        id: att.id,
+        present: att.present,
+        checkInTime: att.checkInTime,
+        checkOutTime: att.checkOutTime,
+        notes: att.notes,
+        child: {
+          id: att.child?.id,
+          firstName: att.child?.firstName,
+          lastName: att.child?.lastName
+        },
+        booking: {
+          parent: {
+            firstName: att.booking?.parent?.firstName,
+            lastName: att.booking?.parent?.lastName,
+            email: att.booking?.parent?.email,
+            phone: att.booking?.parent?.phone
+          }
+        }
+      })) || []
+    }));
+
     res.json({
       success: true,
-      data: registers,
+      data: transformedRegisters,
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
@@ -104,12 +156,152 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
+// Generate register template for activity
+router.get('/template/:activityId', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { activityId } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      throw new AppError('Date is required', 400, 'MISSING_DATE');
+    }
+
+    const sessionDate = new Date(date as string);
+
+    // Find sessions for this activity on the specified date
+    const sessions = await safePrismaQuery(async (client) => {
+      return await client.session.findMany({
+        where: {
+          activityId: activityId,
+          date: {
+            gte: new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate()),
+            lt: new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate() + 1)
+          }
+        },
+        include: {
+          activity: {
+            select: {
+              title: true,
+              description: true,
+              capacity: true,
+              price: true,
+              venue: {
+                select: {
+                  name: true,
+                  address: true
+                }
+              }
+            }
+          }
+        }
+      } as any);
+    });
+
+    if (sessions.length === 0) {
+      // Return empty template instead of 404
+      const template = {
+        activityId,
+        date: sessionDate,
+        activityTitle: 'Unknown Activity',
+        venueName: 'Unknown Venue',
+        startTime: '00:00',
+        endTime: '00:00',
+        sessions: [],
+        children: [],
+        message: 'No sessions found for this activity on the specified date'
+      };
+
+      res.json({
+        success: true,
+        data: template
+      });
+      return;
+    }
+
+    // Get all bookings for these sessions
+    const sessionIds = sessions.map((session: any) => session.id);
+    
+    const bookings = await safePrismaQuery(async (client) => {
+      return await client.booking.findMany({
+        where: {
+          sessionId: {
+            in: sessionIds
+          },
+          status: {
+            in: ['confirmed', 'active']
+          }
+        },
+        include: {
+          child: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              dateOfBirth: true,
+              yearGroup: true,
+              allergies: true,
+              medicalInfo: true
+            }
+          },
+          session: {
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true
+            }
+          }
+        }
+      } as any);
+    });
+
+    // Transform bookings into the expected format
+    const children = bookings.map((booking: any) => ({
+      childId: booking.child.id,
+      firstName: booking.child.firstName,
+      lastName: booking.child.lastName,
+      dateOfBirth: booking.child.dateOfBirth,
+      yearGroup: booking.child.yearGroup,
+      allergies: booking.child.allergies,
+      medicalInfo: booking.child.medicalInfo,
+      bookingId: booking.id,
+      status: 'present' as const,
+      notes: ''
+    }));
+
+    // Generate template data
+    const template = {
+      activityId,
+      date: sessionDate,
+      activityTitle: (sessions[0] as any)?.activity?.title || 'Unknown Activity',
+      venueName: (sessions[0] as any)?.activity?.venue?.name || 'Unknown Venue',
+      startTime: sessions[0]?.startTime || '00:00',
+      endTime: sessions[0]?.endTime || '00:00',
+      sessions: (sessions as any[]).map((session: any) => ({
+        id: session.id,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        activity: session.activity
+      })),
+      children: children
+    };
+
+    res.json({
+      success: true,
+      data: template
+    });
+  } catch (error) {
+    logger.error('Error generating register template:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to generate register template', 500, 'TEMPLATE_GENERATE_ERROR');
+  }
+}));
+
 // Get single register
 router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    const register = await registerService.getRegister(id);
+    const register = await registerService.getRegister(id as string);
     
     if (!register) {
       throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
@@ -129,13 +321,13 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
 // Create register
 router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { sessionId, capacity, notes } = req.body;
+    const { sessionId, notes } = req.body;
 
     if (!sessionId) {
       throw new AppError('Session ID is required', 400, 'MISSING_SESSION_ID');
     }
 
-    const register = await registerService.createRegister(sessionId, capacity, notes);
+    const register = await registerService.createRegister(sessionId, notes);
 
     logger.info('Register created', {
       registerId: register.id,
@@ -198,7 +390,7 @@ router.put('/:id/attendance', authenticateToken, requireRole(['admin', 'coordina
       throw new AppError('Attendance records are required', 400, 'MISSING_ATTENDANCE_RECORDS');
     }
 
-    const updatedRecords = await registerService.updateAttendance(id, attendanceRecords);
+    const updatedRecords = await registerService.updateAttendance(id as string, attendanceRecords);
 
     logger.info('Attendance updated', {
       registerId: id,
@@ -223,7 +415,7 @@ router.get('/:id/stats', authenticateToken, asyncHandler(async (req: Request, re
   try {
     const { id } = req.params;
     
-    const stats = await registerService.getAttendanceStats(id);
+    const stats = await registerService.getAttendanceStats(id as string);
     
     if (!stats) {
       throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
@@ -251,7 +443,7 @@ router.get('/:activityId/report', authenticateToken, requireRole(['admin', 'coor
     }
 
     const report = await registerService.generateAttendanceReport(
-      activityId,
+      activityId as string,
       new Date(dateFrom as string),
       new Date(dateTo as string)
     );
@@ -272,7 +464,7 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
   try {
     const { id } = req.params;
     
-    await registerService.deleteRegister(id);
+    await registerService.deleteRegister(id as string);
 
     logger.info('Register deleted', {
       registerId: id,
@@ -297,7 +489,7 @@ router.get('/activity/:activityId', authenticateToken, asyncHandler(async (req: 
     const { dateFrom, dateTo } = req.query;
 
     const registers = await registerService.getRegistersByActivity(
-      activityId,
+      activityId as string,
       dateFrom ? new Date(dateFrom as string) : undefined,
       dateTo ? new Date(dateTo as string) : undefined
     );
@@ -317,7 +509,7 @@ router.get('/session/:sessionId', authenticateToken, asyncHandler(async (req: Re
   try {
     const { sessionId } = req.params;
     
-    const registers = await registerService.getRegistersBySession(sessionId);
+    const registers = await registerService.getRegistersBySession(sessionId as string);
 
     res.json({
       success: true,

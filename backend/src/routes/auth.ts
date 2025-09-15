@@ -7,8 +7,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, authRateLimit, logout } from '../middleware/auth';
 import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
-import { prisma } from '../utils/prisma';
-import { prismaDirect } from '../utils/prismaDirect';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 
 const router = Router();
 
@@ -22,6 +21,8 @@ const validateRegistration = [
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name is required'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name is required'),
+  body('role').optional().isIn(['parent', 'business']).withMessage('Role must be either parent or business'),
+  body('businessName').optional().trim().isLength({ min: 2 }).withMessage('Business name must be at least 2 characters'),
 ];
 
 const validateLogin = [
@@ -92,19 +93,29 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
     throw new AppError(errors.array()[0]?.msg || 'Validation failed', 400, 'VALIDATION_ERROR');
   }
 
-  const { email, password, firstName, lastName } = req.body;
+  const { email, password, firstName, lastName, phone, role, businessName } = req.body;
   
   logger.info('Registration attempt:', {
     email,
     hasPassword: !!password,
     firstName,
     lastName,
+    phone: phone || 'not provided',
+    role: role || 'parent',
+    businessName: businessName || 'not provided',
     passwordLength: password?.length
   });
 
-  // Check if user already exists using direct connection
-  const existingUser = await prismaDirect.user.findUnique({
-    where: { email }
+  // Validate business registration requirements
+  if (role === 'business' && !businessName) {
+    throw new AppError('Business name is required for business registration', 400, 'VALIDATION_ERROR');
+  }
+
+  // Check if user already exists using connection pooling
+  const existingUser = await safePrismaQuery(async (client) => {
+    return await client.user.findUnique({
+      where: { email }
+    });
   });
   if (existingUser) {
     throw new AppError('User with this email already exists', 409, 'USER_EXISTS');
@@ -118,21 +129,26 @@ router.post('/register', validateRegistration, asyncHandler(async (req: Request,
   const verificationToken = uuidv4();
   // const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Create user using direct connection
-  const result = await prismaDirect.user.create({
-    data: {
-      email,
-      password_hash: passwordHash,
-      firstName: firstName,
-      lastName: lastName,
-      role: 'parent',
-      isActive: true,
-    },
-    select: {
-      id: true,
-      email: true,
-      role: true
-    }
+  // Create user using connection pooling
+  const result = await safePrismaQuery(async (client) => {
+    return await client.user.create({
+      data: {
+        email,
+        password_hash: passwordHash,
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone || null,
+        role: role || 'parent',
+        businessName: businessName || null,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        businessName: true
+      }
+    });
   });
 
   // Store verification token in Redis
@@ -277,9 +293,17 @@ router.post('/login', validateLogin, authRateLimit, asyncHandler(async (req: Req
     }
 
     // Update last login
-    // await db('users')
-    //   .where('id', user.id)
-    //   .update({ lastLoginAt: new Date() });
+    try {
+      await safePrismaQuery(async (client) => {
+        return await client.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() }
+        });
+      });
+    } catch (updateError) {
+      // Log but don't fail login if lastLoginAt update fails
+      logger.warn('Failed to update lastLoginAt:', updateError);
+    }
 
     // Log successful login
     logger.info('User logged in successfully', {
@@ -550,19 +574,23 @@ router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
   const userId = req.user!.id;
 
   try {
-    const user = await prismaDirect.user.findUnique({
-      where: { id: userId },
-      select: { 
-        id: true, 
-        email: true, 
-        firstName: true,
-        lastName: true,
-        role: true, 
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const user = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { 
+          id: true, 
+          email: true, 
+          firstName: true,
+          lastName: true,
+          role: true, 
+          isActive: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          phone: true,
+          lastLoginAt: true
+        }
+      });
     });
 
     if (!user) {
@@ -585,25 +613,27 @@ router.put('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
   const { firstName, lastName } = req.body;
 
   try {
-    const updatedUser = await prismaDirect.user.update({
-      where: { id: userId },
-      data: {
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        // Note: phone and address fields don't exist in current schema
-        // These would need to be added to the User model
-      },
-      select: { 
-        id: true, 
-        email: true, 
-        firstName: true,
-        lastName: true,
-        role: true, 
-        isActive: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const updatedUser = await safePrismaQuery(async (client) => {
+      return await client.user.update({
+        where: { id: userId },
+        data: {
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+        },
+        select: { 
+          id: true, 
+          email: true, 
+          firstName: true,
+          lastName: true,
+          role: true, 
+          isActive: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          phone: true,
+          lastLoginAt: true
+        }
+      });
     });
 
     res.json({
@@ -852,8 +882,10 @@ router.post('/reset-admin-password', asyncHandler(async (req: Request, res: Resp
     const { email = 'admin@bookon.com', password = 'admin123' } = req.body;
     
     // Find the admin user
-    const existingUser = await prismaDirect.user.findUnique({
-      where: { email }
+    const existingUser = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { email }
+      });
     });
     
     if (!existingUser) {
@@ -870,11 +902,13 @@ router.post('/reset-admin-password', asyncHandler(async (req: Request, res: Resp
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
     // Update the user's password
-    const updatedUser = await prismaDirect.user.update({
-      where: { email },
-      data: {
-        password_hash: passwordHash
-      }
+    const updatedUser = await safePrismaQuery(async (client) => {
+      return await client.user.update({
+        where: { email },
+        data: {
+          password_hash: passwordHash
+        }
+      });
     });
     
     logger.info('✅ Admin password reset', {
@@ -949,7 +983,7 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
     // Create admin user with retry logic
-    let adminUser;
+    let adminUser: any = null;
     retryCount = 0;
     
     while (retryCount < maxRetries) {
@@ -978,6 +1012,10 @@ router.post('/create-admin', asyncHandler(async (req: Request, res: Response) =>
         // Wait before retry (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
+    }
+    
+    if (!adminUser) {
+      throw new AppError('Failed to create admin user', 500, 'ADMIN_CREATION_FAILED');
     }
     
     logger.info('✅ Admin user created', {
@@ -1080,7 +1118,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
     // Create a booking
     const booking = await prisma.booking.create({
       data: {
-        courseId: course.id,
+        activityId: course.id,
         childId: child.id,
         parentId: parentUser.id,
         status: 'confirmed',

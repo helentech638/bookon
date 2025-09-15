@@ -12,6 +12,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import AdminLayout from '../../components/layout/AdminLayout';
+import { buildApiUrl } from '../../config/api';
+import { authService } from '../../services/authService';
 
 interface Venue {
   id: string;
@@ -49,8 +52,8 @@ const VenuesPage: React.FC = () => {
 
   const fetchVenues = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/v1/venues', {
+      const token = authService.getToken();
+      const response = await fetch(buildApiUrl('/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -80,17 +83,20 @@ const VenuesPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading venues...</p>
+      <AdminLayout title="Venues">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a] mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading venues...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout title="Venues">
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -218,6 +224,7 @@ const VenuesPage: React.FC = () => {
         )}
       </div>
     </div>
+    </AdminLayout>
   );
 };
 

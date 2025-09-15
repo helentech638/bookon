@@ -5,6 +5,7 @@ import { ArrowLeftIcon, PlusIcon, PencilIcon } from '@heroicons/react/24/outline
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { buildApiUrl } from '../../config/api';
+import { authService } from '../../services/authService';
 import AdminLayout from '../../components/layout/AdminLayout';
 
 interface ActivityFormData {
@@ -42,7 +43,13 @@ const ActivityForm: React.FC = () => {
   const [errors, setErrors] = useState<Partial<ActivityFormData>>({});
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = authService.getToken();
+    if (!token) {
+      toast.error('Authentication required. Please log in again.');
+      navigate('/login');
+      return;
+    }
+
     const fetchVenues = async () => {
       try {
         const response = await fetch(buildApiUrl('/venues'), {
@@ -71,7 +78,13 @@ const ActivityForm: React.FC = () => {
   }, [formData.venue_id]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = authService.getToken();
+    if (!token) {
+      toast.error('Authentication required. Please log in again.');
+      navigate('/login');
+      return;
+    }
+
     if (id) {
       const fetchActivity = async () => {
         try {
@@ -125,7 +138,13 @@ const ActivityForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
       const url = id 
         ? buildApiUrl(`/activities/${id}`)
         : buildApiUrl('/activities');

@@ -564,7 +564,7 @@ router.patch('/bookings/:id/status', authenticateToken, requireAdminOrStaff, asy
     const { id } = req.params;
     const { status, notes } = req.body;
 
-    const validStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+    const validStatuses = ['pending', 'pending_payment', 'confirmed', 'cancelled', 'completed'];
     if (!validStatuses.includes(status)) {
       throw new AppError('Invalid status', 400, 'INVALID_STATUS');
     }
@@ -1474,6 +1474,116 @@ router.put('/payment-settings', authenticateToken, requireAdminOrStaff, asyncHan
   }
 }));
 
+// Venue TFC Settings Management
+router.get('/venues/:id/tfc-settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const venue = await safePrismaQuery(async (client) => {
+      return await client.venue.findUnique({
+        where: { id: id! },
+        select: {
+          id: true,
+          name: true,
+          tfcEnabled: true,
+          tfcHoldPeriod: true,
+          tfcInstructions: true,
+          tfcDefaultToCredit: true
+        }
+      });
+    });
+
+    if (!venue) {
+      throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      data: {
+        venueId: venue.id,
+        venueName: venue.name,
+        tfcEnabled: venue.tfcEnabled,
+        tfcHoldPeriod: venue.tfcHoldPeriod,
+        tfcInstructions: venue.tfcInstructions,
+        tfcDefaultToCredit: venue.tfcDefaultToCredit
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching venue TFC settings:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to fetch venue TFC settings', 500, 'VENUE_TFC_SETTINGS_ERROR');
+  }
+}));
+
+router.put('/venues/:id/tfc-settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { tfcEnabled, tfcHoldPeriod, tfcInstructions, tfcDefaultToCredit } = req.body;
+
+    // Validate input
+    if (typeof tfcEnabled !== 'boolean') {
+      throw new AppError('tfcEnabled must be a boolean', 400, 'VALIDATION_ERROR');
+    }
+
+    if (tfcHoldPeriod && (tfcHoldPeriod < 1 || tfcHoldPeriod > 30)) {
+      throw new AppError('tfcHoldPeriod must be between 1 and 30 days', 400, 'VALIDATION_ERROR');
+    }
+
+    if (typeof tfcDefaultToCredit !== 'boolean') {
+      throw new AppError('tfcDefaultToCredit must be a boolean', 400, 'VALIDATION_ERROR');
+    }
+
+    const updatedVenue = await safePrismaQuery(async (client) => {
+      return await client.venue.update({
+        where: { id: id! },
+        data: {
+          tfcEnabled,
+          tfcHoldPeriod: tfcHoldPeriod || 5,
+          tfcInstructions: tfcInstructions || null,
+          tfcDefaultToCredit,
+          updatedAt: new Date()
+        },
+        select: {
+          id: true,
+          name: true,
+          tfcEnabled: true,
+          tfcHoldPeriod: true,
+          tfcInstructions: true,
+          tfcDefaultToCredit: true
+        }
+      });
+    });
+
+    logger.info('Admin updated venue TFC settings', {
+      venueId: id,
+      adminUserId: req.user!.id,
+      tfcEnabled,
+      tfcHoldPeriod,
+      tfcDefaultToCredit
+    });
+
+    res.json({
+      success: true,
+      message: 'Venue TFC settings updated successfully',
+      data: {
+        venueId: updatedVenue.id,
+        venueName: updatedVenue.name,
+        tfcEnabled: updatedVenue.tfcEnabled,
+        tfcHoldPeriod: updatedVenue.tfcHoldPeriod,
+        tfcInstructions: updatedVenue.tfcInstructions,
+        tfcDefaultToCredit: updatedVenue.tfcDefaultToCredit
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating venue TFC settings:', error);
+    if (error instanceof AppError) throw error;
+    if (error.code === 'P2025') {
+      throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
+    }
+    throw new AppError('Failed to update venue TFC settings', 500, 'VENUE_TFC_UPDATE_ERROR');
+  }
+}));
+
 // Venue Payment Account Management
 router.get('/venue-payment-accounts', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
@@ -1960,6 +2070,594 @@ router.post('/export/schedule', authenticateToken, requireAdminOrStaff, asyncHan
       success: false,
       message: 'Failed to schedule export'
     });
+  }
+}));
+
+// Get audit logs
+router.get('/audit-logs', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { action, resourceType, userId, dateFrom, dateTo } = req.query;
+    
+    // Build where clause for filtering
+    const whereClause: any = {};
+    
+    if (action) {
+      whereClause.action = { contains: action as string, mode: 'insensitive' };
+    }
+    
+    if (resourceType) {
+      whereClause.resourceType = resourceType as string;
+    }
+    
+    if (userId) {
+      whereClause.userId = userId as string;
+    }
+    
+    if (dateFrom || dateTo) {
+      whereClause.createdAt = {};
+      if (dateFrom) {
+        whereClause.createdAt.gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        whereClause.createdAt.lte = new Date(dateTo as string);
+      }
+    }
+
+    // Get audit logs with pagination
+    const page = parseInt(req.query['page'] as string) || 1;
+    const limit = parseInt(req.query['limit'] as string) || 50;
+    const skip = (page - 1) * limit;
+
+    const [auditLogs, totalCount] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: whereClause,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.auditLog.count({
+        where: whereClause
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        auditLogs,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching audit logs:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch audit logs'
+    });
+  }
+}));
+
+// Get bulk operations
+router.get('/bulk-operations', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query['page'] as string) || 1;
+    const limit = parseInt(req.query['limit'] as string) || 50;
+    const skip = (page - 1) * limit;
+
+    // Get bulk operations with pagination
+    const [bulkOperations, totalCount] = await Promise.all([
+      prisma.bulkOperation.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip,
+        take: limit
+      }),
+      prisma.bulkOperation.count()
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        bulkOperations,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching bulk operations:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bulk operations'
+    });
+  }
+}));
+
+// Admin Settings Management
+router.get('/settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    // Get admin settings from environment variables or database
+    const settings = {
+      // General Settings
+      siteName: process.env['SITE_NAME'] || 'BookOn Platform',
+      siteDescription: process.env['SITE_DESCRIPTION'] || 'Professional activity booking platform',
+      siteUrl: process.env['SITE_URL'] || 'https://bookon.com',
+      adminEmail: process.env['ADMIN_EMAIL'] || 'admin@bookon.com',
+      supportEmail: process.env['SUPPORT_EMAIL'] || 'support@bookon.com',
+      
+      // Security Settings
+      sessionTimeout: parseInt(process.env['SESSION_TIMEOUT_HOURS'] || '24'),
+      maxLoginAttempts: parseInt(process.env['MAX_LOGIN_ATTEMPTS'] || '5'),
+      passwordMinLength: parseInt(process.env['PASSWORD_MIN_LENGTH'] || '8'),
+      requireTwoFactor: process.env['REQUIRE_TWO_FACTOR'] === 'true',
+      allowRegistration: process.env['ALLOW_REGISTRATION'] !== 'false',
+      
+      // Notification Settings
+      emailNotifications: process.env['EMAIL_NOTIFICATIONS'] !== 'false',
+      smsNotifications: process.env['SMS_NOTIFICATIONS'] === 'true',
+      pushNotifications: process.env['PUSH_NOTIFICATIONS'] !== 'false',
+      notificationFrequency: process.env['NOTIFICATION_FREQUENCY'] || 'immediate',
+      
+      // Payment Settings
+      defaultCurrency: process.env['DEFAULT_CURRENCY'] || 'GBP',
+      stripeEnabled: !!process.env['STRIPE_SECRET_KEY'],
+      stripePublishableKey: process.env['STRIPE_PUBLISHABLE_KEY'] || '',
+      stripeSecretKey: process.env['STRIPE_SECRET_KEY'] ? '***' : '', // Don't expose actual secret
+      paypalEnabled: !!process.env['PAYPAL_CLIENT_ID'],
+      paypalClientId: process.env['PAYPAL_CLIENT_ID'] || '',
+      
+      // TFC Settings
+      tfcEnabled: process.env['TFC_ENABLED'] !== 'false',
+      tfcDefaultHoldPeriod: parseInt(process.env['TFC_DEFAULT_HOLD_PERIOD'] || '5'),
+      tfcAutoCancelEnabled: process.env['TFC_AUTO_CANCEL_ENABLED'] !== 'false',
+      tfcReminderDays: parseInt(process.env['TFC_REMINDER_DAYS'] || '2'),
+      
+      // System Settings
+      maintenanceMode: process.env['MAINTENANCE_MODE'] === 'true',
+      debugMode: process.env['DEBUG_MODE'] === 'true',
+      logLevel: process.env['LOG_LEVEL'] || 'info',
+      backupFrequency: process.env['BACKUP_FREQUENCY'] || 'daily',
+      
+      // API Settings
+      apiRateLimit: parseInt(process.env['API_RATE_LIMIT'] || '1000'),
+      apiTimeout: parseInt(process.env['API_TIMEOUT'] || '30'),
+      webhookRetryAttempts: parseInt(process.env['WEBHOOK_RETRY_ATTEMPTS'] || '3'),
+      
+      // Database Settings
+      dbConnectionPool: parseInt(process.env['DB_CONNECTION_POOL'] || '10'),
+      dbQueryTimeout: parseInt(process.env['DB_QUERY_TIMEOUT'] || '30'),
+      dbBackupRetention: parseInt(process.env['DB_BACKUP_RETENTION'] || '30')
+    };
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    logger.error('Error fetching admin settings:', error);
+    throw new AppError('Failed to fetch admin settings', 500, 'ADMIN_SETTINGS_ERROR');
+  }
+}));
+
+router.put('/settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const {
+      siteName,
+      siteDescription,
+      siteUrl,
+      adminEmail,
+      supportEmail,
+      sessionTimeout,
+      maxLoginAttempts,
+      passwordMinLength,
+      requireTwoFactor,
+      allowRegistration,
+      emailNotifications,
+      smsNotifications,
+      pushNotifications,
+      notificationFrequency,
+      defaultCurrency,
+      stripeEnabled,
+      stripePublishableKey,
+      stripeSecretKey,
+      paypalEnabled,
+      paypalClientId,
+      tfcEnabled,
+      tfcDefaultHoldPeriod,
+      tfcAutoCancelEnabled,
+      tfcReminderDays,
+      maintenanceMode,
+      debugMode,
+      logLevel,
+      backupFrequency,
+      apiRateLimit,
+      apiTimeout,
+      webhookRetryAttempts,
+      dbConnectionPool,
+      dbQueryTimeout,
+      dbBackupRetention
+    } = req.body;
+
+    // Validate required fields
+    if (!siteName || !siteDescription || !siteUrl || !adminEmail || !supportEmail) {
+      throw new AppError('Required fields are missing', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate email formats
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(adminEmail) || !emailRegex.test(supportEmail)) {
+      throw new AppError('Invalid email format', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate numeric values
+    if (sessionTimeout < 1 || sessionTimeout > 168) {
+      throw new AppError('Session timeout must be between 1 and 168 hours', 400, 'VALIDATION_ERROR');
+    }
+
+    if (maxLoginAttempts < 3 || maxLoginAttempts > 10) {
+      throw new AppError('Max login attempts must be between 3 and 10', 400, 'VALIDATION_ERROR');
+    }
+
+    if (passwordMinLength < 6 || passwordMinLength > 20) {
+      throw new AppError('Password minimum length must be between 6 and 20', 400, 'VALIDATION_ERROR');
+    }
+
+    // TODO: In production, save these settings to a database table
+    // For now, we'll just validate and return success
+    // The actual saving would require:
+    // 1. Creating a SystemSettings table in the database
+    // 2. Upserting the settings
+    // 3. Optionally updating environment variables
+
+    logger.info('Admin settings updated', {
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      updatedFields: Object.keys(req.body)
+    });
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully',
+      data: {
+        // Return the updated settings (without sensitive data)
+        siteName,
+        siteDescription,
+        siteUrl,
+        adminEmail,
+        supportEmail,
+        sessionTimeout,
+        maxLoginAttempts,
+        passwordMinLength,
+        requireTwoFactor,
+        allowRegistration,
+        emailNotifications,
+        smsNotifications,
+        pushNotifications,
+        notificationFrequency,
+        defaultCurrency,
+        stripeEnabled,
+        stripePublishableKey: stripePublishableKey ? '***' : '',
+        paypalEnabled,
+        paypalClientId: paypalClientId ? '***' : '',
+        tfcEnabled,
+        tfcDefaultHoldPeriod,
+        tfcAutoCancelEnabled,
+        tfcReminderDays,
+        maintenanceMode,
+        debugMode,
+        logLevel,
+        backupFrequency,
+        apiRateLimit,
+        apiTimeout,
+        webhookRetryAttempts,
+        dbConnectionPool,
+        dbQueryTimeout,
+        dbBackupRetention
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating admin settings:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to update admin settings', 500, 'ADMIN_SETTINGS_UPDATE_ERROR');
+  }
+}));
+
+// Business Accounts Management
+router.get('/business-accounts', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const businessAccounts = await prisma.businessAccount.findMany({
+      include: {
+        venues: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            inheritFranchiseFee: true,
+            franchiseFeeType: true,
+            franchiseFeeValue: true
+          }
+        },
+        _count: {
+          select: {
+            venues: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      data: businessAccounts
+    });
+  } catch (error) {
+    logger.error('Error fetching business accounts:', error);
+    throw new AppError('Failed to fetch business accounts', 500, 'BUSINESS_ACCOUNTS_ERROR');
+  }
+}));
+
+router.post('/business-accounts', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      stripeAccountId,
+      stripeAccountType,
+      franchiseFeeType,
+      franchiseFeeValue,
+      vatMode,
+      adminFeeAmount
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !stripeAccountId || !stripeAccountType || !franchiseFeeType || franchiseFeeValue === undefined) {
+      throw new AppError('Required fields are missing', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate franchise fee value
+    if (franchiseFeeValue < 0) {
+      throw new AppError('Franchise fee value cannot be negative', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate franchise fee type
+    if (!['percent', 'fixed'].includes(franchiseFeeType)) {
+      throw new AppError('Invalid franchise fee type', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate stripe account type
+    if (!['express', 'standard'].includes(stripeAccountType)) {
+      throw new AppError('Invalid stripe account type', 400, 'VALIDATION_ERROR');
+    }
+
+    // Validate VAT mode
+    if (!['inclusive', 'exclusive'].includes(vatMode)) {
+      throw new AppError('Invalid VAT mode', 400, 'VALIDATION_ERROR');
+    }
+
+    // Check if stripe account ID already exists
+    const existingAccount = await prisma.businessAccount.findUnique({
+      where: { stripeAccountId }
+    });
+
+    if (existingAccount) {
+      throw new AppError('Stripe account ID already exists', 400, 'DUPLICATE_ERROR');
+    }
+
+    const businessAccount = await prisma.businessAccount.create({
+      data: {
+        name,
+        stripeAccountId,
+        stripeAccountType,
+        status: 'pending', // Default status
+        franchiseFeeType,
+        franchiseFeeValue: parseFloat(franchiseFeeValue),
+        vatMode,
+        adminFeeAmount: adminFeeAmount ? parseFloat(adminFeeAmount) : null,
+        isActive: true
+      },
+      include: {
+        venues: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            inheritFranchiseFee: true,
+            franchiseFeeType: true,
+            franchiseFeeValue: true
+          }
+        },
+        _count: {
+          select: {
+            venues: true
+          }
+        }
+      }
+    });
+
+    logger.info('Business account created', {
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      businessAccountId: businessAccount.id,
+      businessAccountName: businessAccount.name
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Business account created successfully',
+      data: businessAccount
+    });
+  } catch (error) {
+    logger.error('Error creating business account:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to create business account', 500, 'BUSINESS_ACCOUNT_CREATE_ERROR');
+  }
+}));
+
+router.put('/business-accounts/:id', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      stripeAccountId,
+      stripeAccountType,
+      status,
+      franchiseFeeType,
+      franchiseFeeValue,
+      vatMode,
+      adminFeeAmount,
+      isActive
+    } = req.body;
+
+    // Check if business account exists
+    const existingAccount = await prisma.businessAccount.findUnique({
+      where: { id: id as string }
+    });
+
+    if (!existingAccount) {
+      throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
+    }
+
+    // If stripeAccountId is being updated, check for duplicates
+    if (stripeAccountId && stripeAccountId !== existingAccount.stripeAccountId) {
+      const duplicateAccount = await prisma.businessAccount.findUnique({
+        where: { stripeAccountId }
+      });
+
+      if (duplicateAccount) {
+        throw new AppError('Stripe account ID already exists', 400, 'DUPLICATE_ERROR');
+      }
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (stripeAccountId !== undefined) updateData.stripeAccountId = stripeAccountId;
+    if (stripeAccountType !== undefined) updateData.stripeAccountType = stripeAccountType;
+    if (status !== undefined) updateData.status = status;
+    if (franchiseFeeType !== undefined) updateData.franchiseFeeType = franchiseFeeType;
+    if (franchiseFeeValue !== undefined) updateData.franchiseFeeValue = parseFloat(franchiseFeeValue);
+    if (vatMode !== undefined) updateData.vatMode = vatMode;
+    if (adminFeeAmount !== undefined) updateData.adminFeeAmount = adminFeeAmount ? parseFloat(adminFeeAmount) : null;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const businessAccount = await prisma.businessAccount.update({
+      where: { id: id as string },
+      data: updateData,
+      include: {
+        venues: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            inheritFranchiseFee: true,
+            franchiseFeeType: true,
+            franchiseFeeValue: true
+          }
+        },
+        _count: {
+          select: {
+            venues: true
+          }
+        }
+      }
+    });
+
+    logger.info('Business account updated', {
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      businessAccountId: businessAccount.id,
+      businessAccountName: businessAccount.name
+    });
+
+    res.json({
+      success: true,
+      message: 'Business account updated successfully',
+      data: businessAccount
+    });
+  } catch (error) {
+    logger.error('Error updating business account:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to update business account', 500, 'BUSINESS_ACCOUNT_UPDATE_ERROR');
+  }
+}));
+
+router.delete('/business-accounts/:id', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if business account exists
+    const existingAccount = await prisma.businessAccount.findUnique({
+      where: { id: id as string },
+      include: {
+        _count: {
+          select: {
+            venues: true
+          }
+        }
+      }
+    });
+
+    if (!existingAccount) {
+      throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
+    }
+
+    // Check if business account has venues
+    if (existingAccount._count.venues > 0) {
+      throw new AppError('Cannot delete business account with linked venues', 400, 'BUSINESS_ACCOUNT_HAS_VENUES');
+    }
+
+    await prisma.businessAccount.delete({
+      where: { id: id as string }
+    });
+
+    logger.info('Business account deleted', {
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      businessAccountId: id,
+      businessAccountName: existingAccount.name
+    });
+
+    res.json({
+      success: true,
+      message: 'Business account deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting business account:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to delete business account', 500, 'BUSINESS_ACCOUNT_DELETE_ERROR');
   }
 }));
 

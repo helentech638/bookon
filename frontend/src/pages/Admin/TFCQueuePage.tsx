@@ -9,6 +9,7 @@ import { ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, XCircleIcon, Envel
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface TFCBooking {
   id: string;
@@ -48,7 +49,7 @@ const TFCQueuePage: React.FC = () => {
   const fetchPendingBookings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/tfc/pending', {
+      const response = await fetch(buildApiUrl('/tfc/pending'), {
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
           'Content-Type': 'application/json'
@@ -140,7 +141,7 @@ const TFCQueuePage: React.FC = () => {
 
   const handleConfirmPayment = async (bookingId: string) => {
     try {
-      const response = await fetch(`/api/v1/tfc/confirm/${bookingId}`, {
+      const response = await fetch(buildApiUrl(`/tfc/confirm/${bookingId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
@@ -165,7 +166,7 @@ const TFCQueuePage: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/v1/tfc/cancel/${bookingId}`, {
+      const response = await fetch(buildApiUrl(`/tfc/cancel/${bookingId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
@@ -199,7 +200,7 @@ const TFCQueuePage: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/v1/tfc/part-paid/${bookingId}`, {
+      const response = await fetch(buildApiUrl(`/tfc/part-paid/${bookingId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
@@ -227,7 +228,7 @@ const TFCQueuePage: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/v1/tfc/convert-to-credit/${bookingId}`, {
+      const response = await fetch(buildApiUrl(`/tfc/convert-to-credit/${bookingId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,
@@ -257,7 +258,7 @@ const TFCQueuePage: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const response = await fetch('/api/v1/tfc/bulk-confirm', {
+      const response = await fetch(buildApiUrl('/tfc/bulk-confirm'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getToken()}`,

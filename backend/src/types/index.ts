@@ -201,7 +201,7 @@ export interface Booking {
   activityId: string;
   childId: string;
   parentId: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status: 'pending' | 'pending_payment' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
   notes?: string;
   totalAmount: number;
   paymentStatus: 'pending' | 'paid' | 'refunded' | 'failed';
@@ -219,7 +219,7 @@ export interface CreateBookingRequest {
 
 export interface UpdateBookingRequest {
   notes?: string;
-  status?: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status?: 'pending' | 'pending_payment' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
 }
 
 export interface BookingWithDetails extends Booking {

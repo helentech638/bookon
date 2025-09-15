@@ -101,7 +101,7 @@ const Footer: React.FC = () => {
         <div className="mt-8 pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 BookOn. All rights reserved.
+              © 2025 BookOn. All rights reserved.
             </p>
             <div className="mt-4 md:mt-0 flex space-x-6">
               <Link to="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">

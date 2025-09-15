@@ -10,7 +10,7 @@ interface LayoutProps {
     firstName: string;
     lastName: string;
     email: string;
-    role: 'parent' | 'staff' | 'admin';
+    role: 'parent' | 'staff' | 'admin' | 'business';
   } | null;
   onLogout?: () => void;
 }

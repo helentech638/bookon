@@ -81,7 +81,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           },
           _count: {
             select: {
-              activities: true
+              courses: true
             }
           }
         },
@@ -156,7 +156,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
               lastName: true
             }
           },
-          activities: {
+          courses: {
             select: {
               id: true,
               title: true,
@@ -417,15 +417,15 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
         throw new AppError('Template not found', 404, 'TEMPLATE_NOT_FOUND');
       }
 
-      // Check if template has any activities
-      const activityCount = await client.activity.count({
+      // Check if template has any courses
+      const courseCount = await client.course.count({
         where: {
           templateId: id
         }
       });
 
-      if (activityCount > 0) {
-        throw new AppError('Cannot delete template with existing activities', 400, 'TEMPLATE_HAS_ACTIVITIES');
+      if (courseCount > 0) {
+        throw new AppError('Cannot delete template with existing courses', 400, 'TEMPLATE_HAS_COURSES');
       }
 
       return await client.template.delete({

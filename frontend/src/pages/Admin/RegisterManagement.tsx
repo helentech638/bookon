@@ -197,11 +197,11 @@ const RegisterManagement: React.FC = () => {
         body: JSON.stringify({
           activityId: registerTemplate.activityId,
           date: registerTemplate.date,
-          attendance: registerTemplate.children.map(child => ({
+          attendance: registerTemplate.children?.map(child => ({
             childId: child.childId,
             status: child.status,
             notes: child.notes
-          }))
+          })) || []
         })
       });
 
@@ -230,11 +230,11 @@ const RegisterManagement: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          attendance: registerTemplate.children.map(child => ({
+          attendance: registerTemplate.children?.map(child => ({
             childId: child.childId,
             status: child.status,
             notes: child.notes
-          }))
+          })) || []
         })
       });
 
@@ -594,7 +594,8 @@ const RegisterManagement: React.FC = () => {
             </div>
             
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {registerTemplate.children.map((child, index) => (
+              {registerTemplate.children?.length > 0 ? (
+                registerTemplate.children.map((child, index) => (
                 <div key={child.childId} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -608,8 +609,10 @@ const RegisterManagement: React.FC = () => {
                       value={child.status}
                       onChange={(e) => {
                         const newTemplate = { ...registerTemplate };
-                        newTemplate.children[index].status = e.target.value as any;
-                        setRegisterTemplate(newTemplate);
+                        if (newTemplate.children && newTemplate.children[index]) {
+                          newTemplate.children[index].status = e.target.value as any;
+                          setRegisterTemplate(newTemplate);
+                        }
                       }}
                     >
                       <option value="present">Present</option>
@@ -636,15 +639,22 @@ const RegisterManagement: React.FC = () => {
                       value={child.notes}
                       onChange={(e) => {
                         const newTemplate = { ...registerTemplate };
-                        newTemplate.children[index].notes = e.target.value;
-                        setRegisterTemplate(newTemplate);
+                        if (newTemplate.children && newTemplate.children[index]) {
+                          newTemplate.children[index].notes = e.target.value;
+                          setRegisterTemplate(newTemplate);
+                        }
                       }}
                       placeholder="Add notes about this child's attendance..."
                       rows={2}
                     />
                   </div>
                 </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No children found for this activity on the selected date.</p>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end space-x-3 mt-6">

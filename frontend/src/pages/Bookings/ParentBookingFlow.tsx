@@ -16,6 +16,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Stepper } from '../../components/ui/Stepper';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 
 interface Activity {
@@ -87,56 +88,89 @@ const ParentBookingFlow: React.FC = () => {
 
   useEffect(() => {
     if (activityId) {
-      fetchActivity();
-      fetchChildren();
+      fetchData();
     }
   }, [activityId]);
 
-  const fetchActivity = async () => {
+  const fetchData = async () => {
+    const startTime = performance.now();
+    setLoading(true);
+    setError(null);
+
     try {
       const token = authService.getToken();
-      const response = await fetch(`https://bookon-api.vercel.app/api/v1/activities/${activityId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      if (!token) {
+        toast.error('Authentication required');
+        navigate('/login');
+        return;
+      }
 
-      if (response.ok) {
-        const data = await response.json();
-        setActivity(data.data);
+      // Make both API calls in parallel for better performance
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for both calls
+
+      const [activityResponse, childrenResponse] = await Promise.allSettled([
+        fetch(buildApiUrl(`/activities/${activityId}`), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        }),
+        fetch(buildApiUrl('/children'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        })
+      ]);
+
+      clearTimeout(timeoutId);
+
+      // Process activity response
+      if (activityResponse.status === 'fulfilled' && activityResponse.value.ok) {
+        const activityData = await activityResponse.value.json();
+        setActivity(activityData.data);
+      } else if (activityResponse.status === 'fulfilled' && activityResponse.value.status === 401) {
+        toast.error('Session expired. Please login again.');
+        authService.logout();
+        navigate('/login');
+        return;
       } else {
         toast.error('Failed to fetch activity details');
         navigate('/activities');
+        return;
       }
+
+      // Process children response
+      if (childrenResponse.status === 'fulfilled' && childrenResponse.value.ok) {
+        const childrenData = await childrenResponse.value.json();
+        setChildren(childrenData.data || []);
+      } else if (childrenResponse.status === 'fulfilled' && childrenResponse.value.status === 401) {
+        toast.error('Session expired. Please login again.');
+        authService.logout();
+        navigate('/login');
+        return;
+      } else {
+        toast.error('Failed to fetch children');
+      }
+
+      const endTime = performance.now();
+      console.log(`Booking flow data loaded in ${(endTime - startTime).toFixed(2)}ms`);
+
     } catch (error) {
-      toast.error('Error fetching activity');
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Request timed out. Please try again.');
+      } else {
+        toast.error('Error loading booking data');
+      }
       navigate('/activities');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchChildren = async () => {
-    try {
-      const token = authService.getToken();
-      const response = await fetch('https://bookon-api.vercel.app/api/v1/children', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setChildren(data.data);
-      } else {
-        toast.error('Failed to fetch children');
-      }
-    } catch (error) {
-      toast.error('Error fetching children');
-    }
-  };
 
   const handleChildSelect = (childId: string) => {
     setSelectedChild(childId);
@@ -172,7 +206,13 @@ const ParentBookingFlow: React.FC = () => {
     try {
       // Create the booking
       const token = authService.getToken();
-      const response = await fetch('/api/v1/bookings', {
+      if (!token) {
+        toast.error('Authentication required');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/bookings'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -189,8 +229,12 @@ const ParentBookingFlow: React.FC = () => {
         const data = await response.json();
         toast.success('Booking confirmed successfully!');
         
-        // Navigate to booking confirmation
-        navigate(`/bookings/${data.data.id}/confirmation`);
+        // Navigate to payment success page
+        navigate(`/payment-success/${data.data.id}`);
+      } else if (response.status === 401) {
+        toast.error('Session expired. Please login again.');
+        authService.logout();
+        navigate('/login');
       } else {
         toast.error('Failed to create booking');
       }
@@ -206,10 +250,62 @@ const ParentBookingFlow: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading booking flow...</p>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header skeleton */}
+        <div className="text-center mb-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mx-auto mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+          </div>
+        </div>
+
+        {/* Stepper skeleton */}
+        <div className="mb-8">
+          <div className="animate-pulse">
+            <div className="flex justify-center space-x-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                  <div className="ml-2">
+                    <div className="h-4 bg-gray-200 rounded w-20 mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div className="animate-pulse">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                <div className="space-y-4">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="animate-pulse">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

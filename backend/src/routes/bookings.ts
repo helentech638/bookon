@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { body, param, validationResult } from 'express-validator';
+import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AppError } from '../middleware/errorHandler';
@@ -78,7 +78,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
         title: booking.activity.title,
         description: booking.activity.description || booking.activity.title,
         price: booking.activity.price || booking.amount,
-        max_capacity: booking.activity.maxCapacity || 20,
+        max_capacity: booking.activity.capacity || 20,
         current_capacity: 15, // Default value, you might want to add this to activities table
         },
         venue: {
@@ -228,6 +228,7 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
         parentId: userId,
         activityId: activityId,
         childId: childId,
+        bookingDate: new Date(startDate),
         activityDate: new Date(startDate),
         activityTime: startTime,
         status: 'pending',
@@ -260,8 +261,12 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     }
 
     const { id } = req.params;
-    const { reason, refundRequested } = req.body;
+    // Note: reason and refundRequested are not used in current implementation
     const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
     
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
@@ -317,6 +322,10 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
     const { id } = req.params;
     const { newDate, newTime, notes } = req.body;
     const userId = req.user!.id;
+
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
 
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
@@ -386,8 +395,13 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
     }
 
     const { id } = req.params;
-    const { childId, specialRequirements, dietaryRestrictions, medicalNotes, emergencyContact, notes } = req.body;
+    const { childId, notes } = req.body;
+    // Note: specialRequirements, dietaryRestrictions, medicalNotes, emergencyContact are not used in current implementation
     const userId = req.user!.id;
+
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
 
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
@@ -457,6 +471,10 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
 
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
+
     const booking = await prisma.booking.findUnique({
       where: { id: id },
       include: {
@@ -492,7 +510,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
         title: booking.activity.title,
         description: booking.activity.description,
         price: booking.activity.price || booking.amount,
-        max_capacity: booking.activity.maxCapacity || 20,
+        max_capacity: booking.activity.capacity || 20,
         current_capacity: 15,
       },
       venue: {

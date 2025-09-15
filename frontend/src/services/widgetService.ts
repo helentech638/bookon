@@ -1,4 +1,5 @@
 import { authService } from './authService';
+import { buildApiUrl } from '../config/api';
 
 export interface WidgetConfig {
   id: string;
@@ -25,7 +26,7 @@ export interface CreateWidgetRequest {
 export interface UpdateWidgetRequest extends Partial<CreateWidgetRequest> {}
 
 class WidgetService {
-  private baseUrl = 'https://bookon55.vercel.app/api/v1/widget-config';
+  private baseUrl = buildApiUrl('/widget-config');
 
   private async request<T>(
     endpoint: string,

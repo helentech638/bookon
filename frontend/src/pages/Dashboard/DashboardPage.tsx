@@ -27,6 +27,8 @@ import { authService } from '../../services/authService';
 import { BookingWidget } from '../../components/booking/BookingWidget';
 import toast from 'react-hot-toast';
 import { buildApiUrl, API_CONFIG } from '../../config/api';
+import { formatPrice } from '../../utils/formatting';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface DashboardStats {
   totalBookings: number;
@@ -96,14 +98,8 @@ const DashboardPage: React.FC = () => {
         return;
       }
 
-      // Verify token before making API calls
-      const tokenValid = await authService.verifyToken();
-      if (!tokenValid) {
-        console.log('Token verification failed, redirecting to login');
-        authService.logout();
-        window.location.href = '/login';
-        return;
-      }
+      // Skip expensive token verification - API calls will handle auth validation
+      // This saves ~1-2 seconds on dashboard load
 
       const headers = {
           'Authorization': `Bearer ${token}`,
@@ -112,12 +108,31 @@ const DashboardPage: React.FC = () => {
 
       // Make all API calls in parallel for better performance
       const apiStartTime = performance.now();
+      
+      // Create AbortController for timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const [statsResponse, profileResponse, activitiesResponse, walletResponse] = await Promise.allSettled([
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { headers }),
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { headers }),
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { headers }),
-        fetch(buildApiUrl('/wallet/balance'), { headers })
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { 
+          headers,
+          signal: controller.signal 
+        }),
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { 
+          headers,
+          signal: controller.signal 
+        }),
+        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { 
+          headers,
+          signal: controller.signal 
+        }),
+        fetch(buildApiUrl('/wallet/balance'), { 
+          headers,
+          signal: controller.signal 
+        })
       ]);
+      
+      clearTimeout(timeoutId);
       const apiEndTime = performance.now();
       console.log(`Dashboard API calls completed in ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
 
@@ -173,16 +188,44 @@ const DashboardPage: React.FC = () => {
 
   const handleQuickBooking = () => {
     setShowQuickBooking(false);
-    // Navigate to the booking flow
-    navigate('/bookings/flow');
+    // Navigate to activities page to select an activity
+    navigate('/activities');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+          {/* Loading skeleton */}
+          <div className="animate-pulse">
+            <div className="h-6 sm:h-8 bg-gray-200 rounded w-1/3 sm:w-1/4 mb-4 sm:mb-6"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white p-4 sm:p-6 rounded-lg shadow">
+                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="h-6 sm:h-8 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+                <div className="h-5 sm:h-6 bg-gray-200 rounded w-1/3 mb-3 sm:mb-4"></div>
+                <div className="space-y-2 sm:space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-3 sm:h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
+                <div className="h-5 sm:h-6 bg-gray-200 rounded w-1/3 mb-3 sm:mb-4"></div>
+                <div className="space-y-2 sm:space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-3 sm:h-4 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -256,7 +299,7 @@ const DashboardPage: React.FC = () => {
     },
     {
       title: 'Total Spent',
-      value: `£${stats?.totalSpent?.toFixed(2) || '0.00'}`,
+      value: formatPrice(stats?.totalSpent),
       change: 'This month',
       changeType: 'info',
       icon: CurrencyPoundIcon,
@@ -306,47 +349,50 @@ const DashboardPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
       {/* Premium Header */}
       <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-              <p className="text-gray-600 text-lg">
-                Welcome back, <span className="font-semibold text-[#00806a]">{userProfile?.firstName || 'User'}</span>! Here's your activity overview.
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Dashboard</h1>
+              <p className="text-sm sm:text-base md:text-lg text-gray-600">
+                Welcome back, <span className="font-semibold text-[#00806a]">{userProfile?.firstName || 'User'}</span>! 
+                <span className="hidden sm:inline"> Here's your activity overview.</span>
               </p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <Button
                 onClick={() => setShowQuickBooking(true)}
-                className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42] text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                leftIcon={<PlusIcon className="w-5 h-5" />}
+                className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base"
+                leftIcon={<PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
               >
-                Quick Booking
+                <span className="hidden sm:inline">Quick Booking</span>
+                <span className="sm:hidden">Book</span>
               </Button>
-              <Link to="/profile" className="inline-flex items-center px-6 py-3 border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white rounded-xl font-medium transition-all duration-200">
-                <UserIcon className="w-5 h-5 mr-2" />
-                View Profile
+              <Link to="/profile" className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white rounded-xl font-medium transition-all duration-200 text-sm sm:text-base">
+                <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">View Profile</span>
+                <span className="sm:hidden">Profile</span>
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         {/* Premium Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 md:mb-12">
           {displayStats.map((stat, index) => (
-            <div key={index} className="group bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-gray-100/50 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-6">
-                <div className={`p-4 rounded-2xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <stat.icon className="w-8 h-8 text-white" />
+            <div key={index} className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-600">{stat.title}</p>
                 </div>
               </div>
               <div className="space-y-2">
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
+                <span className={`inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${
                   stat.changeType === 'success' 
                     ? 'bg-green-100 text-green-800'
                     : stat.changeType === 'warning'
@@ -362,65 +408,65 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Quick Access Section */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Access</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Access</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Link
-              to="/bookings/flow"
-              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              to="/activities"
+              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
             >
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <CalendarDaysIcon className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                  <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 group-hover:text-[#00806a]">Book Activity</h3>
-                  <p className="text-sm text-gray-500">Start new booking</p>
+                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Book Activity</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">Start new booking</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/children"
-              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
             >
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <UserGroupIcon className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                  <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 group-hover:text-[#00806a]">My Children</h3>
-                  <p className="text-sm text-gray-500">Manage profiles</p>
+                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Children</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">Manage profiles</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/bookings"
-              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
             >
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <DocumentTextIcon className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                  <DocumentTextIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 group-hover:text-[#00806a]">My Bookings</h3>
-                  <p className="text-sm text-gray-500">View all bookings</p>
+                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Bookings</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">View all bookings</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/activities"
-              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
             >
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <AcademicCapIcon className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                  <AcademicCapIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 group-hover:text-[#00806a]">Browse Activities</h3>
-                  <p className="text-sm text-gray-500">Find activities</p>
+                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Browse Activities</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">Find activities</p>
                 </div>
               </div>
             </Link>
@@ -428,9 +474,10 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Premium Tabs */}
-        <div className="mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100/50 p-2">
-            <nav className="flex space-x-1">
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-100/50 p-1 sm:p-2">
+            {/* Desktop: Single line layout */}
+            <nav className="hidden lg:flex lg:space-x-1 lg:justify-center lg:flex-nowrap">
               {[
                 { id: 'overview', name: 'Overview', icon: ChartBarIcon },
                 { id: 'profile', name: 'Profile', icon: UserIcon },
@@ -447,9 +494,9 @@ const DashboardPage: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
+                  className={`relative py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
                     activeTab === tab.id
-                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg transform scale-105'
+                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
                   }`}
                 >
@@ -457,9 +504,70 @@ const DashboardPage: React.FC = () => {
                     activeTab === tab.id ? 'text-white' : 'text-gray-500'
                   }`} />
                   <span className="font-semibold">{tab.name}</span>
-                  {activeTab === tab.id && (
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#00806a] to-[#006d5a] opacity-20 animate-pulse"></div>
-                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* Tablet: Horizontal scroll with hidden scrollbar */}
+            <nav className="hidden md:flex lg:hidden space-x-1 overflow-x-auto scrollbar-hide">
+              {[
+                { id: 'overview', name: 'Overview', icon: ChartBarIcon },
+                { id: 'profile', name: 'Profile', icon: UserIcon },
+                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
+                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
+                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
+                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
+                // Admin-specific tabs
+                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
+                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
+                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
+                ] : [])
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex-shrink-0 py-2 px-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
+                  }`}
+                >
+                  <tab.icon className={`w-4 h-4 transition-all duration-300 ${
+                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
+                  }`} />
+                  <span className="font-semibold whitespace-nowrap">{tab.name}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile: Compact horizontal scroll */}
+            <nav className="flex md:hidden space-x-1 overflow-x-auto scrollbar-hide">
+              {[
+                { id: 'overview', name: 'Overview', icon: ChartBarIcon },
+                { id: 'profile', name: 'Profile', icon: UserIcon },
+                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
+                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
+                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
+                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
+                // Admin-specific tabs
+                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
+                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
+                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
+                ] : [])
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex-shrink-0 py-2 px-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1 transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
+                  }`}
+                >
+                  <tab.icon className={`w-3 h-3 transition-all duration-300 ${
+                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
+                  }`} />
+                  <span className="font-semibold whitespace-nowrap">{tab.name}</span>
                 </button>
               ))}
             </nav>
@@ -468,41 +576,41 @@ const DashboardPage: React.FC = () => {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {/* Premium Welcome Card */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-gray-900">Welcome to BookOn!</h3>
-                <div className="w-12 h-12 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-2xl flex items-center justify-center">
-                  <BellIcon className="w-6 h-6 text-white" />
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 p-4 sm:p-6 md:p-8">
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Welcome to BookOn!</h3>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-xl sm:rounded-2xl flex items-center justify-center">
+                  <BellIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
-              <div className="space-y-6">
-                <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center">
-                      <UserIcon className="w-6 h-6 text-white" />
+              <div className="space-y-4 sm:space-y-6">
+                <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl border border-blue-200">
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-blue-900">
+                      <p className="text-sm sm:text-base md:text-lg font-semibold text-blue-900">
                         Welcome, {userProfile?.firstName} {userProfile?.lastName}!
                       </p>
-                      <p className="text-blue-700">
+                      <p className="text-xs sm:text-sm md:text-base text-blue-700">
                         You've been a member for <span className="font-semibold">{stats?.memberSince || 0} days</span>.
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center">
-                      <CalendarDaysIcon className="w-6 h-6 text-white" />
+                <div className="p-4 sm:p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-xl sm:rounded-2xl border border-green-200">
+                  <div className="flex items-center space-x-3 sm:space-x-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <CalendarDaysIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-green-900">
+                      <p className="text-sm sm:text-base md:text-lg font-semibold text-green-900">
                         Ready to get started?
                       </p>
-                      <p className="text-green-700">
+                      <p className="text-xs sm:text-sm md:text-base text-green-700">
                         Browse available activities and book your first session.
                       </p>
                     </div>
@@ -512,9 +620,9 @@ const DashboardPage: React.FC = () => {
             </div>
 
             {/* Premium Quick Actions */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100/50 p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-gray-900">Quick Actions</h3>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 p-4 sm:p-6 md:p-8">
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Quick Actions</h3>
                 <div className="w-12 h-12 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-2xl flex items-center justify-center">
                   <CogIcon className="w-6 h-6 text-white" />
                 </div>
@@ -774,7 +882,7 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
-                    <div className="text-2xl font-bold">£{walletBalance.toFixed(2)}</div>
+                    <div className="text-2xl font-bold">{formatPrice(walletBalance)}</div>
                     <div className="text-green-100 text-sm">Available Credits</div>
                   </div>
                 </div>
@@ -798,7 +906,7 @@ const DashboardPage: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Available</span>
-                      <span className="text-lg font-bold text-green-600">£{walletBalance.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-green-600">{formatPrice(walletBalance)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Used This Month</span>
@@ -881,7 +989,7 @@ const DashboardPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Link
                     to="/wallet"
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                    className="bg-white border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
                   >
                     <CreditCardIcon className="w-8 h-8 mx-auto mb-2" />
                     <h4 className="font-semibold">View Wallet</h4>
@@ -889,8 +997,8 @@ const DashboardPage: React.FC = () => {
                   </Link>
                   
                   <Link
-                    to="/bookings/flow"
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                    to="/activities"
+                    className="bg-[#00806a] hover:bg-[#006d5a] text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
                   >
                     <CalendarDaysIcon className="w-8 h-8 mx-auto mb-2" />
                     <h4 className="font-semibold">Book Activity</h4>
@@ -899,7 +1007,7 @@ const DashboardPage: React.FC = () => {
                   
                   <Link
                     to="/my-bookings"
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                    className="bg-white border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
                   >
                     <DocumentTextIcon className="w-8 h-8 mx-auto mb-2" />
                     <h4 className="font-semibold">My Bookings</h4>
@@ -908,7 +1016,7 @@ const DashboardPage: React.FC = () => {
                   
                   <Link
                     to="/activities"
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+                    className="bg-[#00806a] hover:bg-[#006d5a] text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-center"
                   >
                     <AcademicCapIcon className="w-8 h-8 mx-auto mb-2" />
                     <h4 className="font-semibold">Browse Activities</h4>
@@ -923,16 +1031,16 @@ const DashboardPage: React.FC = () => {
         {activeTab === 'analytics' && (
           <div className="space-y-8">
             {/* Analytics Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-[#00806a] to-[#006d5a] rounded-xl p-8 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-3xl font-bold mb-2">Advanced Analytics Dashboard</h2>
-                  <p className="text-blue-100 text-lg">Comprehensive insights into your booking patterns and activity trends</p>
+                  <p className="text-green-100 text-lg">Comprehensive insights into your booking patterns and activity trends</p>
                 </div>
                 <div className="text-right">
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
                     <div className="text-2xl font-bold">Analytics</div>
-                    <div className="text-blue-100 text-sm">Professional</div>
+                    <div className="text-green-100 text-sm">Professional</div>
                   </div>
                 </div>
               </div>
@@ -955,11 +1063,11 @@ const DashboardPage: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">This Month</span>
-                      <span className="text-sm font-medium text-gray-900">£{stats?.totalSpent?.toFixed(2) || '0.00'}</span>
+                      <span className="text-sm font-medium text-gray-900">{formatPrice(stats?.totalSpent)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Average per Booking</span>
-                      <span className="text-sm font-medium text-gray-900">£{(stats?.totalSpent && stats?.totalBookings ? (stats.totalSpent / stats.totalBookings).toFixed(2) : '0.00')}</span>
+                      <span className="text-sm font-medium text-gray-900">{formatPrice(stats?.totalSpent && stats?.totalBookings ? (stats.totalSpent / stats.totalBookings) : 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Top Activity Type</span>
@@ -1037,59 +1145,6 @@ const DashboardPage: React.FC = () => {
             </Card>
             </div>
             
-            {/* Analytics Features */}
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Analytics Features</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Interactive Charts & Graphs</h4>
-                      <p className="text-sm text-gray-600">Visualize your data with beautiful, interactive charts</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Spending Trend Analysis</h4>
-                      <p className="text-sm text-gray-600">Track your spending patterns over time</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Activity Preference Insights</h4>
-                      <p className="text-sm text-gray-600">Discover your favorite activities and venues</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Export Reports & Data</h4>
-                      <p className="text-sm text-gray-600">Download your analytics data in various formats</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <h4 className="font-medium text-gray-900">Personalized Recommendations</h4>
-                      <p className="text-sm text-gray-600">Get AI-powered activity suggestions</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </div>
         )}
 

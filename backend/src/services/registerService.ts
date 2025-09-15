@@ -3,9 +3,7 @@ import { logger } from '../utils/logger';
 
 interface RegisterData {
   sessionId: string;
-  activityId: string;
   date: Date;
-  capacity: number;
   notes?: string;
 }
 
@@ -18,7 +16,7 @@ interface AttendanceRecord {
 }
 
 class RegisterService {
-  async createRegister(sessionId: string, capacity: number, notes?: string) {
+  async createRegister(sessionId: string, notes?: string) {
     try {
       return await safePrismaQuery(async (client) => {
         // Get session details
@@ -47,21 +45,24 @@ class RegisterService {
         // Create register
         const register = await client.register.create({
           data: {
-            venueId: session.activity.venue.id,
-            activityId: session.activityId,
+            sessionId: session.id,
             date: session.date,
             notes,
             status: 'active'
           },
           include: {
-            activity: {
-              select: {
-                title: true,
-                type: true,
-                venue: {
+            session: {
+              include: {
+                activity: {
                   select: {
-                    name: true,
-                    address: true
+                    title: true,
+                    type: true,
+                    venue: {
+                      select: {
+                        name: true,
+                        address: true
+                      }
+                    }
                   }
                 }
               }

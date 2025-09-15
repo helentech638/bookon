@@ -1,6 +1,5 @@
 import { toast } from 'react-hot-toast';
-
-const API_BASE_URL = 'https://bookon-i1kwv0uum-bookonapp.vercel.app/api/v1';
+import { buildApiUrl } from '../config/api';
 
 export interface LoginCredentials {
   email: string;
@@ -12,6 +11,9 @@ export interface RegisterCredentials {
   password: string;
   firstName: string;
   lastName: string;
+  phone?: string;
+  role?: 'parent' | 'business';
+  businessName?: string;
 }
 
 export interface User {
@@ -19,8 +21,9 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'parent' | 'staff' | 'admin';
+  role: 'parent' | 'staff' | 'admin' | 'business';
   phone?: string;
+  businessName?: string;
   address?: string;
   dateOfBirth?: string;
   profileImage?: string;
@@ -117,7 +120,7 @@ class AuthService {
   // Register user
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(buildApiUrl('/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +131,15 @@ class AuthService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        // Handle specific error cases
+        if (response.status === 400) {
+          const errorMessage = data.message || data.error || 'Invalid registration data';
+          throw new Error(errorMessage);
+        } else if (response.status === 409) {
+          throw new Error('Email already exists. Please use a different email or try logging in.');
+        } else {
+          throw new Error(data.message || 'Registration failed');
+        }
       }
 
       if (data.success) {
@@ -147,7 +158,7 @@ class AuthService {
   // Login user
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(buildApiUrl('/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,7 +200,7 @@ class AuthService {
     try {
       const token = this.getToken();
       if (token) {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(buildApiUrl('/auth/logout'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -213,7 +224,7 @@ class AuthService {
         throw new Error('No refresh token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(buildApiUrl('/auth/refresh'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +268,7 @@ class AuthService {
         throw new Error('No token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(buildApiUrl('/auth/me'), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -292,7 +303,7 @@ class AuthService {
         throw new Error('No token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(buildApiUrl('/auth/me'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -330,7 +341,7 @@ class AuthService {
         throw new Error('No token available');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      const response = await fetch(buildApiUrl('/auth/change-password'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

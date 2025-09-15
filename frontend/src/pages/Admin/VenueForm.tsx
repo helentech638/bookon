@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { buildApiUrl } from '../../config/api';
+import { authService } from '../../services/authService';
 import AdminLayout from '../../components/layout/AdminLayout';
 
 interface VenueFormData {
@@ -41,7 +42,13 @@ const VenueForm: React.FC = () => {
     if (id) {
       const fetchVenue = async () => {
         try {
-          const token = localStorage.getItem('token');
+          const token = authService.getToken();
+          if (!token) {
+            toast.error('Authentication required. Please log in again.');
+            navigate('/login');
+            return;
+          }
+
           const response = await fetch(buildApiUrl(`/venues/${id}`), {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -88,7 +95,13 @@ const VenueForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
       const url = id 
         ? buildApiUrl(`/venues/${id}`)
         : buildApiUrl('/venues');
@@ -126,175 +139,176 @@ const VenueForm: React.FC = () => {
 
   return (
     <AdminLayout title={isEditing ? 'Edit Venue' : 'Add New Venue'}>
-      <div className="mb-6">
-        <p className="text-gray-600">
-          {isEditing ? 'Update venue information' : 'Create a new venue for activities'}
-        </p>
-      </div>
-      
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Venue Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a] ${
-                  errors.name ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Enter venue name"
-              />
-              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-            </div>
-
-            {/* Description */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                id="description"
-                rows={3}
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]"
-                placeholder="Enter venue description"
-              />
-            </div>
-
-            {/* Address */}
-            <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                Address *
-              </label>
-              <input
-                type="text"
-                id="address"
-                value={formData.address}
-                onChange={(e) => handleInputChange('address', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a] ${
-                  errors.address ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Enter full address"
-              />
-              {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
-            </div>
-
-            {/* City and Postcode */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-6">
+        <div>
+          <p className="text-gray-600">
+            {isEditing ? 'Update venue information' : 'Create a new venue for activities'}
+          </p>
+        </div>
+        
+        <Card>
+          <div className="p-4 sm:p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Name */}
               <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                  City *
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Venue Name *
                 </label>
                 <input
                   type="text"
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a] ${
-                    errors.city ? 'border-red-300' : 'border-gray-300'
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.name ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="Enter city"
+                  placeholder="Enter venue name"
                 />
-                {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
+                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
               </div>
-              
+
+              {/* Description */}
               <div>
-                <label htmlFor="postcode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Postcode *
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter venue description"
+                />
+              </div>
+
+              {/* Address */}
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                  Address *
                 </label>
                 <input
                   type="text"
-                  id="postcode"
-                  value={formData.postcode}
-                  onChange={(e) => handleInputChange('postcode', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a] ${
-                    errors.postcode ? 'border-red-300' : 'border-gray-300'
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.address ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="Enter postcode"
+                  placeholder="Enter full address"
                 />
-                {errors.postcode && <p className="mt-1 text-sm text-red-600">{errors.postcode}</p>}
+                {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
               </div>
-            </div>
 
-            {/* Contact Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]"
-                  placeholder="Enter phone number"
-                />
+              {/* City and Postcode */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      errors.city ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter city"
+                  />
+                  {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
+                </div>
+                
+                <div>
+                  <label htmlFor="postcode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Postcode *
+                  </label>
+                  <input
+                    type="text"
+                    id="postcode"
+                    value={formData.postcode}
+                    onChange={(e) => handleInputChange('postcode', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      errors.postcode ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter postcode"
+                  />
+                  {errors.postcode && <p className="mt-1 text-sm text-red-600">{errors.postcode}</p>}
+                </div>
               </div>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a] ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter email address"
-                />
-                {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-              </div>
-            </div>
 
-            {/* Submit Buttons */}
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-              <Button
-                type="button"
-                onClick={() => navigate('/admin')}
-                variant="outline"
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="bg-[#00806a] hover:bg-[#006d5a] text-white"
-              >
-                {isLoading ? (
-                  'Saving...'
-                ) : (
-                  <>
-                    {isEditing ? (
-                      <>
-                        <PencilIcon className="w-4 h-4 mr-2" />
-                        Update Venue
-                      </>
-                    ) : (
-                      <>
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Create Venue
-                      </>
-                    )}
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
+              {/* Contact Information */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      errors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter email address"
+                  />
+                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-6 border-t border-gray-200">
+                <Button
+                  type="button"
+                  onClick={() => navigate('/admin/venues')}
+                  variant="outline"
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isLoading ? (
+                    'Saving...'
+                  ) : (
+                    <>
+                      {isEditing ? (
+                        <>
+                          <PencilIcon className="w-4 h-4 mr-2" />
+                          Update Venue
+                        </>
+                      ) : (
+                        <>
+                          <PlusIcon className="w-4 h-4 mr-2" />
+                          Create Venue
+                        </>
+                      )}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </Card>
-      </div>
       </div>
     </AdminLayout>
   );

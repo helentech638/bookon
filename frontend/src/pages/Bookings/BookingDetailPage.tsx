@@ -17,6 +17,7 @@ import {
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { bookingService, Booking } from '../../services/bookingService';
+import { formatPrice } from '../../utils/formatting';
 
 const BookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,16 +30,22 @@ const BookingDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      loadBooking(parseInt(id));
+      const bookingId = parseInt(id);
+      if (isNaN(bookingId)) {
+        setError('Invalid booking ID');
+        setLoading(false);
+        return;
+      }
+      loadBooking(bookingId);
     }
   }, [id]);
 
   const loadBooking = async (bookingId: number) => {
     try {
       setLoading(true);
+      setError(null);
       const data = await bookingService.getBooking(bookingId);
       setBooking(data);
-      setError(null);
     } catch (err) {
       setError('Failed to load booking');
       console.error('Error loading booking:', err);
@@ -328,7 +335,7 @@ const BookingDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">Amount</p>
-                  <p className="text-2xl font-bold text-gray-900">£{(booking.amount || 0).toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPrice(booking.amount || 0)}</p>
                 </div>
               </div>
             </Card>

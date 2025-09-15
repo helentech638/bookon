@@ -14,6 +14,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { buildApiUrl } from '../../config/api';
+import { authService } from '../../services/authService';
 
 
 interface Venue {
@@ -56,8 +58,14 @@ const VenueDetailPage: React.FC = () => {
 
   const fetchVenueDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v1/venues/${id}`, {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(`/venues/${id}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -79,8 +87,14 @@ const VenueDetailPage: React.FC = () => {
 
   const fetchVenueActivities = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/v1/activities?venueId=${id}`, {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(`/activities?venueId=${id}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -90,9 +104,13 @@ const VenueDetailPage: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setActivities(data.data || []);
+      } else {
+        console.error('Failed to fetch venue activities:', response.status);
+        toast.error('Failed to fetch venue activities');
       }
     } catch (error) {
       console.error('Error fetching venue activities:', error);
+      toast.error('Error fetching venue activities');
     } finally {
       setIsLoading(false);
     }
@@ -289,7 +307,7 @@ const VenueDetailPage: React.FC = () => {
             <Card className="p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <Link to="/bookings/flow" className="w-full">
+                <Link to="/activities" className="w-full">
                   <Button className="w-full bg-[#00806a] hover:bg-[#006d5a] text-white">
                     Book Activity
                   </Button>

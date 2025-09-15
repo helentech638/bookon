@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 import { 
   CalendarDaysIcon, 
   UserGroupIcon, 
@@ -89,7 +90,7 @@ const RegisterManagementPage: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch('/api/v1/activities?status=active', {
+      const response = await fetch(buildApiUrl('/activities?status=active'), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -108,7 +109,7 @@ const RegisterManagementPage: React.FC = () => {
       const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      let url = '/api/v1/registers';
+      let url = buildApiUrl('/registers');
       const params = new URLSearchParams();
       
       if (selectedActivity) params.append('activityId', selectedActivity);
@@ -145,7 +146,7 @@ const RegisterManagementPage: React.FC = () => {
       const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch(`/api/v1/registers/${registerId}/attendance`, {
+      const response = await fetch(buildApiUrl(`/registers/${registerId}/attendance`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +177,7 @@ const RegisterManagementPage: React.FC = () => {
       const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch('/api/v1/registers/auto-create', {
+      const response = await fetch(buildApiUrl('/registers/auto-create'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

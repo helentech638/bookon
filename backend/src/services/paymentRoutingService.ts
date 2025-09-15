@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import StripeConnectService from './stripeConnectService';
 import FranchiseFeeService from './franchiseFeeService';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, {
+  apiVersion: '2023-10-16',
 });
 
 const prisma = new PrismaClient();
@@ -59,7 +59,7 @@ export class PaymentRoutingService {
       const paymentIntent = await StripeConnectService.createPaymentIntent({
         amount: params.amount,
         currency: params.currency,
-        customerId: params.customerId,
+        customerId: params.customerId || undefined,
         connectedAccountId: venue.businessAccount.stripeAccountId,
         applicationFeeAmount: applicationFeeAmount,
         metadata: {
@@ -94,11 +94,11 @@ export class PaymentRoutingService {
       // Get the original payment intent to calculate proportional fee reversal
       const paymentIntent = await stripe.paymentIntents.retrieve(params.paymentIntentId);
       
-      if (!paymentIntent.metadata?.venueId) {
+      if (!paymentIntent.metadata?.['venueId']) {
         throw new Error('Payment intent metadata missing venue information');
       }
 
-      const venueId = paymentIntent.metadata.venueId;
+      const venueId = paymentIntent.metadata['venueId'];
       const originalAmount = paymentIntent.amount;
       const refundAmount = params.amount || originalAmount;
 
@@ -117,7 +117,7 @@ export class PaymentRoutingService {
         paymentIntentId: params.paymentIntentId,
         amount: refundAmount,
         refundApplicationFee: true, // Always reverse franchise fee proportionally
-        reason: params.reason,
+        reason: params.reason || undefined,
       });
 
       return {
@@ -146,7 +146,7 @@ export class PaymentRoutingService {
     try {
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       
-      if (!paymentIntent.metadata?.venueId) {
+      if (!paymentIntent.metadata?.['venueId']) {
         throw new Error('Payment intent metadata missing venue information');
       }
 
@@ -211,8 +211,8 @@ export class PaymentRoutingService {
       // Create account link for onboarding
       const accountLink = await StripeConnectService.createAccountLink(
         account.id,
-        `${process.env.FRONTEND_URL}/admin/business-accounts/${account.id}/onboarding/refresh`,
-        `${process.env.FRONTEND_URL}/admin/business-accounts/${account.id}/onboarding/success`
+        `${process.env['FRONTEND_URL']}/admin/business-accounts/${account.id}/onboarding/refresh`,
+        `${process.env['FRONTEND_URL']}/admin/business-accounts/${account.id}/onboarding/success`
       );
 
       return {

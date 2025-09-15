@@ -45,6 +45,7 @@ class ActivityService {
             latePickupPrice: holidayOptions?.latePickupPrice || null,
             status: 'active',
             isActive: true,
+            ownerId: activityData.createdBy,
             createdBy: activityData.createdBy
           }
         });
@@ -83,16 +84,6 @@ class ActivityService {
 
         await client.session.createMany({
           data: sessionData
-        });
-
-        // Update session capacity from activity
-        await client.session.updateMany({
-          where: { activityId },
-          data: {
-            capacity: {
-              // This will be handled by a trigger or manual update
-            }
-          }
         });
       });
 

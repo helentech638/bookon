@@ -9,7 +9,8 @@ interface Child {
   yearGroup?: string;
   allergies?: string;
   medicalInfo?: string;
-  emergencyContacts?: string;
+  school?: string;
+  class?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,7 +29,8 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSubmit, onCancel }) => {
     yearGroup: '',
     allergies: '',
     medicalInfo: '',
-    emergencyContacts: '',
+    school: '',
+    class: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +44,8 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSubmit, onCancel }) => {
         yearGroup: child.yearGroup || '',
         allergies: child.allergies || '',
         medicalInfo: child.medicalInfo || '',
-        emergencyContacts: child.emergencyContacts || '',
+        school: child.school || '',
+        class: child.class || '',
       });
     }
   }, [child]);
@@ -72,16 +75,16 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSubmit, onCancel }) => {
       }
     }
 
+    if (!formData.school.trim()) {
+      newErrors.school = 'School is required';
+    }
+
     if (formData.allergies && formData.allergies.length > 500) {
       newErrors.allergies = 'Allergies description is too long (max 500 characters)';
     }
 
     if (formData.medicalInfo && formData.medicalInfo.length > 1000) {
       newErrors.medicalInfo = 'Medical information is too long (max 1000 characters)';
-    }
-
-    if (formData.emergencyContacts && formData.emergencyContacts.length > 500) {
-      newErrors.emergencyContacts = 'Emergency contacts description is too long (max 500 characters)';
     }
 
     setErrors(newErrors);
@@ -192,6 +195,43 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSubmit, onCancel }) => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* School */}
+        <div>
+          <label htmlFor="school" className="block text-sm font-medium text-gray-700 mb-1">
+            School *
+          </label>
+          <input
+            type="text"
+            id="school"
+            value={formData.school}
+            onChange={(e) => handleInputChange('school', e.target.value)}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              errors.school ? 'border-red-300' : 'border-gray-300'
+            }`}
+            placeholder="School name"
+          />
+          {errors.school && (
+            <p className="text-red-600 text-sm mt-1">{errors.school}</p>
+          )}
+        </div>
+
+        {/* Class */}
+        <div>
+          <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">
+            Class
+          </label>
+          <input
+            type="text"
+            id="class"
+            value={formData.class}
+            onChange={(e) => handleInputChange('class', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Class name"
+          />
+        </div>
+      </div>
+
       {/* Allergies */}
       <div>
         <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-1">
@@ -232,25 +272,6 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSubmit, onCancel }) => {
         )}
       </div>
 
-      {/* Emergency Contacts */}
-      <div>
-        <label htmlFor="emergencyContacts" className="block text-sm font-medium text-gray-700 mb-1">
-          Emergency Contacts
-        </label>
-        <textarea
-          id="emergencyContacts"
-          value={formData.emergencyContacts}
-          onChange={(e) => handleInputChange('emergencyContacts', e.target.value)}
-          rows={3}
-          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.emergencyContacts ? 'border-red-300' : 'border-gray-300'
-          }`}
-          placeholder="Emergency contact details (name, phone, relationship)..."
-        />
-        {errors.emergencyContacts && (
-          <p className="text-red-600 text-sm mt-1">{errors.emergencyContacts}</p>
-        )}
-      </div>
 
       {/* Action Buttons */}
       <div className="flex space-x-3 pt-4">

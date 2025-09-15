@@ -180,16 +180,13 @@ class SchedulerService {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-      const { safePrismaQuery } = await import('../utils/prisma');
-      const result = await safePrismaQuery(async (client) => {
-        return await client.notification.deleteMany({
-          where: {
-            createdAt: {
-              lt: ninetyDaysAgo
-            },
-            read: true // Only delete read notifications
-          }
-        });
+      const result = await prisma.notification.deleteMany({
+        where: {
+          createdAt: {
+            lt: ninetyDaysAgo
+          },
+          read: true // Only delete read notifications
+        }
       });
 
       logger.info(`Cleaned up ${result.count} old notifications`);

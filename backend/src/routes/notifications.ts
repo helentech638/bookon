@@ -6,6 +6,52 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
+// Get notification count
+router.get('/count', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    
+    logger.info('Notification count requested', { 
+      user: req.user?.email,
+      userId 
+    });
+
+    const [unreadCount, totalCount] = await Promise.all([
+      safePrismaQuery(async (client) => {
+        return await client.notification.count({
+          where: {
+            userId: userId,
+            read: false
+          }
+        });
+      }),
+      safePrismaQuery(async (client) => {
+        return await client.notification.count({
+          where: {
+            userId: userId
+          }
+        });
+      })
+    ]);
+
+    logger.info('Notification count retrieved', { 
+      unreadCount,
+      totalCount 
+    });
+
+    res.json({
+      success: true,
+      data: {
+        unreadCount,
+        totalCount
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching notification count:', error);
+    throw new AppError('Failed to fetch notification count', 500, 'NOTIFICATION_COUNT_ERROR');
+  }
+}));
+
 // Get notifications
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {

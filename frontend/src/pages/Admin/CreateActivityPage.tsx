@@ -15,6 +15,8 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
+import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Venue {
   id: string;
@@ -89,10 +91,10 @@ const CreateActivityPage: React.FC = () => {
 
   const loadVenues = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
-      const response = await fetch('/api/v1/venues', {
+      const response = await fetch(buildApiUrl('/venues'), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -110,6 +112,14 @@ const CreateActivityPage: React.FC = () => {
       ...prev,
       [field]: value
     }));
+    
+    // Clear validation error for this field when user starts typing
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
   };
 
   const handleDateExclusion = (date: string) => {
@@ -192,8 +202,17 @@ const CreateActivityPage: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
+    console.log('handleNext called for step:', currentStep);
+    console.log('Current form data:', formData);
+    
+    const isValid = validateStep(currentStep);
+    console.log('Validation result:', isValid);
+    console.log('Validation errors:', validationErrors);
+    
+    if (isValid) {
       setCurrentStep(prev => Math.min(prev + 1, steps.length));
+    } else {
+      console.log('Validation failed, staying on step:', currentStep);
     }
   };
 
@@ -208,7 +227,7 @@ const CreateActivityPage: React.FC = () => {
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       if (!token) throw new Error('No authentication token');
 
       // Prepare activity data
@@ -231,7 +250,7 @@ const CreateActivityPage: React.FC = () => {
         excludeDates: formData.excludeDates
       };
 
-      const response = await fetch('/api/v1/activities', {
+      const response = await fetch(buildApiUrl('/activities'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,14 +337,14 @@ const CreateActivityPage: React.FC = () => {
     <AdminLayout title="Create New Activity">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Create New Activity</h1>
-          <p className="text-gray-600">Set up a new activity for bookings</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Activity</h1>
+          <p className="text-sm sm:text-base text-gray-600">Set up a new activity for bookings</p>
         </div>
 
       {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+      <div className="mb-6 sm:mb-8">
+        <div className="hidden sm:flex items-center justify-between">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
@@ -355,11 +374,45 @@ const CreateActivityPage: React.FC = () => {
             </div>
           ))}
         </div>
+        
+        {/* Mobile Progress Steps */}
+        <div className="sm:hidden">
+          <div className="flex items-center justify-between mb-4">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex flex-col items-center">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                  currentStep >= step.id
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-300 text-gray-500'
+                }`}>
+                  {currentStep > step.id ? (
+                    <CheckIcon className="w-5 h-5" />
+                  ) : (
+                    <span className="text-sm font-medium">{step.id}</span>
+                  )}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-8 h-0.5 mt-4 ${
+                    currentStep > step.id ? 'bg-blue-600' : 'bg-gray-300'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="text-center">
+            <p className={`text-sm font-medium ${
+              currentStep >= steps[currentStep - 1]?.id ? 'text-blue-600' : 'text-gray-500'
+            }`}>
+              {steps[currentStep - 1]?.name}
+            </p>
+            <p className="text-xs text-gray-500">{steps[currentStep - 1]?.description}</p>
+          </div>
+        </div>
       </div>
 
       {/* Form Content */}
       <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex">
@@ -463,8 +516,13 @@ const CreateActivityPage: React.FC = () => {
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => handleInputChange('startDate', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      validationErrors.startDate ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {validationErrors.startDate && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.startDate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -475,8 +533,13 @@ const CreateActivityPage: React.FC = () => {
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => handleInputChange('endDate', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      validationErrors.endDate ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {validationErrors.endDate && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.endDate}</p>
+                  )}
                 </div>
               </div>
 
@@ -489,8 +552,13 @@ const CreateActivityPage: React.FC = () => {
                     type="time"
                     value={formData.startTime}
                     onChange={(e) => handleInputChange('startTime', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      validationErrors.startTime ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {validationErrors.startTime && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.startTime}</p>
+                  )}
                 </div>
 
                 <div>
@@ -501,8 +569,13 @@ const CreateActivityPage: React.FC = () => {
                     type="time"
                     value={formData.endTime}
                     onChange={(e) => handleInputChange('endTime', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      validationErrors.endTime ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   />
+                  {validationErrors.endTime && (
+                    <p className="mt-1 text-sm text-red-600">{validationErrors.endTime}</p>
+                  )}
                 </div>
               </div>
 
@@ -659,8 +732,8 @@ const CreateActivityPage: React.FC = () => {
                   <div>
                     <h4 className="font-medium text-gray-900">Activity Details</h4>
                     <p className="text-sm text-gray-600">{formData.title}</p>
-                    <p className="text-sm text-gray-600">{activityTypes.find(t => t.value === formData.type)?.label}</p>
-                    <p className="text-sm text-gray-600">{venues.find(v => v.id === formData.venueId)?.name}</p>
+                    <p className="text-sm text-gray-600">{activityTypes.find(t => t.value === formData.type)?.label || 'Unknown type'}</p>
+                    <p className="text-sm text-gray-600">{venues.find(v => v.id === formData.venueId)?.name || 'No venue selected'}</p>
                   </div>
                   
                   <div>
@@ -715,7 +788,6 @@ const CreateActivityPage: React.FC = () => {
             {currentStep < steps.length ? (
               <button
                 onClick={handleNext}
-                disabled={!validateStep(currentStep)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next

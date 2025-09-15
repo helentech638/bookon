@@ -15,6 +15,8 @@ const validateChild = [
   body('yearGroup').optional().trim().isLength({ max: 20 }).withMessage('Year group too long'),
   body('allergies').optional().trim().isLength({ max: 500 }).withMessage('Allergies description too long'),
   body('medicalInfo').optional().trim().isLength({ max: 1000 }).withMessage('Medical info too long'),
+  body('school').trim().isLength({ min: 1, max: 100 }).withMessage('School name is required and must be 1-100 characters'),
+  body('class').optional().trim().isLength({ max: 50 }).withMessage('Class name too long'),
 ];
 
 // Get all children for the authenticated user
@@ -25,8 +27,10 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const children = await safePrismaQuery(async (client) => {
       return await client.child.findMany({
         where: {
-          parentId: userId,
-          isActive: true
+          parentId: userId
+        },
+        include: {
+          permissions: true
         },
         orderBy: {
           firstName: 'asc'
@@ -38,15 +42,17 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       success: true,
       data: children.map(child => ({
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        dateOfBirth: child.date_of_birth,
-        yearGroup: child.year_group,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: child.dateOfBirth,
+        yearGroup: child.yearGroup,
         allergies: child.allergies,
-        medicalInfo: child.medical_info,
-        emergencyContacts: child.emergency_contacts,
-        createdAt: child.created_at,
-        updatedAt: child.updated_at
+        medicalInfo: child.medicalInfo,
+        school: child.school,
+        class: child.class,
+        permissions: child.permissions,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
       }))
     });
   } catch (error) {
@@ -109,35 +115,41 @@ router.post('/', authenticateToken, validateChild, asyncHandler(async (req: Requ
       yearGroup,
       allergies,
       medicalInfo,
-      emergencyContacts
+      school,
+      class: childClass
     } = req.body;
 
     // Check if child with same name and date of birth already exists for this user
-    const existingChild = await db('children')
-      .where('user_id', userId)
-      .where('first_name', firstName)
-      .where('last_name', lastName)
-      .where('date_of_birth', dateOfBirth)
-      .where('is_active', true)
-      .first();
+    const existingChild = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          parentId: userId,
+          firstName,
+          lastName,
+          dateOfBirth: new Date(dateOfBirth)
+        }
+      });
+    });
 
     if (existingChild) {
       throw new AppError('Child with this name and date of birth already exists', 400, 'CHILD_ALREADY_EXISTS');
     }
 
-    const [child] = await db('children')
-      .insert({
-        user_id: userId,
-        first_name: firstName,
-        last_name: lastName,
-        date_of_birth: dateOfBirth,
-        year_group: yearGroup,
-        allergies,
-        medical_info: medicalInfo,
-        emergency_contacts: emergencyContacts,
-        is_active: true,
-      })
-      .returning(['id', 'first_name', 'last_name']);
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.create({
+        data: {
+          parentId: userId,
+          firstName,
+          lastName,
+          dateOfBirth: new Date(dateOfBirth),
+          yearGroup,
+          allergies,
+          medicalInfo,
+          school,
+          class: childClass
+        }
+      });
+    });
 
     logger.info('Child created successfully', { 
       childId: child.id, 
@@ -149,8 +161,8 @@ router.post('/', authenticateToken, validateChild, asyncHandler(async (req: Requ
       message: 'Child created successfully',
       data: {
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name
+        firstName: child.firstName,
+        lastName: child.lastName
       }
     });
   } catch (error) {

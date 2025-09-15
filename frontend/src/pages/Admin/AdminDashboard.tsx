@@ -553,22 +553,27 @@ const AdminDashboard: React.FC = () => {
     if (!itemToDelete) return;
     
     try {
-      const token = authService.getToken();
-      if (!token) return;
-
-      const response = await fetch(buildApiUrl(`/admin/${activeTab}/${itemToDelete.id}`), {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        toast.success(`${activeTab.slice(0, -1)} deleted successfully`);
-        fetchAdminData();
+      // Use specific venue delete function if it's a venue
+      if (activeTab === 'venues') {
+        await handleVenueAction(itemToDelete.id, 'delete');
       } else {
-        throw new Error(`Failed to delete ${activeTab.slice(0, -1)}`);
+        const token = authService.getToken();
+        if (!token) return;
+
+        const response = await fetch(buildApiUrl(`/admin/${activeTab}/${itemToDelete.id}`), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          toast.success(`${activeTab.slice(0, -1)} deleted successfully`);
+          fetchAdminData();
+        } else {
+          throw new Error(`Failed to delete ${activeTab.slice(0, -1)}`);
+        }
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -1146,15 +1151,33 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => handleViewItem(venue)}
+                      >
                         <EyeIcon className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => handleEditItem(venue)}
+                      >
                         <PencilIcon className="h-4 w-4 mr-1" />
                         Edit
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setItemToDelete(venue);
+                          setShowDeleteConfirm(true);
+                        }}
+                      >
                         <TrashIcon className="h-4 w-4" />
                       </Button>
               </div>
@@ -2223,17 +2246,17 @@ const AdminDashboard: React.FC = () => {
 
   // New Snapshot Cards Component
   const SnapshotCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 p-4 lg:p-6">
       {/* Activities Running Today */}
       <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/activities')}>
-        <CardContent className="p-6">
+        <CardContent className="p-4 lg:p-6">
           <div className="flex items-center">
-            <div className="p-3 bg-teal-100 rounded-lg mr-4">
-              <CalendarDaysIcon className="h-6 w-6 text-teal-600" />
+            <div className="p-2 lg:p-3 bg-teal-100 rounded-lg mr-3 lg:mr-4">
+              <CalendarDaysIcon className="h-5 w-5 lg:h-6 lg:w-6 text-teal-600" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Activities Running Today</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Activities Running Today</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">
                 {dashboardSnapshot?.activities_running || 0}
               </p>
               <p className="text-xs text-gray-500">
@@ -2246,14 +2269,14 @@ const AdminDashboard: React.FC = () => {
 
       {/* Parents Registered */}
       <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/users')}>
-        <CardContent className="p-6">
+        <CardContent className="p-4 lg:p-6">
           <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4">
-              <UsersIcon className="h-6 w-6 text-blue-600" />
+            <div className="p-2 lg:p-3 bg-blue-100 rounded-lg mr-3 lg:mr-4">
+              <UsersIcon className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Parents Registered</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Parents Registered</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">
                 {dashboardSnapshot?.parents_registered || 0}
               </p>
               <p className="text-xs text-gray-500">Active accounts</p>
@@ -2264,14 +2287,14 @@ const AdminDashboard: React.FC = () => {
 
       {/* Payments Collected Today */}
       <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/payments')}>
-        <CardContent className="p-6">
+        <CardContent className="p-4 lg:p-6">
           <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg mr-4">
-              <CurrencyPoundIcon className="h-6 w-6 text-green-600" />
+            <div className="p-2 lg:p-3 bg-green-100 rounded-lg mr-3 lg:mr-4">
+              <CurrencyPoundIcon className="h-5 w-5 lg:h-6 lg:w-6 text-green-600" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Payments Collected Today</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Payments Collected Today</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">
                 {formatPrice(dashboardSnapshot?.payments_total)}
               </p>
               <p className="text-xs text-gray-500">Settled today</p>
@@ -2282,14 +2305,14 @@ const AdminDashboard: React.FC = () => {
 
       {/* Refunds / Credits Issued */}
       <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/refunds')}>
-        <CardContent className="p-6">
+        <CardContent className="p-4 lg:p-6">
           <div className="flex items-center">
-            <div className="p-3 bg-red-100 rounded-lg mr-4">
-              <ArrowPathIcon className="h-6 w-6 text-red-600" />
+            <div className="p-2 lg:p-3 bg-red-100 rounded-lg mr-3 lg:mr-4">
+              <ArrowPathIcon className="h-5 w-5 lg:h-6 lg:w-6 text-red-600" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Refunds / Credits Issued</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Refunds / Credits Issued</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">
                 {formatPrice((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0))}
               </p>
               <p className="text-xs text-gray-500">Today</p>

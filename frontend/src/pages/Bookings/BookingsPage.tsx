@@ -20,6 +20,7 @@ import {
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { bookingService, Booking } from '../../services/bookingService';
+import { formatPrice } from '../../utils/formatting';
 
 const BookingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -474,7 +475,7 @@ const BookingsPage: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-gray-500">Amount:</span>
-                        <p className="font-medium">£{(booking.amount || 0).toFixed(2)}</p>
+                        <p className="font-medium">{formatPrice(booking.amount || 0)}</p>
                       </div>
                       <div>
                         <span className="text-gray-500">Payment:</span>
@@ -601,7 +602,7 @@ const BookingsPage: React.FC = () => {
                       <div className="text-sm text-gray-500">{booking.time ? formatTime(booking.time) : 'Loading...'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">£{(booking.amount || 0).toFixed(2)}</div>
+                      <div className="text-sm font-medium text-gray-900">{formatPrice(booking.amount || 0)}</div>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || 'pending')}`}>
                         {(booking.paymentStatus || 'pending').charAt(0).toUpperCase() + (booking.paymentStatus || 'pending').slice(1)}
                       </span>

@@ -16,6 +16,7 @@ interface Child {
   lastName: string;
   dateOfBirth: string;
   yearGroup: string;
+  school: string;
   allergies: string | null;
   medicalInfo: string | null;
   emergencyContact: {
@@ -39,6 +40,7 @@ const ChildrenPage: React.FC = () => {
     lastName: '',
     dateOfBirth: '',
     yearGroup: '',
+    school: '',
     allergies: '',
     medicalInfo: '',
     emergencyContactName: '',
@@ -77,6 +79,7 @@ const ChildrenPage: React.FC = () => {
         lastName: formData.lastName,
         dateOfBirth: formData.dateOfBirth,
         yearGroup: formData.yearGroup,
+        school: formData.school,
         allergies: formData.allergies || null,
         medicalInfo: formData.medicalInfo || null,
         emergencyContact: formData.emergencyContactName ? {
@@ -108,6 +111,7 @@ const ChildrenPage: React.FC = () => {
         lastName: formData.lastName,
         dateOfBirth: formData.dateOfBirth,
         yearGroup: formData.yearGroup,
+        school: formData.school,
         allergies: formData.allergies || null,
         medicalInfo: formData.medicalInfo || null,
         emergencyContact: formData.emergencyContactName ? {
@@ -153,6 +157,7 @@ const ChildrenPage: React.FC = () => {
       lastName: child.lastName,
       dateOfBirth: child.dateOfBirth,
       yearGroup: child.yearGroup,
+      school: child.school || '',
       allergies: child.allergies || '',
       medicalInfo: child.medicalInfo || '',
       emergencyContactName: child.emergencyContact?.name || '',
@@ -173,6 +178,7 @@ const ChildrenPage: React.FC = () => {
       lastName: '',
       dateOfBirth: '',
       yearGroup: '',
+      school: '',
       allergies: '',
       medicalInfo: '',
       emergencyContactName: '',
@@ -338,6 +344,14 @@ const ChildrenPage: React.FC = () => {
                 <option key={year} value={year}>{year}</option>
               ))}
             </Select>
+            <Input
+              label="School *"
+              type="text"
+              value={formData.school}
+              onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+              placeholder="Enter school name"
+              required
+            />
           </div>
           
           <Textarea
@@ -434,6 +448,14 @@ const ChildrenPage: React.FC = () => {
                 <option key={year} value={year}>{year}</option>
               ))}
             </Select>
+            <Input
+              label="School *"
+              type="text"
+              value={formData.school}
+              onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+              placeholder="Enter school name"
+              required
+            />
           </div>
           
           <Textarea

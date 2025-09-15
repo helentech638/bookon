@@ -14,6 +14,8 @@ import {
   BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface TFCBooking {
   id: string;
@@ -67,7 +69,7 @@ const TFCPaymentManagement: React.FC = () => {
   const fetchTFCBookings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       
       const params = new URLSearchParams();
       if (filterStatus !== 'all') params.append('status', filterStatus);
@@ -97,7 +99,7 @@ const TFCPaymentManagement: React.FC = () => {
 
   const handleMarkAsPaid = async (bookingId: string) => {
     try {
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/tfc/confirm/${bookingId}`, {
         method: 'POST',
         headers: {
@@ -120,7 +122,7 @@ const TFCPaymentManagement: React.FC = () => {
 
   const handleMarkAsPartPaid = async (bookingId: string, amountReceived: number) => {
     try {
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/tfc/part-paid/${bookingId}`, {
         method: 'POST',
         headers: {
@@ -148,7 +150,7 @@ const TFCPaymentManagement: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/tfc/cancel/${bookingId}`, {
         method: 'POST',
         headers: {
@@ -176,7 +178,7 @@ const TFCPaymentManagement: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       const response = await fetch(`/api/v1/tfc/convert-to-credit/${bookingId}`, {
         method: 'POST',
         headers: {
@@ -208,7 +210,7 @@ const TFCPaymentManagement: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('bookon_token');
+      const token = authService.getToken();
       const response = await fetch('/api/v1/tfc/bulk-mark-paid', {
         method: 'POST',
         headers: {

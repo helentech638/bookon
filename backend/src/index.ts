@@ -20,6 +20,16 @@ import userRoutes from './routes/users';
 import notificationRoutes from './routes/notifications';
 import childrenRoutes from './routes/children';
 import dashboardRoutes from './routes/dashboard';
+import businessDashboardRoutes from './routes/businessDashboard';
+import businessActivitiesRoutes from './routes/businessActivities';
+import businessFinanceRoutes from './routes/businessFinance';
+import businessTemplatesRoutes from './routes/businessTemplates';
+import businessVenuesRoutes from './routes/businessVenues';
+import businessCommunicationsRoutes from './routes/businessCommunications';
+import businessRegistersRoutes from './routes/businessRegisters';
+import businessUsersRoutes from './routes/businessUsers';
+import businessSettingsRoutes from './routes/businessSettings';
+import debugRoutes from './routes/debug';
 import activitiesRoutes from './routes/activities';
 import venuesRoutes from './routes/venues';
 import bookingsRoutes from './routes/bookings';
@@ -84,46 +94,24 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS configuration
+// CORS configuration - simplified for deployment
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'https://bookon-frontend.vercel.app',
-      'https://bookon.app',
-      process.env['FRONTEND_URL'] || 'http://localhost:3001'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // For development, allow any localhost origin
-    if (process.env['NODE_ENV'] === 'development' && origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: [
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'https://bookon-frontend.vercel.app',
+    'https://bookon.app',
+    'https://bookon55.vercel.app',
+    process.env['FRONTEND_URL'] || 'http://localhost:3001'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
-  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-refresh-token'],
+  optionsSuccessStatus: 200,
 }));
 
 // Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
-});
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -370,6 +358,16 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/children', childrenRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/dashboard', businessDashboardRoutes);
+app.use('/api/v1/business/activities', businessActivitiesRoutes);
+app.use('/api/v1/business/finance', businessFinanceRoutes);
+app.use('/api/v1/business/templates', businessTemplatesRoutes);
+app.use('/api/v1/business/venues', businessVenuesRoutes);
+app.use('/api/v1/business/communications', businessCommunicationsRoutes);
+app.use('/api/v1/business/registers', businessRegistersRoutes);
+app.use('/api/v1/business/users', businessUsersRoutes);
+app.use('/api/v1/business/settings', businessSettingsRoutes);
+app.use('/api/v1/debug', debugRoutes);
 app.use('/api/v1/activities', activitiesRoutes);
 app.use('/api/v1/venues', venuesRoutes);
 app.use('/api/v1/bookings', bookingsRoutes);

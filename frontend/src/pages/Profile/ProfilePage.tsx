@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   UserCircleIcon,
   EnvelopeIcon,
@@ -15,7 +15,8 @@ import {
   ExclamationTriangleIcon,
   CheckIcon,
   PencilIcon,
-  PlusIcon
+  PlusIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -36,6 +37,7 @@ interface Child {
 }
 
 const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -224,9 +226,20 @@ const ProfilePage: React.FC = () => {
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-              <p className="text-gray-600">Manage your account settings and preferences</p>
+            <div className="flex items-center space-x-4">
+              <Button
+                onClick={() => navigate('/dashboard')}
+                variant="outline"
+                size="sm"
+                className="inline-flex items-center"
+              >
+                <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+                <p className="text-gray-600">Manage your account settings and preferences</p>
+              </div>
             </div>
             {!isEditing && (
               <Button

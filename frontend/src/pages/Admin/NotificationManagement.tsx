@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/Dialog';
 import { RefreshCw, Bell, Send, Eye, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { buildApiUrl } from '../../config/api';
+import { authService } from '../../services/authService';
 import AdminLayout from '../../components/layout/AdminLayout';
 
 interface Notification {
@@ -90,7 +92,7 @@ const NotificationManagement: React.FC = () => {
 
       const response = await fetch(`/api/v1/notifications?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -112,7 +114,7 @@ const NotificationManagement: React.FC = () => {
     try {
       const response = await fetch('/api/v1/notifications/stats', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -134,7 +136,7 @@ const NotificationManagement: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         },
         body: JSON.stringify(newNotification)
       });
@@ -167,7 +169,7 @@ const NotificationManagement: React.FC = () => {
       const response = await fetch(`/api/v1/notifications/${notificationId}/read`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 
@@ -188,7 +190,7 @@ const NotificationManagement: React.FC = () => {
       const response = await fetch(`/api/v1/notifications/${notificationId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${authService.getToken()}`
         }
       });
 

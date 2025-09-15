@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 import { 
   ClockIcon, 
   ExclamationTriangleIcon,
@@ -67,19 +68,22 @@ const TFCPendingQueuePage: React.FC = () => {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.append('status', statusFilter);
       
-      const response = await fetch(`/api/v1/admin/tfc/pending?${params.toString()}`, {
+      const response = await fetch(buildApiUrl(`/admin/tfc/pending?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.ok) {
         const data = await response.json();
-        setBookings(data.data || []);
+        // Handle different possible response structures
+        const bookingsData = data.data?.bookings || data.bookings || data.data || [];
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to load pending bookings');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load pending bookings');
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -88,7 +92,7 @@ const TFCPendingQueuePage: React.FC = () => {
   const handleMarkAsPaid = async (bookingId: string) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/mark-paid`, {
+      const response = await fetch(buildApiUrl(`/admin/tfc-pending/${bookingId}/mark-paid`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,7 +117,7 @@ const TFCPendingQueuePage: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/cancel`, {
+      const response = await fetch(buildApiUrl(`/admin/tfc-pending/${bookingId}/cancel`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -136,7 +140,7 @@ const TFCPendingQueuePage: React.FC = () => {
   const handleConvertToCredit = async (bookingId: string) => {
     try {
       const token = authService.getToken();
-      const response = await fetch(`/api/v1/admin/tfc-pending/${bookingId}/convert-credit`, {
+      const response = await fetch(buildApiUrl(`/admin/tfc-pending/${bookingId}/convert-credit`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -161,7 +165,7 @@ const TFCPendingQueuePage: React.FC = () => {
 
     try {
       const token = authService.getToken();
-      const response = await fetch('/api/v1/admin/tfc-pending/bulk-mark-paid', {
+      const response = await fetch(buildApiUrl('/admin/tfc-pending/bulk-mark-paid'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -193,10 +197,11 @@ const TFCPendingQueuePage: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedBookings.length === bookings.length) {
+    const bookingsArray = bookings || [];
+    if (selectedBookings.length === bookingsArray.length) {
       setSelectedBookings([]);
     } else {
-      setSelectedBookings(bookings.map(b => b.id));
+      setSelectedBookings(bookingsArray.map(b => b.id));
     }
   };
 
@@ -264,7 +269,7 @@ const TFCPendingQueuePage: React.FC = () => {
     );
   };
 
-  const filteredBookings = bookings.filter(booking => {
+  const filteredBookings = (bookings || []).filter(booking => {
     const matchesSearch = 
       booking.paymentReference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.child.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -18,6 +18,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 interface SystemConfig {
   app: {
@@ -110,31 +111,32 @@ const AdvancedAdminTools: React.FC = () => {
   const fetchBulkOperations = async () => {
     setLoading(true);
     try {
-      // Mock data for now
-      const mockOperations: BulkOperation[] = [
-        {
-          id: '1',
-          type: 'user_update',
-          status: 'completed',
-          totalItems: 25,
-          processedItems: 25,
-          failedItems: 0,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          completedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '2',
-          type: 'venue_update',
-          status: 'processing',
-          totalItems: 10,
-          processedItems: 3,
-          failedItems: 0,
-          createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('No authentication token');
+        setBulkOperations([]);
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/admin/bulk-operations'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ];
-      setBulkOperations(mockOperations);
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Handle the new API response structure
+        const operations = data.data?.bulkOperations || [];
+        setBulkOperations(Array.isArray(operations) ? operations : []);
+      } else {
+        toast.error('Failed to fetch bulk operations');
+        setBulkOperations([]);
+      }
     } catch (error) {
       toast.error('Error fetching bulk operations');
+      setBulkOperations([]);
     } finally {
       setLoading(false);
     }
@@ -182,12 +184,16 @@ const AdvancedAdminTools: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setAuditLogs(data.data.auditLogs);
+        // Handle the new API response structure
+        const logs = data.data?.auditLogs || [];
+        setAuditLogs(Array.isArray(logs) ? logs : []);
       } else {
         toast.error('Failed to fetch audit logs');
+        setAuditLogs([]);
       }
     } catch (error) {
       toast.error('Error fetching audit logs');
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
@@ -321,14 +327,15 @@ const AdvancedAdminTools: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AdminLayout title="Advanced Admin Tools">
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Advanced Admin Tools</h1>
-              <p className="text-gray-600">Bulk operations, system configuration, and audit logging</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Advanced Admin Tools</h1>
+              <p className="text-sm sm:text-base text-gray-600">Bulk operations, system configuration, and audit logging</p>
             </div>
           </div>
         </div>
@@ -336,8 +343,8 @@ const AdvancedAdminTools: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-gray-200 mb-6 sm:mb-8">
+          <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-hide">
             {[
               { id: 'bulk', name: 'Bulk Operations', icon: UsersIcon },
               { id: 'config', name: 'System Config', icon: CogIcon },
@@ -346,14 +353,15 @@ const AdvancedAdminTools: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-1 sm:space-x-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'border-[#00806a] text-[#00806a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
-                <span>{tab.name}</span>
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
               </button>
             ))}
           </nav>
@@ -362,11 +370,11 @@ const AdvancedAdminTools: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'bulk' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Bulk Operations</h2>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Bulk Operations</h2>
               <Button
                 onClick={() => setShowBulkModal(true)}
-                className="bg-[#00806a] hover:bg-[#006d5a] text-white"
+                className="bg-[#00806a] hover:bg-[#006d5a] text-white w-full sm:w-auto"
               >
                 <UsersIcon className="w-4 h-4 mr-2" />
                 New Bulk Operation
@@ -841,6 +849,7 @@ const AdvancedAdminTools: React.FC = () => {
         </div>
       )}
     </div>
+    </AdminLayout>
   );
 };
 

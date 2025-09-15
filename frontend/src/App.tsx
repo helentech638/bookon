@@ -22,6 +22,20 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
+import BusinessDashboard from './pages/Business/BusinessDashboard';
+import BusinessActivitiesPage from './pages/Business/ActivitiesPage';
+import BusinessCreateActivityPage from './pages/Business/CreateActivityPage';
+import BusinessFinancePage from './pages/Business/FinancePage';
+import BusinessTemplatesPage from './pages/Business/TemplatesPage';
+import BusinessVenuesPage from './pages/Business/VenuesPage';
+import BusinessCommunicationsPage from './pages/Business/CommunicationsPage';
+import BusinessCommunicationsAutomatedPage from './pages/Business/CommunicationsAutomatedPage';
+import BusinessCommunicationsBroadcastsPage from './pages/Business/CommunicationsBroadcastsPage';
+import BusinessCommunicationsLogsPage from './pages/Business/CommunicationsLogsPage';
+import BusinessRegistersPage from './pages/Business/RegistersPage';
+import BusinessUsersPage from './pages/Business/UsersPage';
+import BusinessSettingsPage from './pages/Business/SettingsPage';
+import DashboardRouter from './components/DashboardRouter';
 import ActivitiesPage from './pages/Activities/ActivitiesPage';
 import BookingsPage from './pages/Bookings/BookingsPage';
 import BookingDetailPage from './pages/Bookings/BookingDetailPage';
@@ -46,7 +60,7 @@ import NotificationCenter from './pages/Admin/NotificationCenter';
 import NotificationsPage from './pages/Notifications/NotificationsPage';
 import CommunicationsPage from './pages/Admin/CommunicationsPage';
 import FinancePage from './pages/Admin/FinancePage';
-import CreateActivityPage from './pages/Admin/CreateActivityPage';
+import AdminCreateActivityPage from './pages/Admin/CreateActivityPage';
 import RegisterManagementPage from './pages/Admin/RegisterManagementPage';
 import TFCPendingQueuePage from './pages/Admin/TFCPendingQueuePage';
 import PendingPaymentPage from './pages/PendingPaymentPage';
@@ -65,6 +79,12 @@ import MyBookingsPage from './pages/Parent/MyBookingsPage';
 import WalletPage from './pages/Parent/WalletPage';
 import NotFoundPage from './pages/NotFoundPage';
 import WidgetPage from './pages/WidgetPage';
+import ActivityConfirmationPage from './pages/Activities/ActivityConfirmationPage';
+import CheckoutPage from './pages/Checkout/CheckoutPage';
+import ChildPermissionsPage from './pages/Children/ChildPermissionsPage';
+import AddChildPage from './pages/Children/AddChildPage';
+import PaymentSuccessPage from './pages/Payment/PaymentSuccessPage';
+import PaymentPage from './pages/Payment/PaymentPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -94,6 +114,158 @@ function AppRoutes() {
           path="/dashboard"
           element={
             <ProtectedRoute>
+              <DashboardRouter />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/dashboard"
+          element={
+            <ProtectedRoute>
+              <BusinessDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/activities"
+          element={
+            <ProtectedRoute>
+              <BusinessActivitiesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/activities/new"
+          element={
+            <ProtectedRoute>
+              <BusinessCreateActivityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance/transactions"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance/discounts"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance/credits"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance/refunds"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/finance/reports"
+          element={
+            <ProtectedRoute>
+              <BusinessFinancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/templates"
+          element={
+            <ProtectedRoute>
+              <BusinessTemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/venues"
+          element={
+            <ProtectedRoute>
+              <BusinessVenuesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/communications"
+          element={
+            <ProtectedRoute>
+              <BusinessCommunicationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/communications/automated"
+          element={
+            <ProtectedRoute>
+              <BusinessCommunicationsAutomatedPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/communications/broadcasts"
+          element={
+            <ProtectedRoute>
+              <BusinessCommunicationsBroadcastsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/communications/logs"
+          element={
+            <ProtectedRoute>
+              <BusinessCommunicationsLogsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/registers"
+          element={
+            <ProtectedRoute>
+              <BusinessRegistersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/users"
+          element={
+            <ProtectedRoute>
+              <BusinessUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/settings"
+          element={
+            <ProtectedRoute>
+              <BusinessSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/parent/dashboard"
+          element={
+            <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
           }
@@ -103,6 +275,38 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ActivitiesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/confirm"
+          element={
+            <ProtectedRoute>
+              <ActivityConfirmationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/:activityId"
+          element={
+            <ProtectedRoute>
+              <CheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment"
+          element={
+            <ProtectedRoute>
+              <PaymentPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment-success/:bookingId"
+          element={
+            <ProtectedRoute>
+              <PaymentSuccessPage />
             </ProtectedRoute>
           }
         />
@@ -147,7 +351,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/bookings/flow"
+          path="/bookings/flow/:activityId"
           element={
             <ProtectedRoute>
               <ParentBookingFlow />
@@ -159,6 +363,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ChildrenPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/children/new"
+          element={
+            <ProtectedRoute>
+              <AddChildPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/children/:childId/permissions"
+          element={
+            <ProtectedRoute>
+              <ChildPermissionsPage />
             </ProtectedRoute>
           }
         />
@@ -320,7 +540,7 @@ function AppRoutes() {
           path="/admin/create-activity"
           element={
             <ProtectedRoute>
-              <CreateActivityPage />
+              <AdminCreateActivityPage />
             </ProtectedRoute>
           }
         />

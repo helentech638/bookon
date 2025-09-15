@@ -5,6 +5,8 @@ import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { Badge } from '../../components/ui/Badge';
+import { buildApiUrl, API_CONFIG } from '../../config/api';
+import { authService } from '../../services/authService';
 import { 
   CogIcon, 
   CurrencyPoundIcon, 
@@ -15,7 +17,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { authService } from '../../services/authService';
 
 interface ProviderSettings {
   id: string;
@@ -91,7 +92,7 @@ const ProviderSettingsPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('/api/v1/admin/venues', {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.VENUES), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -125,7 +126,7 @@ const ProviderSettingsPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`/api/v1/provider-settings/${venueId}`, {
+      const response = await fetch(buildApiUrl(`/provider-settings/${venueId}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -157,7 +158,7 @@ const ProviderSettingsPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`/api/v1/provider-settings/${selectedVenueId}`, {
+      const response = await fetch(buildApiUrl(`/provider-settings/${selectedVenueId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -188,7 +189,7 @@ const ProviderSettingsPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`/api/v1/provider-settings/${selectedVenueId}/reset`, {
+      const response = await fetch(buildApiUrl(`/provider-settings/${selectedVenueId}/reset`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
