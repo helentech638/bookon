@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   HomeIcon,
   CalendarDaysIcon,
@@ -37,34 +38,54 @@ import Footer from './Footer';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
-  user?: any;
+  user?: any; // Keep for backward compatibility, but will use AuthContext
   onLogout?: () => void;
 }
 
-const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user, onLogout }) => {
+const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUser, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['operations', 'notifications']));
   const location = useLocation();
   const navigate = useNavigate();
+  const { user: contextUser, isLoading } = useAuth();
+
+  // Use prop user if provided, otherwise use context user
+  const user = propUser || contextUser;
 
   // Debug logging
-  console.log('BusinessLayout rendered with user:', user);
+  console.log('BusinessLayout rendered with user:', user, 'isLoading:', isLoading);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00806a]"></div>
+      </div>
+    );
+  }
 
   // Role-based access control - only business users can access business layout
-  if (!user) {
-    console.log('BusinessLayout: No user found');
-    navigate('/login');
-    return null;
-  }
-  
-  if (user.role !== 'business' && user.role !== 'admin') {
-    console.log('BusinessLayout: User role check failed', { user, role: user?.role });
-    // Redirect to appropriate dashboard based on user role
-    if (user?.role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard'); // This will redirect to parent dashboard via DashboardRouter
+  useEffect(() => {
+    if (!isLoading && !user) {
+      console.log('BusinessLayout: No user found');
+      navigate('/login');
+      return;
     }
+    
+    if (!isLoading && user && user.role !== 'business' && user.role !== 'admin') {
+      console.log('BusinessLayout: User role check failed', { user, role: user?.role });
+      // Redirect to appropriate dashboard based on user role
+      if (user?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard'); // This will redirect to parent dashboard via DashboardRouter
+      }
+      return;
+    }
+  }, [user, isLoading, navigate]);
+
+  // Don't render anything if user is not valid
+  if (!isLoading && (!user || (user.role !== 'business' && user.role !== 'admin'))) {
     return null;
   }
 
