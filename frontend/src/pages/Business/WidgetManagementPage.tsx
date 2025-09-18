@@ -370,6 +370,312 @@ const WidgetManagementPage: React.FC = () => {
     );
   }
 
+  // If creating or editing a widget, show the form page
+  if (showCreateModal) {
+    return (
+      <BusinessLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingWidget(null);
+                  resetForm();
+                }}
+                className="flex items-center gap-2"
+              >
+                ← Back to Widgets
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {editingWidget ? 'Edit Widget' : 'Create New Widget'}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {editingWidget ? 'Update your widget settings' : 'Configure your new booking widget'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Widget Form */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-6">
+              {/* Tab Navigation */}
+              <div className="flex border-b border-gray-200 mb-6">
+                {[
+                  { id: 'design', label: 'Design', icon: PaintBrushIcon },
+                  { id: 'settings', label: 'Settings', icon: CogIcon },
+                  { id: 'analytics', label: 'Analytics', icon: ChartBarIcon },
+                  { id: 'embed', label: 'Embed Code', icon: CodeBracketIcon }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Design Tab */}
+                {activeTab === 'design' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Widget Name
+                        </label>
+                        <Input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter widget name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Theme
+                        </label>
+                        <Select
+                          value={formData.theme}
+                          onChange={(value) => setFormData(prev => ({ ...prev, theme: value as any }))}
+                        >
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        rows={3}
+                        placeholder="Enter widget description"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Color Presets
+                      </label>
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                        {colorPresets.map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => setFormData(prev => ({
+                              ...prev,
+                              primaryColor: preset.primary,
+                              secondaryColor: preset.secondary
+                            }))}
+                            className="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-green-500 transition-colors"
+                          >
+                            <div className="flex gap-1 mb-1">
+                              <div 
+                                className="w-4 h-4 rounded border border-gray-300"
+                                style={{ backgroundColor: preset.primary }}
+                              ></div>
+                              <div 
+                                className="w-4 h-4 rounded border border-gray-300"
+                                style={{ backgroundColor: preset.secondary }}
+                              ></div>
+                            </div>
+                            <span className="text-xs text-gray-600">{preset.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Primary Color
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="color"
+                            value={formData.primaryColor}
+                            onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                            className="w-16 h-10 p-1 border border-gray-300 rounded"
+                          />
+                          <Input
+                            type="text"
+                            value={formData.primaryColor}
+                            onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                            placeholder="#10B981"
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Secondary Color
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="color"
+                            value={formData.secondaryColor}
+                            onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                            className="w-16 h-10 p-1 border border-gray-300 rounded"
+                          />
+                          <Input
+                            type="text"
+                            value={formData.secondaryColor}
+                            onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                            placeholder="#F3F4F6"
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Settings Tab */}
+                {activeTab === 'settings' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Position
+                        </label>
+                        <Select
+                          value={formData.position}
+                          onChange={(value) => setFormData(prev => ({ ...prev, position: value as any }))}
+                        >
+                          <option value="bottom-right">Bottom Right</option>
+                          <option value="bottom-left">Bottom Left</option>
+                          <option value="top-right">Top Right</option>
+                          <option value="top-left">Top Left</option>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="showLogo"
+                          checked={formData.showLogo}
+                          onChange={(e) => setFormData(prev => ({ ...prev, showLogo: e.target.checked }))}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="showLogo" className="ml-2 block text-sm text-gray-700">
+                          Show Logo
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Custom CSS
+                      </label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                        value={formData.customCSS}
+                        onChange={(e) => setFormData(prev => ({ ...prev, customCSS: e.target.value }))}
+                        rows={6}
+                        placeholder="/* Add your custom CSS here */"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Analytics Tab */}
+                {activeTab === 'analytics' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-gray-900">{analytics?.totalViews.toLocaleString() || 0}</div>
+                        <div className="text-sm text-gray-600">Total Views</div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-gray-900">{analytics?.totalInteractions.toLocaleString() || 0}</div>
+                        <div className="text-sm text-gray-600">Interactions</div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-gray-900">{analytics?.totalConversions.toLocaleString() || 0}</div>
+                        <div className="text-sm text-gray-600">Conversions</div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-2xl font-bold text-gray-900">{analytics?.conversionRate.toFixed(1) || 0}%</div>
+                        <div className="text-sm text-gray-600">Conversion Rate</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Embed Code Tab */}
+                {activeTab === 'embed' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Embed Code
+                      </label>
+                      <div className="relative">
+                        <textarea
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm bg-gray-50"
+                          value={editingWidget ? editingWidget.embedCode : generateEmbedCode('new')}
+                          rows={4}
+                          readOnly
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyEmbedCode(editingWidget ? editingWidget.embedCode : generateEmbedCode('new'))}
+                          className="absolute top-2 right-2"
+                        >
+                          <ClipboardDocumentIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Copy this code and paste it into your website's HTML where you want the widget to appear.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setEditingWidget(null);
+                      resetForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                    {editingWidget ? 'Update Widget' : 'Create Widget'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </BusinessLayout>
+    );
+  }
+
   return (
     <BusinessLayout>
       <div className="space-y-6">
@@ -525,273 +831,6 @@ const WidgetManagementPage: React.FC = () => {
             </Card>
           ))}
         </div>
-
-        {/* Create/Edit Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-semibold mb-4">
-                {editingWidget ? 'Edit Widget' : 'Create New Widget'}
-              </h2>
-              
-              {/* Tab Navigation */}
-              <div className="flex border-b border-gray-200 mb-6">
-                {[
-                  { id: 'design', label: 'Design', icon: PaintBrushIcon },
-                  { id: 'settings', label: 'Settings', icon: CogIcon },
-                  { id: 'analytics', label: 'Analytics', icon: ChartBarIcon },
-                  { id: 'embed', label: 'Embed Code', icon: CodeBracketIcon }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <tab.icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Design Tab */}
-                {activeTab === 'design' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Widget Name
-                        </label>
-                        <Input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="Enter widget name"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Theme
-                        </label>
-                        <Select
-                          value={formData.theme}
-                          onChange={(value) => setFormData(prev => ({ ...prev, theme: value as any }))}
-                        >
-                          <option value="light">Light</option>
-                          <option value="dark">Dark</option>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        rows={3}
-                        placeholder="Enter widget description"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Color Presets
-                      </label>
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                        {colorPresets.map((preset) => (
-                          <button
-                            key={preset.name}
-                            type="button"
-                            onClick={() => setFormData(prev => ({
-                              ...prev,
-                              primaryColor: preset.primary,
-                              secondaryColor: preset.secondary
-                            }))}
-                            className="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-green-500 transition-colors"
-                          >
-                            <div className="flex gap-1 mb-1">
-                              <div 
-                                className="w-4 h-4 rounded border border-gray-300"
-                                style={{ backgroundColor: preset.primary }}
-                              ></div>
-                              <div 
-                                className="w-4 h-4 rounded border border-gray-300"
-                                style={{ backgroundColor: preset.secondary }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-600">{preset.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Primary Color
-                        </label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={formData.primaryColor}
-                            onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
-                            className="w-16 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={formData.primaryColor}
-                            onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
-                            placeholder="#10B981"
-                            className="flex-1"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Secondary Color
-                        </label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={formData.secondaryColor}
-                            onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                            className="w-16 h-10 p-1"
-                          />
-                          <Input
-                            type="text"
-                            value={formData.secondaryColor}
-                            onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                            placeholder="#F3F4F6"
-                            className="flex-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Settings Tab */}
-                {activeTab === 'settings' && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Position
-                      </label>
-                      <Select
-                        value={formData.position}
-                        onChange={(value) => setFormData(prev => ({ ...prev, position: value as any }))}
-                      >
-                        <option value="bottom-right">Bottom Right</option>
-                        <option value="bottom-left">Bottom Left</option>
-                        <option value="top-right">Top Right</option>
-                        <option value="top-left">Top Left</option>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="showLogo"
-                          checked={formData.showLogo}
-                          onChange={(e) => setFormData(prev => ({ ...prev, showLogo: e.target.checked }))}
-                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="showLogo" className="ml-2 text-sm text-gray-700">
-                          Show business logo in widget
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Custom CSS
-                      </label>
-                      <textarea
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
-                        value={formData.customCSS}
-                        onChange={(e) => setFormData(prev => ({ ...prev, customCSS: e.target.value }))}
-                        rows={6}
-                        placeholder="/* Custom CSS styles */&#10;.widget-container {&#10;  border-radius: 8px;&#10;}"
-                      />
-                    </div>
-                  </div>
-                )}
-                
-                {/* Analytics Tab */}
-                {activeTab === 'analytics' && (
-                  <div className="space-y-4">
-                    <div className="text-center py-8">
-                      <ChartBarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Widget Analytics</h3>
-                      <p className="text-gray-600">
-                        Analytics data will be available once the widget is deployed and starts receiving traffic.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Embed Code Tab */}
-                {activeTab === 'embed' && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Embed Code
-                      </label>
-                      <div className="relative">
-                        <textarea
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm bg-gray-50"
-                          value={editingWidget ? editingWidget.embedCode : generateEmbedCode('new')}
-                          rows={4}
-                          readOnly
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyEmbedCode(editingWidget ? editingWidget.embedCode : generateEmbedCode('new'))}
-                          className="absolute top-2 right-2"
-                        >
-                          <ClipboardDocumentIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Copy this code and paste it into your website's HTML where you want the widget to appear.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingWidget(null);
-                      resetForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                    {editingWidget ? 'Update Widget' : 'Create Widget'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </BusinessLayout>
   );
