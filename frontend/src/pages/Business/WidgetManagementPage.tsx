@@ -110,6 +110,8 @@ const WidgetManagementPage: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Widget API response:', data);
+      
       if (data.success) {
         // Transform API data to match our interface
         const transformedWidgets: WidgetConfig[] = (data.data.widgets || []).map((widget: any) => ({
@@ -128,6 +130,7 @@ const WidgetManagementPage: React.FC = () => {
           updatedAt: widget.updatedAt
         }));
         
+        console.log('Transformed widgets:', transformedWidgets);
         setWidgets(transformedWidgets);
       } else {
         throw new Error(data.message || 'Failed to fetch widgets');
@@ -146,25 +149,70 @@ const WidgetManagementPage: React.FC = () => {
 
   const fetchAnalytics = async () => {
     try {
-      // Mock analytics data - replace with actual API call
-      const mockAnalytics: WidgetAnalytics = {
-        totalViews: 15420,
-        totalInteractions: 3240,
-        totalConversions: 486,
-        conversionRate: 15.0,
-        interactionRate: 21.0,
-        dailyStats: {
-          '2024-01-15': { views: 120, interactions: 25, conversions: 4 },
-          '2024-01-16': { views: 145, interactions: 32, conversions: 6 },
-          '2024-01-17': { views: 98, interactions: 18, conversions: 3 },
-          '2024-01-18': { views: 167, interactions: 41, conversions: 8 },
-          '2024-01-19': { views: 134, interactions: 28, conversions: 5 }
-        }
-      };
-      
-      setAnalytics(mockAnalytics);
+      const token = authService.getToken();
+      if (!token) {
+        // Set empty analytics if no token
+        setAnalytics({
+          totalViews: 0,
+          totalInteractions: 0,
+          totalConversions: 0,
+          conversionRate: 0,
+          interactionRate: 0,
+          dailyStats: {}
+        });
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(buildApiUrl('/business/widgets/analytics'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        // If analytics endpoint doesn't exist yet, set empty analytics
+        setAnalytics({
+          totalViews: 0,
+          totalInteractions: 0,
+          totalConversions: 0,
+          conversionRate: 0,
+          interactionRate: 0,
+          dailyStats: {}
+        });
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setAnalytics(data.data || {
+          totalViews: 0,
+          totalInteractions: 0,
+          totalConversions: 0,
+          conversionRate: 0,
+          interactionRate: 0,
+          dailyStats: {}
+        });
+      } else {
+        throw new Error(data.message || 'Failed to fetch analytics');
+      }
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      // Set empty analytics on error
+      setAnalytics({
+        totalViews: 0,
+        totalInteractions: 0,
+        totalConversions: 0,
+        conversionRate: 0,
+        interactionRate: 0,
+        dailyStats: {}
+      });
     }
   };
 
@@ -176,6 +224,8 @@ const WidgetManagementPage: React.FC = () => {
     e.preventDefault();
     
     try {
+      console.log('Submitting widget form data:', formData);
+      
       const token = authService.getToken();
       if (!token) {
         toast.error('Please log in to save widget');
@@ -188,6 +238,8 @@ const WidgetManagementPage: React.FC = () => {
       
       const method = editingWidget ? 'PUT' : 'POST';
 
+      console.log('Submitting to:', url, 'Method:', method);
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -197,12 +249,17 @@ const WidgetManagementPage: React.FC = () => {
         body: JSON.stringify(formData)
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Error response:', errorData);
         throw new Error(errorData.message || 'Failed to save widget');
       }
 
       const data = await response.json();
+      console.log('Success response:', data);
+      
       if (data.success) {
         toast.success(editingWidget ? 'Widget updated successfully!' : 'Widget created successfully!');
         setShowCreateModal(false);
