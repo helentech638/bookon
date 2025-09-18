@@ -15,6 +15,8 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import authService from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Register {
   id: string;
@@ -43,62 +45,56 @@ const RegistersPage: React.FC = () => {
   const fetchRegisters = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockRegisters: Register[] = [
-        {
-          id: '1',
-          activityName: 'Swimming Lessons',
-          venueName: 'Main Sports Centre',
-          date: '2024-01-20',
-          time: '10:00 AM',
-          instructor: 'John Smith',
-          totalCapacity: 20,
-          registeredCount: 15,
-          status: 'upcoming',
-          createdAt: '2024-01-15T10:00:00Z'
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to view registers');
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(buildApiUrl('/business/registers'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        {
-          id: '2',
-          activityName: 'Football Training',
-          venueName: 'Community Hall',
-          date: '2024-01-19',
-          time: '2:00 PM',
-          instructor: 'Sarah Johnson',
-          totalCapacity: 30,
-          registeredCount: 28,
-          status: 'in-progress',
-          createdAt: '2024-01-16T10:00:00Z'
-        },
-        {
-          id: '3',
-          activityName: 'Art Workshop',
-          venueName: 'Youth Centre',
-          date: '2024-01-18',
-          time: '3:30 PM',
-          instructor: 'Mike Brown',
-          totalCapacity: 15,
-          registeredCount: 12,
-          status: 'completed',
-          createdAt: '2024-01-17T10:00:00Z'
-        },
-        {
-          id: '4',
-          activityName: 'Dance Class',
-          venueName: 'Main Sports Centre',
-          date: '2024-01-17',
-          time: '6:00 PM',
-          instructor: 'Emma Wilson',
-          totalCapacity: 25,
-          registeredCount: 0,
-          status: 'cancelled',
-          createdAt: '2024-01-18T10:00:00Z'
-        }
-      ];
-      
-      setRegisters(mockRegisters);
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch registers');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Transform API data to match our interface
+        const transformedRegisters: Register[] = (data.data.registers || []).map((register: any) => ({
+          id: register.id,
+          activityName: register.session?.activity?.title || 'Unknown Activity',
+          venueName: register.session?.activity?.venue?.name || 'Unknown Venue',
+          date: register.session?.date || register.createdAt,
+          time: register.session?.startTime || 'Unknown Time',
+          instructor: register.session?.activity?.instructor || 'TBD',
+          totalCapacity: register.session?.activity?.capacity || 0,
+          registeredCount: register.attendees?.length || 0,
+          status: register.status || 'upcoming',
+          createdAt: register.createdAt
+        }));
+        
+        setRegisters(transformedRegisters);
+      } else {
+        throw new Error(data.message || 'Failed to fetch registers');
+      }
     } catch (error) {
       console.error('Error fetching registers:', error);
-      toast.error('Failed to load registers');
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Registers loading timeout - please refresh');
+      } else {
+        toast.error('Failed to load registers');
+      }
     } finally {
       setLoading(false);
     }
@@ -172,7 +168,13 @@ const RegistersPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Registers</h1>
             <p className="text-gray-600 mt-1">Manage activity registers and attendance</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => {
+              // TODO: Navigate to create register page or open modal
+              toast('Create Register functionality coming soon!');
+            }}
+          >
             <PlusIcon className="h-5 w-5" />
             Create Register
           </Button>
@@ -335,7 +337,12 @@ const RegistersPage: React.FC = () => {
                 : 'Get started by creating your first register'
               }
             </p>
-            <Button>
+            <Button
+              onClick={() => {
+                // TODO: Navigate to create register page or open modal
+                toast('Create Register functionality coming soon!');
+              }}
+            >
               <PlusIcon className="h-5 w-5 mr-2" />
               Create Register
             </Button>

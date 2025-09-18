@@ -98,6 +98,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    // First try to restore user from localStorage
+    const storedUser = localStorage.getItem('bookon_user');
+    console.log('AuthContext: Checking stored user:', storedUser);
+    
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        console.log('AuthContext: Restored user from localStorage:', userData);
+        setUser(userData);
+        setIsLoading(false);
+        return;
+      } catch (error) {
+        console.error('Failed to parse stored user:', error);
+        localStorage.removeItem('bookon_user');
+      }
+    }
+    
+    console.log('AuthContext: No stored user, checking auth with backend');
+    // If no stored user, check auth with backend
     checkAuth();
   }, []);
 

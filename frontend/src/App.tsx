@@ -16,6 +16,7 @@ import { clearAllAuthData } from './utils/authUtils';
 // Layout components
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import RoleBasedProtectedRoute from './components/Auth/RoleBasedProtectedRoute';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -33,6 +34,10 @@ import BusinessCommunicationsAutomatedPage from './pages/Business/Communications
 import BusinessCommunicationsBroadcastsPage from './pages/Business/CommunicationsBroadcastsPage';
 import BusinessCommunicationsLogsPage from './pages/Business/CommunicationsLogsPage';
 import BusinessRegistersPage from './pages/Business/RegistersPage';
+import BusinessRegisterSetupPage from './pages/Business/RegisterSetupPage';
+import BusinessVenueSetupPage from './pages/Business/VenueSetupPage';
+import BusinessWidgetManagementPage from './pages/Business/WidgetManagementPage';
+import BusinessNotificationsPage from './pages/Business/NotificationsPage';
 import BusinessUsersPage from './pages/Business/UsersPage';
 import BusinessSettingsPage from './pages/Business/SettingsPage';
 import DashboardRouter from './components/DashboardRouter';
@@ -61,6 +66,7 @@ import NotificationsPage from './pages/Notifications/NotificationsPage';
 import CommunicationsPage from './pages/Admin/CommunicationsPage';
 import FinancePage from './pages/Admin/FinancePage';
 import AdminCreateActivityPage from './pages/Admin/CreateActivityPage';
+import ActivityTypesPage from './pages/Admin/ActivityTypesPage';
 import RegisterManagementPage from './pages/Admin/RegisterManagementPage';
 import TFCPendingQueuePage from './pages/Admin/TFCPendingQueuePage';
 import PendingPaymentPage from './pages/PendingPaymentPage';
@@ -73,6 +79,7 @@ import TFCQueuePage from './pages/Admin/TFCQueuePage';
 import ProviderSettingsPage from './pages/Admin/ProviderSettingsPage';
 import AdminSettings from './pages/Admin/AdminSettings';
 import WebhookManagement from './pages/Admin/WebhookManagement';
+import BankFeedManagement from './pages/Admin/BankFeedManagement';
 import VenuesPage from './pages/Venues/VenuesPage';
 import VenueDetailPage from './pages/Venues/VenueDetailPage';
 import MyBookingsPage from './pages/Parent/MyBookingsPage';
@@ -121,161 +128,241 @@ function AppRoutes() {
         <Route
           path="/business/dashboard"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessDashboard />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/activities"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessActivitiesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/activities/new"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCreateActivityPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance/transactions"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance/discounts"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance/credits"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance/refunds"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/finance/reports"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessFinancePage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/templates"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessTemplatesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/venues"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessVenuesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/communications"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCommunicationsPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/communications/automated"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCommunicationsAutomatedPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/communications/broadcasts"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCommunicationsBroadcastsPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/communications/logs"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCommunicationsLogsPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/registers"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessRegistersPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/register-setup"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessRegisterSetupPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/venue-setup"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessVenueSetupPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/widgets"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessWidgetManagementPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/widgets/config"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessWidgetManagementPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/widgets/analytics"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessWidgetManagementPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/widgets/embed"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
+              <BusinessWidgetManagementPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/notifications"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessNotificationsPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/notifications/settings"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessNotificationsPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/notifications/templates"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessNotificationsPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/notifications/logs"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessNotificationsPage />
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/users"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessUsersPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/business/settings"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessSettingsPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/parent/dashboard"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
               <DashboardPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
           path="/activities"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
               <ActivitiesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
@@ -313,9 +400,9 @@ function AppRoutes() {
         <Route
           path="/venues"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
               <VenuesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
@@ -427,9 +514,9 @@ function AppRoutes() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['admin']}>
               <AdminDashboard />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
@@ -475,9 +562,9 @@ function AppRoutes() {
         <Route
           path="/admin/venues"
           element={
-            <ProtectedRoute>
+            <RoleBasedProtectedRoute allowedRoles={['admin']}>
               <VenuesPage />
-            </ProtectedRoute>
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
@@ -541,6 +628,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <AdminCreateActivityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/activity-types"
+          element={
+            <ProtectedRoute>
+              <ActivityTypesPage />
             </ProtectedRoute>
           }
         />
@@ -702,6 +797,14 @@ function AppRoutes() {
             <ProtectedRoute>
               <WebhookManagement />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/bank-feed"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['admin']}>
+              <BankFeedManagement />
+            </RoleBasedProtectedRoute>
           }
         />
         <Route
