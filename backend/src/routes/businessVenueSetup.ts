@@ -6,6 +6,30 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
+// Simple test route to check if venues exist
+router.get('/test', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  
+  try {
+    logger.info('Testing venue fetch', { userId });
+    
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        where: { ownerId: userId },
+        take: 5
+      });
+    });
+    
+    res.json({
+      success: true,
+      data: { venues, count: venues.length }
+    });
+  } catch (error) {
+    logger.error('Test route error:', error);
+    throw error;
+  }
+}));
+
 // Get venue setups for business
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -54,24 +78,47 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     logger.info('Fetching venues', { where, skip, limit });
     
     const [venueSetups, totalCount] = await safePrismaQuery(async (client) => {
-      return await Promise.all([
-        client.venue.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          orderBy: { createdAt: 'desc' },
-          include: {
-            businessAccount: {
-              select: {
-                id: true,
-                businessName: true,
-                stripeAccountId: true
+      try {
+        logger.info('Attempting to fetch venues from database');
+        
+        // Try with businessAccount relation first, fallback to simple query if it fails
+        let venues;
+        try {
+          venues = await client.venue.findMany({
+            where,
+            skip,
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' },
+            include: {
+              businessAccount: {
+                select: {
+                  id: true,
+                  name: true,
+                  stripeAccountId: true
+                }
               }
             }
-          }
-        }),
-        client.venue.count({ where })
-      ]);
+          });
+        } catch (relationError) {
+          logger.warn('BusinessAccount relation failed, falling back to simple query:', relationError);
+          venues = await client.venue.findMany({
+            where,
+            skip,
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' }
+          });
+        }
+        
+        logger.info('Venues fetched successfully', { venueCount: venues.length });
+        
+        const count = await client.venue.count({ where });
+        logger.info('Venue count retrieved', { count });
+        
+        return [venues, count];
+      } catch (dbError) {
+        logger.error('Database error in venue fetch:', dbError);
+        throw dbError;
+      }
     });
 
     logger.info('Venues fetched', { count: venueSetups.length, totalCount });
