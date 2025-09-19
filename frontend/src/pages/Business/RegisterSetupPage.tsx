@@ -109,8 +109,6 @@ const RegisterSetupPage: React.FC = () => {
           allowWaitlist: setup.allowWaitlist || false,
           autoConfirm: setup.autoConfirm || false,
           requireApproval: setup.requireApproval || false,
-          cancellationPolicy: setup.cancellationPolicy || '',
-          refundPolicy: setup.refundPolicy || '',
           isActive: setup.isActive !== false,
           createdAt: setup.createdAt,
           updatedAt: setup.updatedAt
@@ -210,9 +208,7 @@ const RegisterSetupPage: React.FC = () => {
           defaultCapacity: 20,
           allowWaitlist: true,
           autoConfirm: false,
-          requireApproval: false,
-          cancellationPolicy: '',
-          refundPolicy: ''
+          requireApproval: false
         });
         fetchRegisterSetups(); // Refresh the list
       } else {
@@ -531,9 +527,7 @@ const RegisterSetupPage: React.FC = () => {
                         defaultCapacity: 20,
                         allowWaitlist: true,
                         autoConfirm: false,
-                        requireApproval: false,
-                        cancellationPolicy: '',
-                        refundPolicy: ''
+                        requireApproval: false
                       });
                     }}
                   >
