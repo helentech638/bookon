@@ -3,26 +3,45 @@ import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { 
   DocumentDuplicateIcon, 
   PlusIcon, 
   PencilIcon, 
   TrashIcon,
   EyeIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  UsersIcon,
+  CurrencyPoundIcon,
+  TagIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
-import CreateTemplateModal from '../../components/Templates/CreateTemplateModal';
 
-interface Template {
+interface ActivityTemplate {
   id: string;
   name: string;
-  type: 'email' | 'sms' | 'notification';
-  subject?: string;
-  content: string;
+  description: string;
+  type: 'course' | 'workshop' | 'camp' | 'class' | 'event';
+  ageRange: {
+    min: number;
+    max: number;
+  };
+  duration: number; // in minutes
+  capacity: number;
+  price: number;
+  currency: string;
+  category: string;
+  tags: string[];
+  imageUrl?: string;
+  requirements: string[];
+  objectives: string[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -31,12 +50,42 @@ interface Template {
 const TemplatesPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<ActivityTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ActivityTemplate | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'course' as 'course' | 'workshop' | 'camp' | 'class' | 'event',
+    ageRange: { min: 5, max: 12 },
+    duration: 60,
+    capacity: 20,
+    price: 0,
+    currency: 'GBP',
+    category: '',
+    tags: [] as string[],
+    imageUrl: '',
+    requirements: [] as string[],
+    objectives: [] as string[]
+  });
+
+  const activityTypes = [
+    { value: 'course', label: 'Course' },
+    { value: 'workshop', label: 'Workshop' },
+    { value: 'camp', label: 'Camp' },
+    { value: 'class', label: 'Class' },
+    { value: 'event', label: 'Event' }
+  ];
+
+  const categories = [
+    'Sports', 'Arts & Crafts', 'Music', 'Dance', 'Science', 'Technology', 
+    'Languages', 'Cooking', 'Outdoor Activities', 'Academic Support'
+  ];
 
   useEffect(() => {
     fetchTemplates();
@@ -71,13 +120,22 @@ const TemplatesPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Transform API data to match our interface
-        const transformedTemplates: Template[] = data.data.templates.map((template: any) => ({
+        const transformedTemplates: ActivityTemplate[] = data.data.templates.map((template: any) => ({
           id: template.id,
           name: template.name,
-          type: template.trigger,
-          subject: template.subjectTemplate,
-          content: template.bodyHtmlTemplate,
-          isActive: template.active,
+          description: template.description || '',
+          type: template.type || 'course',
+          ageRange: template.ageRange || { min: 5, max: 12 },
+          duration: template.duration || 60,
+          capacity: template.capacity || 20,
+          price: template.price || 0,
+          currency: template.currency || 'GBP',
+          category: template.category || '',
+          tags: template.tags || [],
+          imageUrl: template.imageUrl || '',
+          requirements: template.requirements || [],
+          objectives: template.objectives || [],
+          isActive: template.isActive !== false,
           createdAt: template.createdAt,
           updatedAt: template.updatedAt
         }));
@@ -99,13 +157,15 @@ const TemplatesPage: React.FC = () => {
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.content.toLowerCase().includes(searchTerm.toLowerCase());
+                         template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         template.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || template.type === typeFilter;
+    const matchesCategory = categoryFilter === 'all' || template.category === categoryFilter;
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && template.isActive) ||
                          (statusFilter === 'inactive' && !template.isActive);
     
-    return matchesSearch && matchesType && matchesStatus;
+    return matchesSearch && matchesType && matchesCategory && matchesStatus;
   });
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -143,11 +203,114 @@ const TemplatesPage: React.FC = () => {
     }
   };
 
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to save template');
+        return;
+      }
+
+      const url = editingTemplate 
+        ? buildApiUrl(`/business/templates/${editingTemplate.id}`)
+        : buildApiUrl('/business/templates');
+      
+      const method = editingTemplate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save template');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(editingTemplate ? 'Template updated successfully!' : 'Template created successfully!');
+        setShowCreateModal(false);
+        setEditingTemplate(null);
+        resetForm();
+        fetchTemplates();
+      } else {
+        throw new Error(data.message || 'Failed to save template');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error('Failed to save template');
+    }
+  };
+
+  const handleEdit = (template: ActivityTemplate) => {
+    setEditingTemplate(template);
+    setFormData({
+      name: template.name,
+      description: template.description,
+      type: template.type,
+      ageRange: template.ageRange,
+      duration: template.duration,
+      capacity: template.capacity,
+      price: template.price,
+      currency: template.currency,
+      category: template.category,
+      tags: template.tags,
+      imageUrl: template.imageUrl || '',
+      requirements: template.requirements,
+      objectives: template.objectives
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleDelete = async (templateId: string) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      try {
+        const token = authService.getToken();
+        if (!token) {
+          toast.error('Please log in to delete template');
+          return;
+        }
+
+        const response = await fetch(buildApiUrl(`/business/templates/${templateId}`), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to delete template');
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          toast.success('Template deleted successfully');
+          fetchTemplates();
+        } else {
+          throw new Error(data.message || 'Failed to delete template');
+        }
+      } catch (error) {
+        console.error('Error deleting template:', error);
+        toast.error('Failed to delete template');
+      }
+    }
+  };
+
   const handleToggleStatus = async (templateId: string) => {
     try {
       const token = authService.getToken();
       if (!token) {
-        navigate('/login');
+        toast.error('Please log in to update template');
         return;
       }
 
@@ -156,7 +319,7 @@ const TemplatesPage: React.FC = () => {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        },
+        }
       });
 
       if (!response.ok) {
@@ -165,13 +328,8 @@ const TemplatesPage: React.FC = () => {
 
       const data = await response.json();
       if (data.success) {
-        const updatedTemplate = data.data;
         setTemplates(prev => prev.map(t => 
-          t.id === templateId ? { 
-            ...t, 
-            isActive: updatedTemplate.active,
-            updatedAt: updatedTemplate.updatedAt
-          } : t
+          t.id === templateId ? { ...t, isActive: !t.isActive } : t
         ));
         toast.success('Template status updated');
       } else {
@@ -183,30 +341,121 @@ const TemplatesPage: React.FC = () => {
     }
   };
 
-  const handleCreateTemplate = () => {
-    setShowCreateModal(true);
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      type: 'course',
+      ageRange: { min: 5, max: 12 },
+      duration: 60,
+      capacity: 20,
+      price: 0,
+      currency: 'GBP',
+      category: '',
+      tags: [],
+      imageUrl: '',
+      requirements: [],
+      objectives: []
+    });
   };
 
-  const handleCloseCreateModal = () => {
-    setShowCreateModal(false);
+  const handleCreateTemplate = () => {
+    setEditingTemplate(null);
+    resetForm();
+    setShowCreateModal(true);
   };
 
   if (loading) {
     return (
-      <BusinessLayout user={user}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded w-64 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="bg-white p-6 rounded-lg shadow">
-                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-4"></div>
-                  <div className="h-3 bg-gray-300 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded w-2/3"></div>
-                </div>
-              ))}
+      <BusinessLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+        </div>
+      </BusinessLayout>
+    );
+  }
+
+  // If creating or editing a template, show the form page
+  if (showCreateModal) {
+    return (
+      <BusinessLayout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="mb-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingTemplate(null);
+                  resetForm();
+                }}
+                className="flex items-center gap-2"
+              >
+                ← Back to Templates
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {editingTemplate ? 'Edit Activity Template' : 'Create Activity Template'}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {editingTemplate ? 'Update your activity template' : 'Create a new activity template for your catalogue'}
+                </p>
+              </div>
             </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Template Name *</label>
+                  <Input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Beginner Swimming Course"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Activity Type *</label>
+                  <Select
+                    value={formData.type}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
+                  >
+                    {activityTypes.map(type => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={formData.description}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  placeholder="Describe what this activity is about..."
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setEditingTemplate(null);
+                    resetForm();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                  {editingTemplate ? 'Update Template' : 'Create Template'}
+                </Button>
+            </div>
+            </form>
           </div>
         </div>
       </BusinessLayout>
@@ -214,13 +463,13 @@ const TemplatesPage: React.FC = () => {
   }
 
   return (
-    <BusinessLayout user={user}>
+    <BusinessLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Templates</h1>
-            <p className="text-gray-600 mt-1">Manage your email, SMS, and notification templates</p>
+            <h1 className="text-3xl font-bold text-gray-900">Activity Templates</h1>
+            <p className="text-gray-600 mt-1">Create and manage activity templates for your catalogue</p>
           </div>
           <Button className="flex items-center gap-2" onClick={handleCreateTemplate}>
             <PlusIcon className="h-5 w-5" />
@@ -230,7 +479,7 @@ const TemplatesPage: React.FC = () => {
 
         {/* Filters */}
         <Card className="p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <div className="relative">
@@ -240,7 +489,7 @@ const TemplatesPage: React.FC = () => {
                   placeholder="Search templates..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                  className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -249,12 +498,25 @@ const TemplatesPage: React.FC = () => {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               >
                 <option value="all">All Types</option>
-                <option value="email">Email</option>
-                <option value="sms">SMS</option>
-                <option value="notification">Notification</option>
+                {activityTypes.map(type => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -262,7 +524,7 @@ const TemplatesPage: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -275,6 +537,7 @@ const TemplatesPage: React.FC = () => {
                 onClick={() => {
                   setSearchTerm('');
                   setTypeFilter('all');
+                  setCategoryFilter('all');
                   setStatusFilter('all');
                 }}
                 className="w-full"
@@ -291,13 +554,15 @@ const TemplatesPage: React.FC = () => {
             <Card key={template.id} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <DocumentDuplicateIcon className="h-8 w-8 text-[#00806a]" />
+                  <DocumentDuplicateIcon className="h-8 w-8 text-green-500" />
                   <div>
                     <h3 className="font-semibold text-gray-900">{template.name}</h3>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      template.type === 'email' ? 'bg-blue-100 text-blue-800' :
-                      template.type === 'sms' ? 'bg-green-100 text-green-800' :
-                      'bg-purple-100 text-purple-800'
+                      template.type === 'course' ? 'bg-blue-100 text-blue-800' :
+                      template.type === 'workshop' ? 'bg-green-100 text-green-800' :
+                      template.type === 'camp' ? 'bg-purple-100 text-purple-800' :
+                      template.type === 'class' ? 'bg-orange-100 text-orange-800' :
+                      'bg-pink-100 text-pink-800'
                     }`}>
                       {template.type.toUpperCase()}
                     </span>
@@ -317,31 +582,54 @@ const TemplatesPage: React.FC = () => {
                 </div>
               </div>
 
-              {template.subject && (
-                <div className="mb-3">
-                  <p className="text-sm font-medium text-gray-700">Subject:</p>
-                  <p className="text-sm text-gray-600">{template.subject}</p>
+              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{template.description}</p>
+
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div className="flex items-center gap-1">
+                  <UsersIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">Ages:</span>
+                  <span className="font-medium">{template.ageRange.min}-{template.ageRange.max}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <ClockIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="font-medium">{template.duration}min</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <UsersIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">Capacity:</span>
+                  <span className="font-medium">{template.capacity}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <CurrencyPoundIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">Price:</span>
+                  <span className="font-medium">{template.currency} {template.price}</span>
+                </div>
+              </div>
+
+              {template.category && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-1">
+                    <TagIcon className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-600">Category:</span>
+                    <span className="text-sm font-medium">{template.category}</span>
+                  </div>
                 </div>
               )}
-
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-1">Content:</p>
-                <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
-              </div>
 
               <div className="flex items-center justify-between pt-4 border-t">
                 <div className="text-xs text-gray-500">
                   Updated {new Date(template.updatedAt).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="p-1 text-gray-400 hover:text-gray-600">
-                    <EyeIcon className="h-4 w-4" />
-                  </button>
-                  <button className="p-1 text-gray-400 hover:text-blue-600">
+                  <button 
+                    onClick={() => handleEdit(template)}
+                    className="p-1 text-gray-400 hover:text-blue-600"
+                  >
                     <PencilIcon className="h-4 w-4" />
                   </button>
                   <button 
-                    onClick={() => handleDeleteTemplate(template.id)}
+                    onClick={() => handleDelete(template.id)}
                     className="p-1 text-gray-400 hover:text-red-600"
                   >
                     <TrashIcon className="h-4 w-4" />
@@ -357,9 +645,9 @@ const TemplatesPage: React.FC = () => {
             <DocumentDuplicateIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || typeFilter !== 'all' || statusFilter !== 'all' 
+              {searchTerm || typeFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' 
                 ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first template'
+                : 'Get started by creating your first activity template'
               }
             </p>
             <Button onClick={handleCreateTemplate}>
@@ -369,18 +657,7 @@ const TemplatesPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Create Template Modal */}
-        {showCreateModal && (
-          <CreateTemplateModal
-            isOpen={showCreateModal}
-            onClose={handleCloseCreateModal}
-            onSuccess={() => {
-              setShowCreateModal(false);
-              fetchTemplates(); // Refresh the templates list
-              toast.success('Template created successfully');
-            }}
-          />
-        )}
+        {/* Modal removed - now using page-based form */}
       </div>
     </BusinessLayout>
   );
