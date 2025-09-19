@@ -86,7 +86,7 @@ class AuthService {
     return !!(token && user);
   }
 
-  // Verify token with backend
+  // Verify token with backend and auto-refresh if needed
   async verifyToken(): Promise<boolean> {
     const token = this.getToken();
     if (!token) return false;
@@ -95,7 +95,7 @@ class AuthService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
+      const response = await fetch(buildApiUrl('/auth/me'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -104,6 +104,20 @@ class AuthService {
       });
       
       clearTimeout(timeoutId);
+      
+      // If token is expired, try to refresh
+      if (response.status === 401) {
+        console.log('Token expired, attempting refresh...');
+        try {
+          await this.refreshToken();
+          return true; // Refresh successful
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+          this.clearAuth();
+          return false;
+        }
+      }
+      
       return response.ok;
     } catch (error) {
       console.error('Token verification failed:', error);
@@ -115,6 +129,57 @@ class AuthService {
   hasRole(role: string): boolean {
     const user = this.getUser();
     return user?.role === role;
+  }
+
+  // Make authenticated API request with automatic token refresh
+  async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    // Add authorization header
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      // If token is expired, try to refresh and retry
+      if (response.status === 401) {
+        console.log('Token expired during API call, attempting refresh...');
+        try {
+          await this.refreshToken();
+          const newToken = this.getToken();
+          if (newToken) {
+            // Retry the request with new token
+            const newHeaders = {
+              ...headers,
+              'Authorization': `Bearer ${newToken}`,
+            };
+            return await fetch(url, {
+              ...options,
+              headers: newHeaders,
+            });
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed during API call:', refreshError);
+          this.clearAuth();
+          throw new Error('Authentication expired');
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Authenticated fetch error:', error);
+      throw error;
+    }
   }
 
   // Register user

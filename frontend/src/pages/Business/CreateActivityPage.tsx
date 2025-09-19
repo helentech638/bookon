@@ -52,6 +52,7 @@ const CreateActivityPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [activityTypes, setActivityTypes] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [venuesLoading, setVenuesLoading] = useState(true);
   const [formData, setFormData] = useState<ActivityFormData>({
@@ -75,6 +76,7 @@ const CreateActivityPage: React.FC = () => {
 
   useEffect(() => {
     fetchVenues();
+    fetchActivityTypes();
   }, []);
 
   const fetchVenues = async () => {
@@ -108,6 +110,41 @@ const CreateActivityPage: React.FC = () => {
       toast.error('Failed to load venues');
     } finally {
       setVenuesLoading(false);
+    }
+  };
+
+  const fetchActivityTypes = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/activity-types'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch activity types');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        const types = data.data.map((type: any) => ({
+          value: type.id,
+          label: type.name
+        }));
+        setActivityTypes(types);
+      } else {
+        throw new Error(data.message || 'Failed to fetch activity types');
+      }
+    } catch (error) {
+      console.error('Error fetching activity types:', error);
+      toast.error('Failed to load activity types');
     }
   };
 
@@ -237,12 +274,11 @@ const CreateActivityPage: React.FC = () => {
                   required
                 >
                   <option value="">Select type</option>
-                  <option value="sports">Sports</option>
-                  <option value="arts">Arts & Crafts</option>
-                  <option value="academic">Academic</option>
-                  <option value="music">Music</option>
-                  <option value="dance">Dance</option>
-                  <option value="other">Other</option>
+                  {activityTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

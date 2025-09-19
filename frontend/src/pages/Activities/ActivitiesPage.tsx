@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { BookingWidget } from '../../components/booking/BookingWidget';
@@ -7,6 +7,7 @@ import { Activity, Venue } from '../../types/booking';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { buildApiUrl } from '../../config/api';
 import { authService } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { 
   Search, 
@@ -18,9 +19,11 @@ import {
   Calendar,
   Tag
 } from 'lucide-react';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const ActivitiesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,27 +137,21 @@ const ActivitiesPage: React.FC = () => {
     navigate(`/bookings/flow/${activityId}`);
   };
 
-  if (loading) {
-    return (
-      <AdminLayout title="Activities">
-        <div className="p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-gray-200 rounded-lg h-64"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
-  return (
-    <AdminLayout title="Activities">
-      <div className="p-6">
+  // Render content based on user role
+  const renderContent = () => (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
+          <div className="flex items-center space-x-4 mb-4">
+            <Link 
+              to="/parent/dashboard" 
+              className="flex items-center text-gray-600 hover:text-[#00806a] transition-colors"
+            >
+              <ArrowLeftIcon className="w-5 h-5 mr-2" />
+              <span className="font-medium">Back to Dashboard</span>
+            </Link>
+            <div className="h-6 w-px bg-gray-300"></div>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Activities</h1>
           <p className="text-gray-600">Discover and book activities for your children</p>
         </div>
@@ -323,8 +320,38 @@ const ActivitiesPage: React.FC = () => {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </div>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-gray-200 rounded-lg h-64"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // For admin users, wrap with AdminLayout, otherwise return content directly
+  if (user?.role === 'admin') {
+    return (
+      <AdminLayout title="Activities">
+        <div className="p-6">
+          {renderContent()}
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return renderContent();
 };
 
 export default ActivitiesPage;

@@ -109,33 +109,49 @@ model Venue {
   @@map("venues")
 }
 
-model Activity {
-  id          String   @id @default(uuid())
-  title       String
+model ActivityType {
+  id          String    @id @default(uuid())
+  name        String    @unique
   description String?
-  startDate   DateTime
-  endDate     DateTime
-  startTime   String
-  endTime     String
-  capacity    Int
-  price       Decimal  @db.Decimal(10, 2)
-  status      String   @default("active") // active, inactive, cancelled
-  venueId     String
-  ownerId     String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  activities  Activity[]
+
+  @@map("activity_types")
+}
+
+model Activity {
+  id             String        @id @default(uuid())
+  title          String
+  type           String?
+  activityTypeId String?
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  startTime      String
+  endTime        String
+  capacity       Int
+  price          Decimal       @db.Decimal(10, 2)
+  status         String        @default("active") // active, inactive, cancelled
+  venueId        String
+  ownerId        String
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  venue       Venue     @relation(fields: [venueId], references: [id])
-  owner       User      @relation(fields: [ownerId], references: [id])
-  bookings    Booking[]
-  registers   Register[]
+  venue          Venue         @relation(fields: [venueId], references: [id])
+  owner          User          @relation(fields: [ownerId], references: [id])
+  activityType   ActivityType? @relation(fields: [activityTypeId], references: [id])
+  bookings       Booking[]
+  registers      Register[]
 
   @@index([venueId])
   @@index([ownerId])
   @@index([status])
   @@index([startDate])
+  @@index([activityTypeId])
   @@map("activities")
 }
 

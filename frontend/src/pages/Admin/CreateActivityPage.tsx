@@ -54,7 +54,7 @@ const CreateActivityPage: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<ActivityFormData>({
     title: '',
-    type: 'afterschool',
+    type: 'other',
     venueId: '',
     description: '',
     startDate: '',
@@ -71,12 +71,7 @@ const CreateActivityPage: React.FC = () => {
     excludeDates: []
   });
 
-  const activityTypes = [
-    { value: 'afterschool', label: 'After School Club' },
-    { value: 'breakfast', label: 'Breakfast Club' },
-    { value: 'holiday', label: 'Holiday Club' },
-    { value: 'other', label: 'Other' }
-  ];
+  const [activityTypes, setActivityTypes] = useState<{ value: string; label: string }[]>([]);
 
   const steps = [
     { id: 1, name: 'Basic Details', description: 'Activity name, type, and venue' },
@@ -87,6 +82,7 @@ const CreateActivityPage: React.FC = () => {
 
   useEffect(() => {
     loadVenues();
+    loadActivityTypes();
   }, []);
 
   const loadVenues = async () => {
@@ -104,6 +100,35 @@ const CreateActivityPage: React.FC = () => {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load venues');
+    }
+  };
+
+  const loadActivityTypes = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(buildApiUrl('/activity-types'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const types = data.data.map((type: any) => ({
+            value: type.id,
+            label: type.name
+          }));
+          setActivityTypes(types);
+          
+          // Set default type if none selected and types are available
+          if (types.length > 0 && !formData.type) {
+            setFormData(prev => ({ ...prev, type: types[0].value }));
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load activity types');
     }
   };
 

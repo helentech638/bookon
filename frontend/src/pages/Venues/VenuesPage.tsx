@@ -8,13 +8,15 @@ import {
   MapPinIcon, 
   PhoneIcon, 
   EnvelopeIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { buildApiUrl } from '../../config/api';
 import { authService } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Venue {
   id: string;
@@ -31,6 +33,7 @@ interface Venue {
 }
 
 const VenuesPage: React.FC = () => {
+  const { user } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,40 +84,39 @@ const VenuesPage: React.FC = () => {
     });
   };
 
-  if (isLoading) {
-    return (
-      <AdminLayout title="Venues">
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a] mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading venues...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
-  return (
-    <AdminLayout title="Venues">
-      <div className="min-h-screen bg-gray-50">
+  // Render content based on user role
+  const renderContent = () => (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Venues</h1>
-              <p className="text-gray-600">
-                Discover and explore available venues for activities
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <Link to="/admin/venues/new">
-                <Button className="bg-[#00806a] hover:bg-[#006d5a] text-white">
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add Venue
-                </Button>
+            <div className="flex items-center space-x-4">
+              <Link 
+                to="/parent/dashboard" 
+                className="flex items-center text-gray-600 hover:text-[#00806a] transition-colors"
+              >
+                <ArrowLeftIcon className="w-5 h-5 mr-2" />
+                <span className="font-medium">Back to Dashboard</span>
               </Link>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Venues</h1>
+                <p className="text-gray-600">
+                  Discover and explore available venues for activities
+                </p>
+              </div>
             </div>
+            {user?.role === 'admin' && (
+              <div className="flex space-x-3">
+                <Link to="/admin/venues/new">
+                  <Button className="bg-[#00806a] hover:bg-[#006d5a] text-white">
+                    <PlusIcon className="w-4 h-4 mr-2" />
+                    Add Venue
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -149,7 +151,7 @@ const VenuesPage: React.FC = () => {
                 : 'Venues will appear here once they are added to the platform.'
               }
             </p>
-            {!searchTerm && (
+            {!searchTerm && user?.role === 'admin' && (
               <Link to="/admin/venues/new">
                 <Button className="bg-[#00806a] hover:bg-[#006d5a] text-white">
                   <PlusIcon className="w-4 h-4 mr-2" />
@@ -206,11 +208,13 @@ const VenuesPage: React.FC = () => {
                     Added {formatDate(venue.createdAt)}
                   </span>
                   <div className="flex space-x-2">
-                    <Link to={`/admin/venues/${venue.id}/edit`}>
-                      <Button variant="outline" size="sm">
-                        Edit
-                      </Button>
-                    </Link>
+                    {user?.role === 'admin' && (
+                      <Link to={`/admin/venues/${venue.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          Edit
+                        </Button>
+                      </Link>
+                    )}
                     <Link to={`/venues/${venue.id}`}>
                       <Button size="sm" className="bg-[#00806a] hover:bg-[#006d5a] text-white">
                         View Details
@@ -224,8 +228,31 @@ const VenuesPage: React.FC = () => {
         )}
       </div>
     </div>
-    </AdminLayout>
   );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00806a] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading venues...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // For admin users, wrap with AdminLayout, otherwise return content directly
+  if (user?.role === 'admin') {
+    return (
+      <AdminLayout title="Venues">
+        <div className="p-6">
+          {renderContent()}
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return renderContent();
 };
 
 export default VenuesPage;

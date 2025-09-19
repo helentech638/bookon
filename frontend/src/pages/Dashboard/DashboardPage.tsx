@@ -66,7 +66,7 @@ interface RecentActivity {
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
@@ -101,33 +101,24 @@ const DashboardPage: React.FC = () => {
       // Skip expensive token verification - API calls will handle auth validation
       // This saves ~1-2 seconds on dashboard load
 
-      const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-      };
-
       // Make all API calls in parallel for better performance
       const apiStartTime = performance.now();
       
       // Create AbortController for timeout handling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
       const [statsResponse, profileResponse, activitiesResponse, walletResponse] = await Promise.allSettled([
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { 
-          headers,
+        authService.authenticatedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.STATS), { 
           signal: controller.signal 
         }),
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { 
-          headers,
+        authService.authenticatedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.PROFILE), { 
           signal: controller.signal 
         }),
-        fetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { 
-          headers,
+        authService.authenticatedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD.RECENT_ACTIVITIES), { 
           signal: controller.signal 
         }),
-        fetch(buildApiUrl('/wallet/balance'), { 
-          headers,
+        authService.authenticatedFetch(buildApiUrl('/wallet/balance'), { 
           signal: controller.signal 
         })
       ]);
@@ -174,8 +165,9 @@ const DashboardPage: React.FC = () => {
       console.error('Dashboard data fetch error:', err);
       
       // If authentication failed, redirect to login after a short delay
-      if (errorMessage.includes('authentication') || errorMessage.includes('token')) {
+      if (errorMessage.includes('authentication') || errorMessage.includes('token') || errorMessage.includes('expired')) {
         setTimeout(() => {
+          authService.logout();
           window.location.href = '/login';
         }, 2000);
       }
@@ -347,235 +339,175 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
-      {/* Premium Header */}
-      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Professional Header with Navigation Tabs */}
+      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Top Row - Title and Action Buttons */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 py-6">
             <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Dashboard</h1>
-              <p className="text-sm sm:text-base md:text-lg text-gray-600">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+              <p className="text-lg text-gray-600">
                 Welcome back, <span className="font-semibold text-[#00806a]">{userProfile?.firstName || 'User'}</span>! 
                 <span className="hidden sm:inline"> Here's your activity overview.</span>
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => setShowQuickBooking(true)}
-                className="bg-gradient-to-r from-[#00806a] to-[#041c30] hover:from-[#006b5a] hover:to-[#052a42] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base"
-                leftIcon={<PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
+                className="bg-[#00806a] hover:bg-[#006d5a] text-white px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium"
+                leftIcon={<PlusIcon className="w-5 h-5" />}
               >
-                <span className="hidden sm:inline">Quick Booking</span>
-                <span className="sm:hidden">Book</span>
+                Quick Booking
               </Button>
-              <Link to="/profile" className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 border-2 border-[#00806a] text-[#00806a] hover:bg-[#00806a] hover:text-white rounded-xl font-medium transition-all duration-200 text-sm sm:text-base">
-                <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">View Profile</span>
-                <span className="sm:hidden">Profile</span>
+              <Link 
+                to="/profile" 
+                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-[#00806a] hover:text-[#00806a] rounded-lg font-medium transition-all duration-200"
+              >
+                <UserIcon className="w-5 h-5 mr-2" />
+                View Profile
               </Link>
             </div>
+          </div>
+
+          {/* Professional Navigation Tabs */}
+          <div className="border-t border-gray-200 pt-4 pb-6">
+            <nav className="flex space-x-1 overflow-x-auto scrollbar-hide">
+              {[
+                { id: 'dashboard', name: 'Dashboard', icon: ChartBarIcon },
+                { id: 'profile', name: 'Profile', icon: UserIcon },
+                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
+                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
+                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
+                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
+                // Admin-specific tabs
+                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
+                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
+                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
+                ] : [])
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex-shrink-0 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-[#00806a] text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <tab.icon className={`w-4 h-4 ${
+                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
+                  }`} />
+                  <span className="whitespace-nowrap">{tab.name}</span>
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        {/* Premium Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 md:mb-12">
-          {displayStats.map((stat, index) => (
-            <div key={index} className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+        {/* Premium Stats Grid - Only show for Dashboard tab */}
+        {activeTab === 'dashboard' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-10 md:mb-12">
+            {displayStats.map((stat, index) => (
+              <div key={index} className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl ${stat.color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">{stat.title}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
-                  <p className="text-xs sm:text-sm font-medium text-gray-600">{stat.title}</p>
+                <div className="space-y-2">
+                  <span className={`inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${
+                    stat.changeType === 'success' 
+                      ? 'bg-green-100 text-green-800'
+                      : stat.changeType === 'warning'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {stat.change}
+                  </span>
+                  <p className="text-xs text-gray-500">{stat.description}</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <span className={`inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${
-                  stat.changeType === 'success' 
-                    ? 'bg-green-100 text-green-800'
-                    : stat.changeType === 'warning'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {stat.change}
-                </span>
-                <p className="text-xs text-gray-500">{stat.description}</p>
-              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick Access Section - Only show for Dashboard tab */}
+        {activeTab === 'dashboard' && (
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Access</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Link
+                to="/activities"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Book Activity</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Start new booking</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/children"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Children</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Manage profiles</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/bookings"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <DocumentTextIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Bookings</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">View all bookings</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/activities"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <AcademicCapIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Browse Activities</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Find activities</p>
+                  </div>
+                </div>
+              </Link>
             </div>
-          ))}
-        </div>
-
-        {/* Quick Access Section */}
-        <div className="mb-6 sm:mb-8">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Access</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <Link
-              to="/activities"
-              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Book Activity</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">Start new booking</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/children"
-              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Children</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">Manage profiles</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/bookings"
-              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <DocumentTextIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Bookings</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">View all bookings</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/activities"
-              className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
-                  <AcademicCapIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Browse Activities</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">Find activities</p>
-                </div>
-              </div>
-            </Link>
           </div>
-        </div>
+        )}
 
-        {/* Premium Tabs */}
-        <div className="mb-6 sm:mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-100/50 p-1 sm:p-2">
-            {/* Desktop: Single line layout */}
-            <nav className="hidden lg:flex lg:space-x-1 lg:justify-center lg:flex-nowrap">
-              {[
-                { id: 'overview', name: 'Overview', icon: ChartBarIcon },
-                { id: 'profile', name: 'Profile', icon: UserIcon },
-                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
-                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
-                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
-                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
-                // Admin-specific tabs
-                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
-                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
-                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
-                ] : [])
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
-                  }`}
-                >
-                  <tab.icon className={`w-4 h-4 transition-all duration-300 ${
-                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
-                  }`} />
-                  <span className="font-semibold">{tab.name}</span>
-                </button>
-              ))}
-            </nav>
-
-            {/* Tablet: Horizontal scroll with hidden scrollbar */}
-            <nav className="hidden md:flex lg:hidden space-x-1 overflow-x-auto scrollbar-hide">
-              {[
-                { id: 'overview', name: 'Overview', icon: ChartBarIcon },
-                { id: 'profile', name: 'Profile', icon: UserIcon },
-                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
-                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
-                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
-                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
-                // Admin-specific tabs
-                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
-                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
-                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
-                ] : [])
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-shrink-0 py-2 px-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
-                  }`}
-                >
-                  <tab.icon className={`w-4 h-4 transition-all duration-300 ${
-                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
-                  }`} />
-                  <span className="font-semibold whitespace-nowrap">{tab.name}</span>
-                </button>
-              ))}
-            </nav>
-
-            {/* Mobile: Compact horizontal scroll */}
-            <nav className="flex md:hidden space-x-1 overflow-x-auto scrollbar-hide">
-              {[
-                { id: 'overview', name: 'Overview', icon: ChartBarIcon },
-                { id: 'profile', name: 'Profile', icon: UserIcon },
-                { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
-                { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
-                { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
-                { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
-                // Admin-specific tabs
-                ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
-                  { id: 'registers', name: 'Registers', icon: ClipboardDocumentListIcon },
-                  { id: 'financial', name: 'Financial', icon: CreditCardIcon }
-                ] : [])
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-shrink-0 py-2 px-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1 transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-[#00806a] to-[#006d5a] text-white shadow-lg'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80 hover:shadow-sm'
-                  }`}
-                >
-                  <tab.icon className={`w-3 h-3 transition-all duration-300 ${
-                    activeTab === tab.id ? 'text-white' : 'text-gray-500'
-                  }`} />
-                  <span className="font-semibold whitespace-nowrap">{tab.name}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
 
         {/* Tab Content */}
-        {activeTab === 'overview' && (
+        {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {/* Premium Welcome Card */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100/50 p-4 sm:p-6 md:p-8">
@@ -824,50 +756,266 @@ const DashboardPage: React.FC = () => {
         )}
 
         {activeTab === 'activities' && (
-          <div className="space-y-6">
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Available Activities</h3>
-                <Link to="/activities" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add Activity
-                </Link>
+          <div className="space-y-8">
+            {/* Activities Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Activities & Bookings</h2>
+                  <p className="text-blue-100 text-lg">Discover and book activities for your children</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                    <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
+                    <div className="text-blue-100 text-sm">Total Bookings</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-center py-12">
-                <AcademicCapIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Activities Available Yet</h3>
-                <p className="text-gray-500 mb-4">
-                  Activities will be added by venue administrators. Check back soon!
-                </p>
-                <Link to="/activities" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                  Check for Activities
-                </Link>
-              </div>
-            </Card>
+            </div>
+
+            {/* Activities Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Browse Activities Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <AcademicCapIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Browse Activities</h3>
+                      <p className="text-sm text-gray-600">Find new activities</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Available Activities</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalActivities || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Venues</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalVenues || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Upcoming</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.upcomingActivities || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      to="/activities"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-center block"
+                    >
+                      Browse Activities
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+
+              {/* My Bookings Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <DocumentTextIcon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">My Bookings</h3>
+                      <p className="text-sm text-gray-600">Manage your bookings</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Bookings</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalBookings || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Confirmed</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.confirmedBookings || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Pending</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.pendingBookings || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      to="/bookings"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-center block"
+                    >
+                      View Bookings
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Quick Booking Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <PlusIcon className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Quick Booking</h3>
+                      <p className="text-sm text-gray-600">Book an activity now</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="text-center py-2">
+                      <p className="text-sm text-gray-600">Start a new booking quickly</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      onClick={() => setShowQuickBooking(true)}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      Quick Booking
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         )}
 
         {activeTab === 'venues' && (
-          <div className="space-y-6">
-            <Card>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Venue Management</h3>
-                <Link to="/venues" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add Venue
-                </Link>
+          <div className="space-y-8">
+            {/* Venues Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Venues & Locations</h2>
+                  <p className="text-emerald-100 text-lg">Discover venues offering activities for your children</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                    <div className="text-2xl font-bold">{stats?.totalVenues || 0}</div>
+                    <div className="text-emerald-100 text-sm">Available Venues</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-center py-12">
-                <BuildingOfficeIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Venues Available Yet</h3>
-                <p className="text-gray-500 mb-4">
-                  Venues will be added by administrators. Check back soon!
-                </p>
-                <Link to="/venues" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-                  Manage Venues
-                </Link>
-              </div>
-            </Card>
+            </div>
+
+            {/* Venues Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Browse Venues Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-emerald-100 rounded-lg">
+                      <BuildingOfficeIcon className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Browse Venues</h3>
+                      <p className="text-sm text-gray-600">Find venues near you</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Venues</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalVenues || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Activities Available</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalActivities || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Your Bookings</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalBookings || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      to="/venues"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-center block"
+                    >
+                      Browse Venues
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Venue Information Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <MapPinIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Venue Details</h3>
+                      <p className="text-sm text-gray-600">Location information</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="text-center py-2">
+                      <p className="text-sm text-gray-600">View detailed venue information including:</p>
+                    </div>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        Contact information
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        Available activities
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        Operating hours
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      to="/venues"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-center block"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Venue Activities Card */}
+              <Card className="hover:shadow-lg transition-shadow duration-200">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <AcademicCapIcon className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Venue Activities</h3>
+                      <p className="text-sm text-gray-600">Activities by venue</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Activities</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.totalActivities || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Upcoming</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.upcomingActivities || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Confirmed</span>
+                      <span className="text-sm font-medium text-gray-900">{stats?.confirmedBookings || 0}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      to="/activities"
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-center block"
+                    >
+                      View Activities
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         )}
 

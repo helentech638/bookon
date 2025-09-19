@@ -18,6 +18,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isBusinessRoute = location.pathname.startsWith('/business');
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -25,7 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
       <main className="flex-grow">
         {children}
       </main>
-      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && !isBusinessRoute && <Footer />}
     </div>
   );
 };

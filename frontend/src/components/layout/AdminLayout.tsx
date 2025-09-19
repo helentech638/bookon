@@ -21,6 +21,7 @@ import {
   LinkIcon,
   ChartBarIcon,
   BanknotesIcon,
+  TagIcon,
   PlusIcon,
   Bars3Icon,
   XMarkIcon
@@ -43,6 +44,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'templates', name: 'Templates', icon: DocumentDuplicateIcon, path: '/admin/templates' },
     { id: 'courses', name: 'Courses', icon: CalendarDaysIcon, path: '/admin/courses' },
     { id: 'activities', name: 'Activities', icon: CalendarDaysIcon, path: '/admin/activities' },
+    { id: 'activity-types', name: 'Activity Types', icon: TagIcon, path: '/admin/activity-types' },
     { id: 'venues', name: 'Venues', icon: MapPinIcon, path: '/admin/venues' },
     { id: 'venue-setup', name: 'Venue Setup', icon: LinkIcon, path: '/admin/venue-setup' },
     { id: 'franchise-fee-settings', name: 'Franchise Fee Settings', icon: BanknotesIcon, path: '/admin/franchise-fee-settings' },
@@ -55,6 +57,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'wallet-management', name: 'Wallet Management', icon: CreditCardIcon, path: '/admin/wallet-management' },
     { id: 'notifications', name: 'Notifications', icon: BellIcon, path: '/admin/notifications' },
     { id: 'webhooks', name: 'Webhooks', icon: MegaphoneIcon, path: '/admin/webhooks' },
+    { id: 'bank-feed', name: 'Bank Feed', icon: BanknotesIcon, path: '/admin/bank-feed' },
     { id: 'widget', name: 'Widget Management', icon: ComputerDesktopIcon, path: '/admin/widget' },
     { id: 'communications', name: 'Communications', icon: ChatBubbleLeftRightIcon, path: '/admin/communications' },
     { id: 'finance', name: 'Finance', icon: CurrencyPoundIcon, path: '/admin/finance' },

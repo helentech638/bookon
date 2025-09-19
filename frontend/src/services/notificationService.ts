@@ -23,27 +23,14 @@ class NotificationService {
    */
   async getNotificationCount(): Promise<NotificationCount> {
     try {
-      const token = authService.getToken();
-      if (!token) {
+      if (!authService.isAuthenticated()) {
         // Return default values for unauthenticated users
         return { unreadCount: 0, totalCount: 0 };
       }
 
-      const response = await fetch(`${this.baseUrl}/count`, {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/count`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          authService.logout();
-          throw new Error('Authentication expired');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const result = await response.json();
       
@@ -64,8 +51,7 @@ class NotificationService {
    */
   async getNotifications(limit: number = 10, unreadOnly: boolean = false): Promise<Notification[]> {
     try {
-      const token = authService.getToken();
-      if (!token) {
+      if (!authService.isAuthenticated()) {
         // Return empty array for unauthenticated users
         return [];
       }
@@ -75,21 +61,9 @@ class NotificationService {
         unread: unreadOnly.toString()
       });
 
-      const response = await fetch(`${this.baseUrl}?${params}`, {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}?${params}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          authService.logout();
-          throw new Error('Authentication expired');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const result = await response.json();
       
@@ -109,28 +83,15 @@ class NotificationService {
    */
   async markAsRead(notificationIds: string[]): Promise<boolean> {
     try {
-      const token = authService.getToken();
-      if (!token) {
+      if (!authService.isAuthenticated()) {
         // Return false for unauthenticated users
         return false;
       }
 
-      const response = await fetch(`${this.baseUrl}/mark-read`, {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/mark-read`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ notificationIds }),
       });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          authService.logout();
-          throw new Error('Authentication expired');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const result = await response.json();
       return result.success;

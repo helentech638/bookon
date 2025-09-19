@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   CalendarDaysIcon, 
   UsersIcon, 
-  CurrencyEuroIcon, 
+  CurrencyPoundIcon, 
   ChartBarIcon,
   PlusIcon,
   EyeIcon,
@@ -264,12 +264,12 @@ const BusinessDashboard: React.FC = () => {
           <Card className="bg-white p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <CurrencyEuroIcon className="h-8 w-8 text-[#00806a]" />
+                <CurrencyPoundIcon className="h-8 w-8 text-[#00806a]" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Payments Collected Today</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  €{stats?.paymentsCollectedToday || 0}
+                  £{stats?.paymentsCollectedToday || 0}
                 </p>
               </div>
             </div>
@@ -348,7 +348,7 @@ const BusinessDashboard: React.FC = () => {
                         style={{ 
                           height: `${Math.max(20, (data.income / Math.max(...financeData.map(d => d.income))) * 100)}px` 
                         }}
-                        title={`${data.week}: €${data.income}`}
+                        title={`${data.week}: £${data.income}`}
                       ></div>
                       <span className="text-xs text-gray-600 mt-2">{data.week}</span>
                     </div>
@@ -358,7 +358,7 @@ const BusinessDashboard: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded">
                   <p className="text-sm text-gray-600">Total Revenue</p>
-                  <p className="text-lg font-semibold text-gray-900">€{stats?.totalRevenue || 0}</p>
+                  <p className="text-lg font-semibold text-gray-900">£{stats?.totalRevenue || 0}</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded">
                   <p className="text-sm text-gray-600">Monthly Growth</p>

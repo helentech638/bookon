@@ -16,6 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import CancellationPreviewModal from '../../components/CancellationPreviewModal';
 import { bookingService, Booking } from '../../services/bookingService';
 import { formatPrice } from '../../utils/formatting';
 
@@ -26,6 +27,7 @@ const BookingDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,10 +76,15 @@ const BookingDetailPage: React.FC = () => {
       await loadBooking(booking.id);
       setSuccessMessage('Booking cancelled successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
+      setShowCancellationModal(false);
     } catch (err) {
       setError('Failed to cancel booking');
       console.error('Error cancelling booking:', err);
     }
+  };
+
+  const handleShowCancellationPreview = () => {
+    setShowCancellationModal(true);
   };
 
   const handleDeleteBooking = async () => {
@@ -219,7 +226,7 @@ const BookingDetailPage: React.FC = () => {
               {(booking.status || 'pending') === 'confirmed' && (
                 <Button
                   variant="outline"
-                  onClick={handleCancelBooking}
+                  onClick={handleShowCancellationPreview}
                   className="text-red-600 border-red-300 hover:bg-red-50 inline-flex items-center"
                 >
                   <XMarkIcon className="w-4 h-4 mr-2" />
@@ -399,6 +406,24 @@ const BookingDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancellation Preview Modal */}
+      {showCancellationModal && booking && (
+        <CancellationPreviewModal
+          isOpen={showCancellationModal}
+          onClose={() => setShowCancellationModal(false)}
+          onConfirm={handleCancelBooking}
+          bookingId={booking.id.toString()}
+          bookingDetails={{
+            activityName: booking.activity || 'Unknown Activity',
+            venueName: booking.venue || 'Unknown Venue',
+            childName: booking.childName || 'Unknown Child',
+            bookingDate: booking.date || new Date().toISOString(),
+            bookingTime: booking.time || 'Unknown Time',
+            amount: booking.amount || 0
+          }}
+        />
       )}
     </div>
   );

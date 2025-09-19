@@ -52,9 +52,6 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
   // Use prop user if provided, otherwise use context user
   const user = propUser || contextUser;
 
-  // Debug logging
-  console.log('BusinessLayout rendered with user:', user, 'isLoading:', isLoading);
-
   // Show loading while checking authentication
   if (isLoading) {
     return (

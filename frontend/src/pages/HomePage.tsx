@@ -100,23 +100,22 @@ const HomePage = () => {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-4 sm:mb-6">
                   <CalendarDaysIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Smart Booking Management</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Effortless Bookings</h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">
-                  Create and manage activities with intelligent drag-and-drop scheduling. 
-                  <span className="text-gray-800 font-medium">Parents can book with just a few clicks.</span>
+                  Parents can book clubs, camps, and wraparound care in just a few clicks.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Intuitive calendar interface
+                    Intuitive booking flow
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Automated confirmations
+                    Mobile-first design
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
@@ -132,29 +131,28 @@ const HomePage = () => {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-4 sm:mb-6">
                   <UsersIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Dual Portal System</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Smarter Management</h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">
-                  Dedicated portals for parents to book activities and staff to manage schedules. 
-                  <span className="text-gray-800 font-medium">Everyone stays informed and organized.</span>
+                  Providers save hours with automated admin tools built for schools and activity clubs.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Parent-friendly interface
+                    Manage registers and waiting lists
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Staff management tools
+                    Handle refunds & credits instantly
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Communication hub
+                    Flexible pricing and capacity
                   </li>
                 </ul>
               </div>
@@ -164,29 +162,28 @@ const HomePage = () => {
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#00806a]/10 to-[#041c30]/10 rounded-xl flex items-center justify-center mb-4 sm:mb-6">
                   <ChartBarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[#00806a]" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Advanced Analytics</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Powerful Insights</h3>
                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 leading-relaxed">
-                  Get insights into attendance patterns, popular activities, and revenue tracking. 
-                  <span className="text-gray-800 font-medium">Make data-driven decisions for your programs.</span>
+                  Track what matters most and make data-driven decisions with ease.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Attendance tracking
+                    Attendance and safeguarding records
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Revenue analytics
+                    Revenue & payment analytics
                   </li>
                   <li className="flex items-center text-sm text-gray-600">
                     <div className="w-6 h-6 bg-gradient-to-r from-[#00806a] to-[#041c30] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                       <CheckCircleIcon className="w-3 h-3 text-white" />
                     </div>
-                    Custom reports
+                    Custom reports for schools and franchises
                   </li>
                 </ul>
               </div>

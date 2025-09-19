@@ -222,7 +222,10 @@ const VenuesPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Venues</h1>
             <p className="text-gray-600 mt-1">Manage your business venues and locations</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => navigate('/business/venue-setup')}
+          >
             <PlusIcon className="h-5 w-5" />
             Add Venue
           </Button>
