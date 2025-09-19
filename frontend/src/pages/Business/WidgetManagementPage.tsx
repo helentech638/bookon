@@ -609,6 +609,86 @@ const WidgetManagementPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Settings Tab */}
+                {activeTab === 'settings' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Widget Name
+                        </label>
+                        <Input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Enter widget name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Position
+                        </label>
+                        <Select
+                          value={formData.position}
+                          onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value as any }))}
+                        >
+                          <option value="bottom-right">Bottom Right</option>
+                          <option value="bottom-left">Bottom Left</option>
+                          <option value="top-right">Top Right</option>
+                          <option value="top-left">Top Left</option>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        rows={3}
+                        placeholder="Enter widget description"
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="showLogoSettings"
+                          checked={formData.showLogo}
+                          onChange={(e) => setFormData(prev => ({ ...prev, showLogo: e.target.checked }))}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="showLogoSettings" className="ml-2 block text-sm text-gray-700">
+                          Show Logo
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="isActive"
+                          checked={editingWidget?.isActive || false}
+                          onChange={(e) => {
+                            if (editingWidget) {
+                              setEditingWidget(prev => prev ? { ...prev, isActive: e.target.checked } : null);
+                            }
+                          }}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
+                          Widget Active
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Analytics Tab */}
                 {activeTab === 'analytics' && (
                   <div className="space-y-4">
