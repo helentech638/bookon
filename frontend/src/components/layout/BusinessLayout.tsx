@@ -353,7 +353,7 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
               <XMarkIcon className="h-6 w-6" />
             </button>
           </div>
-          <nav className="flex-1 px-4 py-4 space-y-2 custom-scrollbar">
+          <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto scrollbar-thin scroll-smooth">
             {/* Standalone Dashboard Item */}
             {navigationItems.map((item) => (
               <Link
@@ -426,7 +426,7 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
           <div className="flex h-16 items-center px-4 border-b border-gray-700/50">
             <h1 className="text-xl font-bold text-white">BookOn Business</h1>
           </div>
-          <nav className="flex-1 px-4 py-4 space-y-2 custom-scrollbar">
+          <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto scrollbar-thin scroll-smooth">
             {/* Standalone Dashboard Item */}
             {navigationItems.map((item) => (
               <Link
