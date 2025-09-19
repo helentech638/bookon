@@ -761,7 +761,23 @@ const WidgetManagementPage: React.FC = () => {
 
         {/* Widgets List */}
         <div className="space-y-4">
-          {widgets.map((widget) => (
+          {widgets.length === 0 ? (
+            <Card>
+              <div className="p-8 text-center">
+                <Squares2X2Icon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No widgets yet</h3>
+                <p className="text-gray-500 mb-6">Create your first booking widget to get started</p>
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Create Your First Widget
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            widgets.map((widget) => (
             <Card key={widget.id}>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -841,7 +857,8 @@ const WidgetManagementPage: React.FC = () => {
                 </div>
               </div>
             </Card>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </BusinessLayout>
