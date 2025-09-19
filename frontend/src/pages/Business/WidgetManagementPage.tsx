@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
@@ -52,6 +53,7 @@ interface WidgetAnalytics {
 
 const WidgetManagementPage: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [widgets, setWidgets] = useState<WidgetConfig[]>([]);
   const [analytics, setAnalytics] = useState<WidgetAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -369,8 +371,19 @@ const WidgetManagementPage: React.FC = () => {
     showCreateModal, 
     editingWidget, 
     widgets: widgets?.length,
-    user: user?.role 
+    user: user?.role,
+    pathname: location.pathname
   });
+
+  // Determine which view to show based on the current route
+  const getCurrentView = () => {
+    if (location.pathname === '/business/widgets/config') return 'config';
+    if (location.pathname === '/business/widgets/analytics') return 'analytics';
+    if (location.pathname === '/business/widgets/embed') return 'embed';
+    return 'overview'; // Default to overview for /business/widgets
+  };
+
+  const currentView = getCurrentView();
 
   if (loading) {
     return (
@@ -768,23 +781,254 @@ const WidgetManagementPage: React.FC = () => {
     );
   }
 
-  return (
-    <BusinessLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Widget Management</h1>
-            <p className="text-gray-600 mt-1">Create and manage booking widgets for your website</p>
+  // Render different content based on the current route
+  const renderContent = () => {
+    switch (currentView) {
+      case 'config':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Widget Configuration</h1>
+                <p className="text-gray-600 mt-1">Configure your widget settings and appearance</p>
+              </div>
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                New Widget
+              </Button>
+            </div>
+            
+            {/* Widget Configuration Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Configuration</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Default Theme</label>
+                      <Select>
+                        <option value="light">Light Theme</option>
+                        <option value="dark">Dark Theme</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Default Position</label>
+                      <Select>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="top-left">Top Left</option>
+                      </Select>
+                    </div>
+                    <div className="flex items-center">
+                      <input type="checkbox" id="showLogoDefault" className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded" />
+                      <label htmlFor="showLogoDefault" className="ml-2 block text-sm text-gray-700">Show logo by default</label>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card>
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Global Settings</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Default Colors</label>
+                      <div className="flex gap-2">
+                        <Input type="color" value="#10B981" className="w-16 h-10" />
+                        <Input type="text" value="#10B981" className="flex-1" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Custom CSS</label>
+                      <textarea 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                        rows={4}
+                        placeholder="/* Global widget styles */"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
-          <Button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            New Widget
-          </Button>
-        </div>
+        );
+
+      case 'analytics':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Widget Analytics</h1>
+                <p className="text-gray-600 mt-1">Track performance and engagement metrics</p>
+              </div>
+            </div>
+            
+            {/* Analytics Content */}
+            {analytics && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <div className="p-4">
+                    <div className="flex items-center">
+                      <EyeIcon className="h-8 w-8 text-blue-500" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-500">Total Views</p>
+                        <p className="text-2xl font-semibold text-gray-900">{analytics.totalViews.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                
+                <Card>
+                  <div className="p-4">
+                    <div className="flex items-center">
+                      <UsersIcon className="h-8 w-8 text-green-500" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-500">Interactions</p>
+                        <p className="text-2xl font-semibold text-gray-900">{analytics.totalInteractions.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                
+                <Card>
+                  <div className="p-4">
+                    <div className="flex items-center">
+                      <CurrencyPoundIcon className="h-8 w-8 text-purple-500" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-500">Conversions</p>
+                        <p className="text-2xl font-semibold text-gray-900">{analytics.totalConversions.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                
+                <Card>
+                  <div className="p-4">
+                    <div className="flex items-center">
+                      <ChartBarIcon className="h-8 w-8 text-orange-500" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-500">Conversion Rate</p>
+                        <p className="text-2xl font-semibold text-gray-900">{analytics.conversionRate}%</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+            
+            <Card>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Trends</h3>
+                <div className="text-center py-8 text-gray-500">
+                  <ChartBarIcon className="h-12 w-12 mx-auto mb-2" />
+                  <p>Analytics chart will be displayed here</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+
+      case 'embed':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Embed Codes</h1>
+                <p className="text-gray-600 mt-1">Get embed codes for your widgets</p>
+              </div>
+            </div>
+            
+            {/* Embed Codes Content */}
+            <div className="space-y-4">
+              {widgets.length === 0 ? (
+                <Card>
+                  <div className="p-8 text-center">
+                    <CodeBracketIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No widgets to embed</h3>
+                    <p className="text-gray-500 mb-6">Create a widget first to get its embed code</p>
+                    <Button
+                      onClick={() => setShowCreateModal(true)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <PlusIcon className="h-5 w-5 mr-2" />
+                      Create Your First Widget
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
+                widgets.map((widget) => (
+                  <Card key={widget.id}>
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{widget.name}</h3>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              widget.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {widget.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{widget.description}</p>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Embed Code
+                        </label>
+                        <div className="relative">
+                          <textarea
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm bg-gray-50"
+                            value={widget.embedCode}
+                            rows={4}
+                            readOnly
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyEmbedCode(widget.embedCode)}
+                            className="absolute top-2 right-2"
+                          >
+                            <ClipboardDocumentIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Copy this code and paste it into your website's HTML where you want the widget to appear.
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        );
+
+      default: // 'overview'
+        return (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Widget Management</h1>
+                <p className="text-gray-600 mt-1">Create and manage booking widgets for your website</p>
+              </div>
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                New Widget
+              </Button>
+            </div>
 
         {/* Analytics Overview */}
         {analytics && (
@@ -940,7 +1184,14 @@ const WidgetManagementPage: React.FC = () => {
             ))
           )}
         </div>
-      </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <BusinessLayout>
+      {renderContent()}
     </BusinessLayout>
   );
 };
