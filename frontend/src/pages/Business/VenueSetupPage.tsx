@@ -37,6 +37,18 @@ interface VenueSetup {
   operatingHours: OperatingHours;
   pricing: PricingSettings;
   bookingRules: BookingRules;
+  businessAccountId?: string;
+  businessAccount?: {
+    id: string;
+    businessName: string;
+    stripeAccountId: string;
+  };
+  inheritFranchiseFee: boolean;
+  franchiseFeeType?: 'percent' | 'fixed';
+  franchiseFeeValue?: number;
+  tfcEnabled: boolean;
+  tfcHoldPeriod: number;
+  tfcInstructions?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +92,7 @@ const VenueSetupPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [venueSetups, setVenueSetups] = useState<VenueSetup[]>([]);
+  const [businessAccounts, setBusinessAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -117,11 +130,19 @@ const VenueSetupPage: React.FC = () => {
       maximumBookingDuration: 8,
       requireApproval: false,
       allowRecurring: true
-    }
+    },
+    businessAccountId: '',
+    inheritFranchiseFee: true,
+    franchiseFeeType: 'percent' as 'percent' | 'fixed',
+    franchiseFeeValue: 0,
+    tfcEnabled: true,
+    tfcHoldPeriod: 5,
+    tfcInstructions: ''
   });
 
   useEffect(() => {
     fetchVenueSetups();
+    fetchBusinessAccounts();
   }, []);
 
   const fetchVenueSetups = async () => {
@@ -186,6 +207,14 @@ const VenueSetupPage: React.FC = () => {
             requireApproval: false,
             allowRecurring: true
           },
+          businessAccountId: setup.businessAccountId || '',
+          businessAccount: setup.businessAccount || null,
+          inheritFranchiseFee: setup.inheritFranchiseFee !== false,
+          franchiseFeeType: setup.franchiseFeeType || 'percent',
+          franchiseFeeValue: setup.franchiseFeeValue || 0,
+          tfcEnabled: setup.tfcEnabled !== false,
+          tfcHoldPeriod: setup.tfcHoldPeriod || 5,
+          tfcInstructions: setup.tfcInstructions || '',
           isActive: setup.isActive !== false,
           createdAt: setup.createdAt,
           updatedAt: setup.updatedAt
@@ -200,6 +229,32 @@ const VenueSetupPage: React.FC = () => {
       toast.error('Failed to fetch venue setups');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBusinessAccounts = async () => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business-accounts'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setBusinessAccounts(data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching business accounts:', error);
+      // Don't show error toast as this is not critical for venue setup
     }
   };
 
@@ -261,7 +316,14 @@ const VenueSetupPage: React.FC = () => {
       facilities: setup.facilities,
       operatingHours: setup.operatingHours,
       pricing: setup.pricing,
-      bookingRules: setup.bookingRules
+      bookingRules: setup.bookingRules,
+      businessAccountId: setup.businessAccountId || '',
+      inheritFranchiseFee: setup.inheritFranchiseFee,
+      franchiseFeeType: setup.franchiseFeeType || 'percent',
+      franchiseFeeValue: setup.franchiseFeeValue || 0,
+      tfcEnabled: setup.tfcEnabled,
+      tfcHoldPeriod: setup.tfcHoldPeriod,
+      tfcInstructions: setup.tfcInstructions || ''
     });
     setShowCreateModal(true);
   };
@@ -334,7 +396,14 @@ const VenueSetupPage: React.FC = () => {
         maximumBookingDuration: 8,
         requireApproval: false,
         allowRecurring: true
-      }
+      },
+      businessAccountId: '',
+      inheritFranchiseFee: true,
+      franchiseFeeType: 'percent' as 'percent' | 'fixed',
+      franchiseFeeValue: 0,
+      tfcEnabled: true,
+      tfcHoldPeriod: 5,
+      tfcInstructions: ''
     });
   };
 
@@ -697,6 +766,155 @@ const VenueSetupPage: React.FC = () => {
                           }))}
                           min="1"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Business Account & Payment Routing */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Business Account & Payment Routing</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Business Account
+                        </label>
+                        <Select
+                          value={formData.businessAccountId}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ 
+                            ...prev, 
+                            businessAccountId: e.target.value 
+                          }))}
+                        >
+                          <option value="">Select Business Account</option>
+                          {businessAccounts.map(account => (
+                            <option key={account.id} value={account.id}>
+                              {account.name} ({account.status})
+                            </option>
+                          ))}
+                        </Select>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Link this venue to a Stripe Connect business account for payment routing
+                        </p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-gray-900 mb-3">Franchise Fee Settings</h4>
+                        
+                        <div className="flex items-center mb-3">
+                          <input
+                            type="checkbox"
+                            id="inheritFranchiseFee"
+                            checked={formData.inheritFranchiseFee}
+                            onChange={(e) => setFormData(prev => ({ 
+                              ...prev, 
+                              inheritFranchiseFee: e.target.checked 
+                            }))}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="inheritFranchiseFee" className="ml-2 block text-sm text-gray-700">
+                            Inherit Business Account franchise fee
+                          </label>
+                        </div>
+
+                        {!formData.inheritFranchiseFee && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Fee Type
+                              </label>
+                              <Select
+                                value={formData.franchiseFeeType}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ 
+                                  ...prev, 
+                                  franchiseFeeType: e.target.value as 'percent' | 'fixed' 
+                                }))}
+                              >
+                                <option value="percent">Percentage (%)</option>
+                                <option value="fixed">Fixed Amount (£)</option>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Fee Value
+                              </label>
+                              <Input
+                                type="number"
+                                value={formData.franchiseFeeValue}
+                                onChange={(e) => setFormData(prev => ({ 
+                                  ...prev, 
+                                  franchiseFeeValue: parseFloat(e.target.value) || 0 
+                                }))}
+                                min="0"
+                                step={formData.franchiseFeeType === 'percent' ? '0.1' : '0.01'}
+                                placeholder={formData.franchiseFeeType === 'percent' ? 'e.g., 5.0' : 'e.g., 2.50'}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tax-Free Childcare Settings */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Tax-Free Childcare Settings</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="tfcEnabled"
+                          checked={formData.tfcEnabled}
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            tfcEnabled: e.target.checked 
+                          }))}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="tfcEnabled" className="ml-2 block text-sm text-gray-700">
+                          Enable Tax-Free Childcare payments
+                        </label>
+                      </div>
+
+                      {formData.tfcEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Hold Period (days)
+                            </label>
+                            <Input
+                              type="number"
+                              value={formData.tfcHoldPeriod}
+                              onChange={(e) => setFormData(prev => ({ 
+                                ...prev, 
+                                tfcHoldPeriod: parseInt(e.target.value) || 5 
+                              }))}
+                              min="1"
+                              max="30"
+                            />
+                            <p className="text-sm text-gray-500 mt-1">
+                              How many days to hold bookings pending payment
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          TFC Instructions (Optional)
+                        </label>
+                        <textarea
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                          value={formData.tfcInstructions}
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            tfcInstructions: e.target.value 
+                          }))}
+                          rows={3}
+                          placeholder="Custom instructions for parents using Tax-Free Childcare..."
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          Custom text shown to parents when they select TFC payment
+                        </p>
                       </div>
                     </div>
                   </div>
