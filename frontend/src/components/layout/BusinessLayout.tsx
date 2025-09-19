@@ -44,7 +44,7 @@ interface BusinessLayoutProps {
 
 const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUser, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['operations', 'notifications']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['operations']));
   const location = useLocation();
   const navigate = useNavigate();
   const { user: contextUser, isLoading } = useAuth();
@@ -104,8 +104,9 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
   // Auto-expand groups that contain the current active item
   useEffect(() => {
     const currentPath = location.pathname;
-    const groupsToExpand = new Set(expandedGroups);
+    const groupsToExpand = new Set(['operations']); // Always start with operations expanded
     
+    // Auto-expand groups that contain the current active item
     navigationGroups.forEach(group => {
       const hasActiveItem = group.items.some(item => 
         currentPath === item.href || currentPath.startsWith(item.href + '/')
