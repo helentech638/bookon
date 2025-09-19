@@ -44,6 +44,12 @@ interface BusinessSettings {
     paypalClientId: string;
     paypalSecret: string;
   };
+  policies: {
+    cancellationPolicy: string;
+    refundPolicy: string;
+    adminFeeAmount: number;
+    refundDeadlineHours: number;
+  };
 }
 
 const SettingsPage: React.FC = () => {
@@ -75,6 +81,12 @@ const SettingsPage: React.FC = () => {
       stripeSecretKey: '',
       paypalClientId: '',
       paypalSecret: '',
+    },
+    policies: {
+      cancellationPolicy: '',
+      refundPolicy: '',
+      adminFeeAmount: 2.00,
+      refundDeadlineHours: 24,
     },
   });
   const [loading, setLoading] = useState(true);
@@ -117,6 +129,12 @@ const SettingsPage: React.FC = () => {
           paypalClientId: 'paypal_client_id',
           paypalSecret: 'paypal_secret',
         },
+        policies: {
+          cancellationPolicy: 'Cancellations must be made at least 24 hours before the activity start time. Late cancellations may incur a fee.',
+          refundPolicy: 'Refunds are processed within 5-7 business days. Admin fees may apply to refunds.',
+          adminFeeAmount: 2.00,
+          refundDeadlineHours: 24,
+        },
       };
       
       setSettings(mockSettings);
@@ -147,6 +165,7 @@ const SettingsPage: React.FC = () => {
     { id: 'notifications', name: 'Notifications', icon: BellIcon },
     { id: 'security', name: 'Security', icon: ShieldCheckIcon },
     { id: 'payment', name: 'Payment', icon: CreditCardIcon },
+    { id: 'policies', name: 'Policies', icon: DocumentTextIcon },
   ];
 
   if (loading) {
@@ -476,6 +495,96 @@ const SettingsPage: React.FC = () => {
                           }))}
                           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
                         />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Policies Settings */}
+              {activeTab === 'policies' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Business Policies</h2>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Cancellation Policy
+                        </label>
+                        <textarea
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                          value={settings.policies.cancellationPolicy}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            policies: { ...prev.policies, cancellationPolicy: e.target.value }
+                          }))}
+                          rows={4}
+                          placeholder="Enter your cancellation policy..."
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          This policy will be shown to parents when they book activities
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Refund Policy
+                        </label>
+                        <textarea
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                          value={settings.policies.refundPolicy}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            policies: { ...prev.policies, refundPolicy: e.target.value }
+                          }))}
+                          rows={4}
+                          placeholder="Enter your refund policy..."
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          This policy will be shown to parents when they request refunds
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Admin Fee Amount (£)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={settings.policies.adminFeeAmount}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              policies: { ...prev.policies, adminFeeAmount: parseFloat(e.target.value) || 0 }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">
+                            Fee charged for cancellations and refunds
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Refund Deadline (hours)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={settings.policies.refundDeadlineHours}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              policies: { ...prev.policies, refundDeadlineHours: parseInt(e.target.value) || 24 }
+                            }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">
+                            Hours before activity start time when refunds are allowed
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
