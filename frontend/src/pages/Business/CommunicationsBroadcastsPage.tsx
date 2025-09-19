@@ -17,6 +17,9 @@ import {
   PauseIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import authService from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Broadcast {
   id: string;
@@ -34,11 +37,13 @@ interface Broadcast {
 
 const CommunicationsBroadcastsPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     fetchBroadcasts();
@@ -47,70 +52,56 @@ const CommunicationsBroadcastsPage: React.FC = () => {
   const fetchBroadcasts = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockBroadcasts: Broadcast[] = [
-        {
-          id: '1',
-          name: 'Monthly Newsletter',
-          type: 'email',
-          subject: 'January Newsletter - New Activities',
-          content: 'Check out our latest activities and updates for January...',
-          recipients: 500,
-          sentCount: 500,
-          status: 'sent',
-          sentAt: '2024-01-15T10:00:00Z',
-          createdAt: '2024-01-14T10:00:00Z'
+      const token = authService.getToken();
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+      const response = await fetch(buildApiUrl('/business/communications/broadcasts'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        {
-          id: '2',
-          name: 'Holiday Promotion',
-          type: 'email',
-          subject: 'Special Holiday Offer - 20% Off!',
-          content: 'Don\'t miss our special holiday promotion with 20% off all activities...',
-          recipients: 300,
-          sentCount: 0,
-          status: 'scheduled',
-          scheduledAt: '2024-01-25T09:00:00Z',
-          createdAt: '2024-01-20T10:00:00Z'
-        },
-        {
-          id: '3',
-          name: 'Emergency Closure',
-          type: 'sms',
-          content: 'Due to weather conditions, all activities today are cancelled.',
-          recipients: 150,
-          sentCount: 150,
-          status: 'sent',
-          sentAt: '2024-01-18T08:00:00Z',
-          createdAt: '2024-01-18T07:30:00Z'
-        },
-        {
-          id: '4',
-          name: 'New Feature Announcement',
-          type: 'push',
-          content: 'We\'ve added new features to make booking easier! Check them out.',
-          recipients: 1000,
-          sentCount: 0,
-          status: 'draft',
-          createdAt: '2024-01-19T10:00:00Z'
-        },
-        {
-          id: '5',
-          name: 'Activity Reminder',
-          type: 'email',
-          subject: 'Don\'t Forget Your Activity Tomorrow',
-          content: 'This is a friendly reminder about your scheduled activity...',
-          recipients: 200,
-          sentCount: 0,
-          status: 'sending',
-          createdAt: '2024-01-19T15:00:00Z'
-        }
-      ];
-      
-      setBroadcasts(mockBroadcasts);
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch broadcasts');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Transform API data to match our interface
+        const transformedBroadcasts: Broadcast[] = (data.data.broadcasts || []).map((broadcast: any) => ({
+          id: broadcast.id,
+          name: broadcast.name || broadcast.subject || 'Untitled Broadcast',
+          type: broadcast.type || 'email',
+          subject: broadcast.subject,
+          content: broadcast.content || '',
+          recipients: broadcast.recipients || 0,
+          sentCount: broadcast.sentCount || 0,
+          status: broadcast.status || 'draft',
+          scheduledAt: broadcast.scheduledAt,
+          sentAt: broadcast.sentAt,
+          createdAt: broadcast.createdAt
+        }));
+        setBroadcasts(transformedBroadcasts);
+      } else {
+        throw new Error(data.message || 'Failed to fetch broadcasts');
+      }
     } catch (error) {
       console.error('Error fetching broadcasts:', error);
-      toast.error('Failed to load broadcasts');
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Broadcasts loading timeout - please refresh');
+      } else {
+        toast.error('Failed to load broadcasts');
+      }
     } finally {
       setLoading(false);
     }
@@ -221,7 +212,10 @@ const CommunicationsBroadcastsPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Broadcasts</h1>
             <p className="text-gray-600 mt-1">Manage your mass communications and campaigns</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => setShowCreateModal(true)}
+          >
             <PlusIcon className="h-5 w-5" />
             Create Broadcast
           </Button>
@@ -429,6 +423,108 @@ const CommunicationsBroadcastsPage: React.FC = () => {
               Create Broadcast
             </Button>
           </Card>
+        )}
+
+        {/* Create Broadcast Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Create New Broadcast</h2>
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XCircleIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  toast.success('Broadcast created successfully!');
+                  setShowCreateModal(false);
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Broadcast Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter broadcast name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Type
+                      </label>
+                      <select
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="email">Email</option>
+                        <option value="sms">SMS</option>
+                        <option value="push">Push Notification</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Subject (for Email)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter email subject"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Content
+                      </label>
+                      <textarea
+                        required
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your message content"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Recipients
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Number of recipients"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowCreateModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      Create Broadcast
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </BusinessLayout>

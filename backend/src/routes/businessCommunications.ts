@@ -447,4 +447,44 @@ router.get('/logs', authenticateToken, asyncHandler(async (req: Request, res: Re
   }
 }));
 
+// Get broadcasts for business
+router.get('/broadcasts', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { search, type, status, page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Check if user has business access
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true, businessName: true, isActive: true }
+      });
+    });
+
+    if (!userInfo || (!userInfo.businessName && userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    // For now, return empty array since we don't have a broadcasts table yet
+    // This can be extended when we add proper broadcast functionality
+    const broadcasts: any[] = [];
+
+    res.json({
+      success: true,
+      data: {
+        broadcasts,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: 0,
+          pages: 0
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching broadcasts:', error);
+    throw error;
+  }
+}));
+
 export default router;

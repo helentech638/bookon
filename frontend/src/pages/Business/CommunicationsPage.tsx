@@ -139,9 +139,31 @@ const CommunicationsPage: React.FC = () => {
   const handleDeleteCommunication = async (commId: string) => {
     if (window.confirm('Are you sure you want to delete this communication?')) {
       try {
-        // Mock delete - replace with actual API call
-        setCommunications(prev => prev.filter(c => c.id !== commId));
-        toast.success('Communication deleted successfully');
+        const token = authService.getToken();
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+
+        const response = await fetch(buildApiUrl(`/business/communications/${commId}`), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete communication');
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          setCommunications(prev => prev.filter(c => c.id !== commId));
+          toast.success('Communication deleted successfully');
+        } else {
+          throw new Error(data.message || 'Failed to delete communication');
+        }
       } catch (error) {
         console.error('Error deleting communication:', error);
         toast.error('Failed to delete communication');
@@ -180,7 +202,10 @@ const CommunicationsPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Communications</h1>
             <p className="text-gray-600 mt-1">Manage your email, SMS, and notification communications</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button 
+            className="flex items-center gap-2"
+            onClick={() => navigate('/business/communications/broadcasts')}
+          >
             <PlusIcon className="h-5 w-5" />
             New Communication
           </Button>
