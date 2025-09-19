@@ -87,6 +87,8 @@ const WidgetManagementPage: React.FC = () => {
     try {
       setLoading(true);
       const token = authService.getToken();
+      console.log('WidgetManagementPage: fetchWidgets called', { token: !!token, user: user?.role });
+      
       if (!token) {
         toast.error('Please log in to view widgets');
         return;
@@ -104,6 +106,7 @@ const WidgetManagementPage: React.FC = () => {
       });
 
       clearTimeout(timeoutId);
+      console.log('WidgetManagementPage: API response', { status: response.status, ok: response.ok });
 
       if (!response.ok) {
         throw new Error('Failed to fetch widgets');
@@ -359,6 +362,15 @@ const WidgetManagementPage: React.FC = () => {
       customCSS: ''
     });
   };
+
+  // Debug logging
+  console.log('WidgetManagementPage render:', { 
+    loading, 
+    showCreateModal, 
+    editingWidget, 
+    widgets: widgets?.length,
+    user: user?.role 
+  });
 
   if (loading) {
     return (
