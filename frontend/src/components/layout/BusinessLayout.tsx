@@ -101,6 +101,28 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
     });
   };
 
+  // Auto-expand groups that contain the current active item
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const groupsToExpand = new Set(expandedGroups);
+    
+    navigationGroups.forEach(group => {
+      const hasActiveItem = group.items.some(item => 
+        currentPath === item.href || currentPath.startsWith(item.href + '/')
+      );
+      
+      if (hasActiveItem) {
+        groupsToExpand.add(group.id);
+      }
+    });
+    
+    // Only update if there are changes to avoid unnecessary re-renders
+    if (groupsToExpand.size !== expandedGroups.size || 
+        !Array.from(groupsToExpand).every(id => expandedGroups.has(id))) {
+      setExpandedGroups(groupsToExpand);
+    }
+  }, [location.pathname]);
+
   const navigationItems = [
     {
       name: 'Dashboard',
@@ -354,25 +376,31 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                 {/* Group Header */}
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="group flex items-center w-full px-2 py-2 text-sm font-semibold text-gray-200 hover:text-white hover:bg-gray-700/30 rounded-md transition-all duration-300"
+                  className={`group flex items-center w-full px-2 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${
+                    group.items.some(item => item.current)
+                      ? 'text-green-300 hover:text-green-200 bg-gray-700/50'
+                      : 'text-gray-200 hover:text-white hover:bg-gray-700/30'
+                  }`}
                 >
                   <group.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                   <span className="flex-1 text-left">{group.name}</span>
                   {expandedGroups.has(group.id) ? (
-                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
+                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                   ) : (
-                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />
+                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                   )}
                 </button>
                 
                 {/* Group Items */}
-                {expandedGroups.has(group.id) && (
-                  <div className="ml-6 space-y-1">
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  expandedGroups.has(group.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}>
+                  <div className="ml-6 space-y-1 pt-1">
                     {group.items.map((item) => (
                       <Link
                         key={item.name}
                         to={item.href}
-                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-300 ${
+                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                           item.current
                             ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/25'
                             : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
@@ -384,7 +412,7 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                       </Link>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </nav>
@@ -420,25 +448,31 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                 {/* Group Header */}
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="group flex items-center w-full px-2 py-2 text-sm font-semibold text-gray-200 hover:text-white hover:bg-gray-700/30 rounded-md transition-all duration-300"
+                  className={`group flex items-center w-full px-2 py-2 text-sm font-semibold rounded-md transition-all duration-300 ${
+                    group.items.some(item => item.current)
+                      ? 'text-green-300 hover:text-green-200 bg-gray-700/50'
+                      : 'text-gray-200 hover:text-white hover:bg-gray-700/30'
+                  }`}
                 >
                   <group.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                   <span className="flex-1 text-left">{group.name}</span>
                   {expandedGroups.has(group.id) ? (
-                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
+                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                   ) : (
-                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0" />
+                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                   )}
                 </button>
                 
                 {/* Group Items */}
-                {expandedGroups.has(group.id) && (
-                  <div className="ml-6 space-y-1">
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  expandedGroups.has(group.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}>
+                  <div className="ml-6 space-y-1 pt-1">
                     {group.items.map((item) => (
                       <Link
                         key={item.name}
                         to={item.href}
-                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-300 ${
+                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                           item.current
                             ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/25'
                             : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
@@ -449,7 +483,7 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                       </Link>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </nav>
