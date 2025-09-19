@@ -85,14 +85,15 @@ export const authenticateToken = async (
               );
               
               // Add new token to response headers
-              res.setHeader('X-New-Access-Token', newAccessToken);
+              _res.setHeader('X-New-Access-Token', newAccessToken);
               
               // Continue with the request using the decoded user info
               req.user = {
                 id: decoded.userId,
                 email: decoded.email,
                 role: decoded.role,
-                isActive: true
+                isActive: true,
+                emailVerified: false
               };
               
               logger.info('Token automatically refreshed', { userId: decoded.userId });

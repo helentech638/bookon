@@ -348,7 +348,8 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
 
   try {
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env['JWT_REFRESH_SECRET']!) as any;
+    const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || 'fallback-refresh-secret-for-development';
+    const decoded = jwt.verify(refreshToken, jwtRefreshSecret) as any;
     
     // Check if refresh token exists in Redis
     const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
@@ -357,9 +358,11 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Check if user still exists and is active
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, isActive: true }
+    const user = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, email: true, role: true, isActive: true }
+      });
     });
 
     if (!user || !user.isActive) {
@@ -374,11 +377,18 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
     });
 
     // Update refresh token in Redis
-    await redis.setex(
-      `refresh_token:${user.id}`,
-      7 * 24 * 60 * 60, // 7 days
-      newTokens.refreshToken
-    );
+    try {
+      await redis.setex(
+        `refresh_token:${user.id}`,
+        7 * 24 * 60 * 60, // 7 days
+        newTokens.refreshToken
+      );
+    } catch (redisError) {
+      logger.warn('Failed to update refresh token in Redis:', redisError);
+      // Continue without storing token - user can still get new tokens
+    }
+
+    logger.info('Token refreshed successfully', { userId: user.id });
 
     res.json({
       success: true,
@@ -388,6 +398,7 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
+    logger.error('Token refresh error:', error);
     if ((error as any).name === 'JsonWebTokenError') {
       throw new AppError('Invalid refresh token', 401, 'INVALID_REFRESH_TOKEN');
     } else if ((error as any).name === 'TokenExpiredError') {

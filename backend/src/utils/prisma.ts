@@ -36,15 +36,7 @@ const createPrismaClient = () => {
     // Add error handling for connection issues
     errorFormat: 'minimal',
     // Add connection pool configuration for better reliability
-    __internal: {
-      engine: {
-        connectTimeout: 10000, // 10 seconds - reduced for serverless
-        poolTimeout: 10000,    // 10 seconds - reduced for serverless
-        connectionLimit: 3,    // Further reduce connection limit for serverless
-        // Disable prepared statements in production/serverless to avoid caching issues
-        ...(isProduction && { preparedStatements: false }),
-      },
-    },
+    // Note: __internal configuration removed due to type compatibility issues
   });
 };
 

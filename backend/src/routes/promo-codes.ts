@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticateToken, requireAdminOrStaff } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../utils/database';
-import { AppError } from '../utils/errorHandler';
+import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 
 const router = Router();

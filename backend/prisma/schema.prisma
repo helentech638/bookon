@@ -99,6 +99,11 @@ model Venue {
   tfcHoldPeriod       Int              @default(5) // days
   tfcInstructions     String?          // Custom instruction text for parents
   tfcDefaultToCredit  Boolean          @default(true) // Default refunds to credit for TFC
+  // Venue Setup Fields
+  facilities          String[]         @default([]) // Array of facility names
+  operatingHours      Json?            // Operating hours for each day of the week
+  pricing             Json?            // Pricing settings (basePrice, currency, pricingType, discounts)
+  bookingRules        Json?            // Booking rules (advanceBookingDays, cancellationHours, etc.)
   isActive            Boolean          @default(true)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -111,32 +116,46 @@ model Venue {
   @@map("venues")
 }
 
+model ActivityType {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  activities  Activity[]
+
+  @@map("activity_types")
+}
+
 model Activity {
-  id                String    @id @default(uuid())
+  id                String       @id @default(uuid())
   title             String
   type              String?
+  activityTypeId    String?
   description       String?
   startDate         DateTime
   endDate           DateTime
   startTime         String
   endTime           String
   capacity          Int
-  price             Decimal   @db.Decimal(10, 2)
-  earlyDropoff      Boolean   @default(false)
-  earlyDropoffPrice Decimal?  @db.Decimal(10, 2)
-  latePickup        Boolean   @default(false)
-  latePickupPrice   Decimal?  @db.Decimal(10, 2)
-  status            String    @default("active")
+  price             Decimal      @db.Decimal(10, 2)
+  earlyDropoff      Boolean      @default(false)
+  earlyDropoffPrice Decimal?     @db.Decimal(10, 2)
+  latePickup        Boolean      @default(false)
+  latePickupPrice   Decimal?     @db.Decimal(10, 2)
+  status            String       @default("active")
   venueId           String
   ownerId           String
   createdBy         String
   whatToBring       String?
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  owner             User      @relation(fields: [ownerId], references: [id])
-  venue             Venue     @relation(fields: [venueId], references: [id])
-  creator           User      @relation("ActivityCreator", fields: [createdBy], references: [id])
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  owner             User         @relation(fields: [ownerId], references: [id])
+  venue             Venue        @relation(fields: [venueId], references: [id])
+  creator           User         @relation("ActivityCreator", fields: [createdBy], references: [id])
+  activityType      ActivityType? @relation(fields: [activityTypeId], references: [id])
   bookings          Booking[]
   sessions          Session[]
 
@@ -145,6 +164,7 @@ model Activity {
   @@index([createdBy])
   @@index([status])
   @@index([startDate])
+  @@index([activityTypeId])
   @@map("activities")
 }
 
@@ -174,6 +194,7 @@ model Booking {
   activity         Activity            @relation(fields: [activityId], references: [id])
   child            Child               @relation(fields: [childId], references: [id])
   parent           User                @relation(fields: [parentId], references: [id])
+  bankFeedTransactions BankFeedTransaction[]
   chargebacks      Chargeback[]
   credits_new      Credit[]
   emails           Email[]
@@ -643,6 +664,32 @@ model Transaction {
   parent          User      @relation(fields: [parentId], references: [id])
 
   @@map("transactions")
+}
+
+model BankFeedTransaction {
+  id                String   @id @default(uuid())
+  bankReference     String   @unique // Bank's transaction reference
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("GBP")
+  paymentReference  String?  // TFC payment reference from booking
+  description       String?  // Bank transaction description
+  transactionDate   DateTime
+  bankAccount       String?  // Bank account identifier
+  status            String   @default("pending") // pending, matched, unmatched, processed
+  matchedBookingId  String?  // If matched to a booking
+  matchedAt         DateTime?
+  processedAt       DateTime?
+  metadata          Json?    // Additional bank data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  matchedBooking    Booking? @relation(fields: [matchedBookingId], references: [id])
+
+  @@index([paymentReference])
+  @@index([status])
+  @@index([transactionDate])
+  @@map("bank_feed_transactions")
 }
 
 model Discount {

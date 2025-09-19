@@ -33,11 +33,9 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
     });
 
     // Test database connection first
-    let dbConnected = false;
     try {
       await prisma.$queryRaw`SELECT 1`;
       logger.info('Database connection test successful');
-      dbConnected = true;
     } catch (dbError) {
       logger.error('Database connection test failed:', {
         error: dbError instanceof Error ? dbError.message : String(dbError),
@@ -707,6 +705,63 @@ router.patch('/users/:id', authenticateToken, requireAdminOrStaff, asyncHandler(
     logger.error('Error updating user:', error);
     if (error instanceof AppError) throw error;
     throw new AppError('Failed to update user', 500, 'USER_UPDATE_ERROR');
+  }
+}));
+
+// Get TFC bookings approaching deadline
+router.get('/tfc/deadline-alerts', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const { TFCDeadlineService } = await import('../services/tfcDeadlineService');
+    
+    const bookings = await TFCDeadlineService.getBookingsApproachingDeadline(48); // 48 hours threshold
+    
+    res.json({
+      success: true,
+      data: {
+        bookings,
+        count: bookings.length
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching TFC deadline alerts:', error);
+    throw new AppError('Failed to fetch TFC deadline alerts', 500, 'TFC_DEADLINE_ERROR');
+  }
+}));
+
+// Get expired TFC bookings
+router.get('/tfc/expired-bookings', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const { TFCDeadlineService } = await import('../services/tfcDeadlineService');
+    
+    const bookings = await TFCDeadlineService.getExpiredBookings();
+    
+    res.json({
+      success: true,
+      data: {
+        bookings,
+        count: bookings.length
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching expired TFC bookings:', error);
+    throw new AppError('Failed to fetch expired TFC bookings', 500, 'TFC_EXPIRED_ERROR');
+  }
+}));
+
+// Run TFC deadline checks manually
+router.post('/tfc/check-deadlines', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    const { TFCDeadlineService } = await import('../services/tfcDeadlineService');
+    
+    await TFCDeadlineService.checkDeadlinesAndSendReminders();
+    
+    res.json({
+      success: true,
+      message: 'TFC deadline checks completed successfully'
+    });
+  } catch (error) {
+    logger.error('Error running TFC deadline checks:', error);
+    throw new AppError('Failed to run TFC deadline checks', 500, 'TFC_CHECKS_ERROR');
   }
 }));
 
@@ -1577,7 +1632,7 @@ router.put('/venues/:id/tfc-settings', authenticateToken, requireAdminOrStaff, a
   } catch (error) {
     logger.error('Error updating venue TFC settings:', error);
     if (error instanceof AppError) throw error;
-    if (error.code === 'P2025') {
+    if ((error as any).code === 'P2025') {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
     }
     throw new AppError('Failed to update venue TFC settings', 500, 'VENUE_TFC_UPDATE_ERROR');
@@ -2122,7 +2177,7 @@ router.get('/audit-logs', authenticateToken, requireAdminOrStaff, asyncHandler(a
           }
         },
         orderBy: {
-          createdAt: 'desc'
+          timestamp: 'desc'
         },
         skip,
         take: limit
@@ -2289,7 +2344,6 @@ router.put('/settings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
       defaultCurrency,
       stripeEnabled,
       stripePublishableKey,
-      stripeSecretKey,
       paypalEnabled,
       paypalClientId,
       tfcEnabled,

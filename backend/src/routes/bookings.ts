@@ -241,6 +241,16 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
 
     logger.info(`Booking created: ${booking.id} for user: ${userId}`);
 
+    // Send booking confirmation email
+    try {
+      const { EmailService } = await import('../services/emailService');
+      await EmailService.sendBookingConfirmation(booking.id);
+      logger.info(`Sent booking confirmation email for booking ${booking.id}`);
+    } catch (emailError) {
+      logger.error('Failed to send booking confirmation email:', emailError);
+      // Don't fail the booking creation if email fails
+    }
+
     res.status(201).json({
       success: true,
       data: booking,
@@ -261,7 +271,7 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     }
 
     const { id } = req.params;
-    // Note: reason and refundRequested are not used in current implementation
+    const { reason } = req.body;
     const userId = req.user!.id;
     
     if (!id) {
@@ -286,24 +296,50 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
       throw new AppError('Booking cannot be cancelled', 400, 'BOOKING_CANNOT_BE_CANCELLED');
     }
 
-    // Update booking status
-    await prisma.booking.update({
-      where: { id: id },
-      data: {
-        status: 'cancelled',
-        // Note: cancelled_at, cancellation_reason, refund_requested fields don't exist in current schema
-        // These would need to be added to the Booking model if needed
-      }
+    // Import refund policy service
+    const { RefundPolicyService } = await import('../services/refundPolicyService');
+    const { EmailService } = await import('../services/emailService');
+
+    // Calculate refund
+    const cancellationContext = {
+      bookingId: id,
+      parentId: userId,
+      cancellationTime: new Date(),
+      reason: reason || 'Parent cancellation'
+    };
+
+    const refundCalculation = await RefundPolicyService.calculateRefund(cancellationContext);
+
+    // Process refund
+    await RefundPolicyService.processRefund(cancellationContext, refundCalculation);
+
+    // Send cancellation confirmation email
+    try {
+      await EmailService.sendCancellationConfirmation(
+        id, 
+        refundCalculation.netRefund, 
+        refundCalculation.refundMethod === 'cash' ? 'refunded to your original payment method' : 'added to your BookOn wallet as credit'
+      );
+    } catch (emailError) {
+      logger.error('Failed to send cancellation email:', emailError);
+      // Don't fail the cancellation if email fails
+    }
+
+    logger.info(`Booking cancelled: ${id} by user: ${userId}`, {
+      refundAmount: refundCalculation.netRefund,
+      refundMethod: refundCalculation.refundMethod,
+      adminFee: refundCalculation.adminFee
     });
-
-    // Note: booking_cancellations table doesn't exist in current schema
-    // This would need to be added if cancellation tracking is required
-
-    logger.info(`Booking cancelled: ${id} by user: ${userId}`);
 
     res.json({
       success: true,
       message: 'Booking cancelled successfully',
+      data: {
+        refundAmount: refundCalculation.netRefund,
+        refundMethod: refundCalculation.refundMethod,
+        adminFee: refundCalculation.adminFee,
+        reason: refundCalculation.reason
+      }
     });
   } catch (error) {
     logger.error('Error cancelling booking:', error);
@@ -461,6 +497,52 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
     });
   } catch (error) {
     logger.error('Error amending booking:', error);
+    throw error;
+  }
+}));
+
+// Get cancellation preview
+router.get('/:id/cancel-preview', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
+
+    // Check if booking exists and belongs to user
+    const booking = await prisma.booking.findFirst({
+      where: { 
+        id: id,
+        parentId: userId,
+        status: { not: 'cancelled' }
+      }
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    // Import refund policy service
+    const { RefundPolicyService } = await import('../services/refundPolicyService');
+
+    // Calculate refund preview
+    const cancellationContext = {
+      bookingId: id,
+      parentId: userId,
+      cancellationTime: new Date(),
+      reason: 'Preview calculation'
+    };
+
+    const refundCalculation = await RefundPolicyService.getCancellationPreview(cancellationContext);
+
+    res.json({
+      success: true,
+      data: refundCalculation
+    });
+  } catch (error) {
+    logger.error('Error getting cancellation preview:', error);
     throw error;
   }
 }));
